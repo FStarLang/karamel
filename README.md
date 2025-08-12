@@ -3,7 +3,7 @@ KaRaMeL
 
 | Linux  |
 |---------|
-| [![Build and Deploy](https://github.com/FStarLang/karamel/actions/workflows/linux-x64-hierarchic.yaml/badge.svg)](https://github.com/FStarLang/karamel/actions/workflows/linux-x64-hierarchic.yaml) |
+[![CI](https://github.com/FStarLang/karamel/actions/workflows/ci.yml/badge.svg)](https://github.com/FStarLang/karamel/actions/workflows/ci.yml)
 
 KaRaMeL (formerly known as KReMLin) is a tool that extracts an F\* program to
 readable C code: K&R meets ML!
@@ -48,9 +48,10 @@ make via homebrew, and invoke `gmake` instead of `make`.
 
 `$ opam install ppx_deriving_yojson zarith pprint "menhir>=20161115" sedlex process fix "wasm>=2.0.0" visitors ctypes-foreign ctypes uucp`
 
-Next, make sure you have an up-to-date F\*, and that you ran `make` in the
-`ulib/ml` directory of F\*. The `fstar.exe` executable should be on your PATH
-and `FSTAR_HOME` should point to the directory where F\* is installed.
+Next, make sure you have an up-to-date F\*, either as a binary package
+or that you have built it by running `make`. The `fstar.exe` executable
+should be on your PATH, or you may set the variable `FSTAR_EXE` to its
+location.
 
 To build just run `make` from this directory.
 
@@ -79,6 +80,6 @@ $ ./krml --help
 
 ## License
 
-KaRaMeL is released under the [Apache 2.0 license]; see `LICENSE` for more details.
+KaRaMeL is released under the [Apache 2.0 license] and MIT license; see `LICENSE-*` for more details.
 
 [Apache 2.0 license]: https://www.apache.org/licenses/LICENSE-2.0

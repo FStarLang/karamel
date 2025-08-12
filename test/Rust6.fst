@@ -4,7 +4,7 @@ open FStar.HyperStack.ST
 
 module B = LowStar.Buffer
 module C = LowStar.ConstBuffer
-module HS = FStar.HyperStack
+
 
 inline_for_extraction noextract
 val sub_len:

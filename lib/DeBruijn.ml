@@ -1,11 +1,12 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** This module provides various substitution functions. *)
 
 (* ---------------------------------------------------------------------------- *)
 
 open Ast
+open PrintAst.Ops
 
 (* Counting binders. *)
 
@@ -98,14 +99,21 @@ let subst_no_open (e2: expr) (i: int) (e1: expr) =
 
 class subst (e2: expr) = object
   (* The environment [i] is the variable that we are looking for. *)
-  inherit map_counting
+  inherit map_counting as super
+
   (* The target variable [i] is replaced with [t2]. Any other
-     variable is unaffected. *)
-  method! visit_EBound (i, _) j =
-    if j = i then
-      (lift i e2).node
-    else
-      EBound (if j < i then j else j-1)
+     variable is unaffected. We override visit_expr to be able to preserve meta
+     information. *)
+  method! visit_expr ((i, _) as env) e =
+    match e.node with
+    | EBound j ->
+      if j = i then
+        let e2 = lift i e2 in
+        { e2 with meta = e2.meta @ e.meta }
+      else
+        { e with node = EBound (if j < i then j else j-1) }
+    | _ ->
+        super#visit_expr env e
 end
 
 let subst (e2: expr) (i: int) (e1: expr) =
@@ -116,6 +124,13 @@ let subst_n e es =
   KList.fold_lefti (fun i body arg ->
     let k = l - i - 1 in
     subst arg k body
+  ) e es
+
+let subst_n' ofs e es =
+  let l = List.length es in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    subst arg (k + ofs) body
   ) e es
 
 (* Substitute [t2] for [i] in [t1]. *)
@@ -150,6 +165,13 @@ let subst_tn ts t =
   KList.fold_lefti (fun i body arg ->
     let k = l - i - 1 in
     subst_t arg k body
+  ) t ts
+
+let subst_tn' ofs ts t =
+  let l = List.length ts in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 in
+    subst_t arg (k + ofs) body
   ) t ts
 
 class subst_p (p2: pattern) = object
@@ -219,7 +241,7 @@ let close_branch bs p e =
 let opening_binder b =
   let a = Atom.fresh () in
   let b = { b with node = { b.node with atom = a } } in
-  b, subst { node = EOpen (b.node.name, a); typ = b.typ } 0
+  b, subst { node = EOpen (b.node.name, a); typ = b.typ; meta = [] } 0
 
 let open_binder b e1 =
   let b, f = opening_binder b in
@@ -239,7 +261,7 @@ let open_branch bs pat expr =
   List.fold_right (fun binder (bs, pat, expr) ->
     let b, expr = open_binder binder expr in
     let pat =
-      subst_p { node = POpen (b.node.name, b.node.atom); typ = b.typ } 0 pat
+      subst_p { node = POpen (b.node.name, b.node.atom); typ = b.typ; meta = [] } 0 pat
     in
     b :: bs, pat, expr
   ) bs ([], pat, expr)
@@ -248,9 +270,9 @@ let open_branch bs pat expr =
 
 (* Const generic support *)
 
-class map_counting_cg = object
+class map_counting_cg = object(self)
   (* The environment [i] has type [int*int]. *)
-  inherit [_] map as super
+  inherit [_] map as _super
   (* The environment is a pair [i, i']. The first component [i] is the DeBruijn
     index we are looking for, after entering ONLY the cg binders. It it set by
     the caller and does not increase afterwards since the only cg binders are at
@@ -260,8 +282,19 @@ class map_counting_cg = object
   method! extend ((i: int), i') (_: binder) =
     i, i' + 1
 
-  method! visit_ETApp ((i, i'), env) e cgs ts =
-    super#visit_ETApp ((i + List.length cgs, i'), env) e cgs ts
+  method visit_TPoly (i, i') ts t =
+    TPoly (ts, self#visit_typ (i + ts.n_cgs, i') t)
+
+  method! visit_ETApp (((i, i'), env) as env0) e cgs cgs' ts =
+    let n_cgs = match e.typ with
+      | TPoly ({ n_cgs; _ }, _) -> n_cgs
+      | _ -> List.length cgs
+    in
+    let env1 = (i + n_cgs, i'), env in
+    ETApp (self#visit_expr env1 e,
+      List.map (self#visit_expr env0) cgs,
+      List.map (self#visit_expr env0) cgs',
+      List.map (self#visit_typ (fst env0)) ts)
 end
 
 (* Converting an expression into a suitable const generic usable in types, knowing
@@ -278,12 +311,16 @@ let cg_of_expr diff e =
   | EConstant (w, s) ->
       CgConst (w, s)
   | _ ->
-      failwith "Unsuitable const generic"
+      failwith (KPrint.bsprintf "Unsuitable const generic: %a" pexpr e)
 
 (* Substitute const generics *)
 class subst_ct (c: cg Lazy.t) = object (self)
   (* There are no const generic binders -- nothing to increment *)
   inherit [_] map
+
+  method visit_TPoly i ts t =
+    TPoly (ts, self#visit_typ (i + ts.n_cgs) t)
+
   method! visit_TCgArray (i as env) t j =
     let t = self#visit_typ env t in
     (* We wish to replace i with c in [ t; j ] *)
@@ -365,5 +402,12 @@ let subst_ctn' cs t =
   let l = List.length cs in
   KList.fold_lefti (fun i body arg ->
     let k = l - i - 1 in
+    (new subst_ct (lazy arg))#visit_typ k body
+  ) t cs
+
+let subst_ctn'' ofs cs t =
+  let l = List.length cs in
+  KList.fold_lefti (fun i body arg ->
+    let k = l - i - 1 + ofs in
     (new subst_ct (lazy arg))#visit_typ k body
   ) t cs

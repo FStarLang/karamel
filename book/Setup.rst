@@ -34,11 +34,14 @@ script for that purpose:
 
   $ ./everest pull FStar make karamel make
 
-In any case, remember to export suitable values for the ``FSTAR_HOME`` and
-``KRML_HOME`` environment variables once you're done.
+For a nix flake based install use
 
-Be aware that KaRaMeL is not at this time compatible with recent versions of
-OCaml. See `<https://github.com/FStarLang/karamel/issues/169>`_ for the discussion.
+.. code-block:: bash
+
+  $ nix shell 
+
+In any case, remember to export suitable values for the ``FSTAR_EXE`` and
+``KRML_HOME`` environment variables once you're done.
 
 We strongly recommend using the `fstar-mode.el
 <https://github.com/FStarLang/fstar-mode.el>`_ Emacs plugin for interactive mode

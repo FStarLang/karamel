@@ -1,6 +1,6 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
@@ -34,8 +34,8 @@ uint16_t WasmSupport_betole16(uint16_t x)
 uint32_t WasmSupport_betole32(uint32_t x)
 {
   return
-    (((x >> 24U & 0x000000FFU) | (x >> 8U & 0x0000FF00U)) | (x << 8U & 0x00FF0000U))
-    | (x << 24U & 0xFF000000U);
+    (((x >> 24U & 0x000000FFU) | (x >> 8U & 0x0000FF00U)) | (x << 8U & 0x00FF0000U)) |
+      (x << 24U & 0xFF000000U);
 }
 
 uint64_t WasmSupport_betole64(uint64_t x)

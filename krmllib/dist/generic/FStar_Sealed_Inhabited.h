@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_Sealed_Inhabited_H
-#define __FStar_Sealed_Inhabited_H
+#ifndef FStar_Sealed_Inhabited_H
+#define FStar_Sealed_Inhabited_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -15,5 +15,5 @@
 typedef void *FStar_Sealed_Inhabited_is_sealed;
 
 
-#define __FStar_Sealed_Inhabited_H_DEFINED
-#endif
+#define FStar_Sealed_Inhabited_H_DEFINED
+#endif /* FStar_Sealed_Inhabited_H */

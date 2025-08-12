@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __C_Failure_H
-#define __C_Failure_H
+#ifndef C_Failure_H
+#define C_Failure_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -15,5 +15,5 @@
 extern bool C_Failure_whatever(void);
 
 
-#define __C_Failure_H_DEFINED
-#endif
+#define C_Failure_H_DEFINED
+#endif /* C_Failure_H */

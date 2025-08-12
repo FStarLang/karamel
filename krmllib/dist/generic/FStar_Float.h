@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_Float_H
-#define __FStar_Float_H
+#ifndef FStar_Float_H
+#define FStar_Float_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -15,5 +15,5 @@
 typedef FStar_Float_float FStar_Float_double;
 
 
-#define __FStar_Float_H_DEFINED
-#endif
+#define FStar_Float_H_DEFINED
+#endif /* FStar_Float_H */

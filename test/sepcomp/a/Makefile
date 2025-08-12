@@ -1,3 +1,5 @@
+include ../../../Makefile.common
+
 #############################
 # This is the main Makefile #
 #############################
@@ -35,17 +37,11 @@ include Makefile.include
 # But also:
 # - --cmi, for cross-module inlining, a must-have for anyone who relies on
 #   inline_for_extraction in the presence of interfaces
-# - --cache_checked_modules to rely on a pre-built ulib and krmllib
-# - --cache_dir, to avoid polluting our generated build artifacts outside o
+# - --cache_dir, to place checked files there
 
-ifdef FSTAR_HOME
-  FSTAR_EXE=$(FSTAR_HOME)/bin/fstar.exe
-else
-  FSTAR_EXE=fstar.exe
-endif
-
+FSTAR_EXE ?= fstar.exe
 FSTAR_NO_FLAGS = $(FSTAR_EXE) \
-  --odir obj --cache_checked_modules $(FSTAR_INCLUDES) --cmi \
+  --odir obj $(FSTAR_INCLUDES) --cmi \
   --already_cached 'Prims FStar LowStar C Spec.Loops TestLib WasmSupport' --warn_error '+241@247+285' \
   --cache_dir obj
 
@@ -68,7 +64,9 @@ FSTAR_ROOTS = $(wildcard $(addsuffix /*.fsti,$(SOURCE_DIRS))) \
 ifndef MAKE_RESTARTS
 obj/.depend: .FORCE
 	mkdir -p obj
-	$(FSTAR_NO_FLAGS) --dep full $(notdir $(FSTAR_ROOTS)) $(FSTAR_EXTRACT) --output_deps_to $@
+	$(call run-with-log,\
+	  $(FSTAR_NO_FLAGS) --dep full $(notdir $(FSTAR_ROOTS)) $(FSTAR_EXTRACT) -o $@\
+	  ,[SEPCOMP_DEPEND],obj/.depend)
 
 .PHONY: .FORCE
 .FORCE:
@@ -111,37 +109,34 @@ obj:
 # up-to-date (checksum matches, file unchanged), but this will confuse
 # make and result in endless rebuilds. So, we touch that file.
 %.checked: | obj
-	$(FSTAR) $< $(FSTAR_FLAGS) && touch -c $@
+	$(call run-with-log,\
+	  $(FSTAR) $(FSTAR_FLAGS) -c $< -o $@ && touch -c $@\
+	  ,[SEPCOMP_VERIFY] $(basename $*),$*)
 
 # Extraction
 # ----------
 
-# A few mismatches here between the dependencies present in the .depend and the
-# expected F* invocation. In .depend:
-#
-# obj/Bignum_Impl.ml: obj/Bignum.Impl.fst.checked ... more dependencies ...
-#
-# But F* wants (remember that F* searches for source files anywhere on the
-# include path):
-#
-# fstar Bignum.Impl.fst --extract_module BigNum.Impl
-#
-# We use basename because we may also extract krml files from .fsti.checked
-# files (not true for OCaml, we don't extract mlis from fstis).
 .PRECIOUS: obj/%.ml
 obj/%.ml:
-	$(FSTAR) $(notdir $(subst .checked,,$<)) --codegen OCaml \
-	--extract_module $(basename $(notdir $(subst .checked,,$<)))
+	$(call run-with-log,\
+	  $(FSTAR) $< --codegen OCaml\
+	  ,[SEPCOMP_EXTRACT_OCAML] $(basename $*),$*)
 
+# By default, krml extraction in F* will extract every module into a
+# single out.krml file. Make sure to extract the single module we want
+# to get a single-properly named file.
 .PRECIOUS: obj/%.krml
 obj/%.krml:
-	$(FSTAR) $(notdir $(subst .checked,,$<)) --codegen krml \
-	--extract_module $(basename $(notdir $(subst .checked,,$<)))
+	$(call run-with-log,\
+	  $(FSTAR) $< --codegen krml \
+	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
+	  -o $@\
+	  ,[SEPCOMP_EXTRACT_KRML] $(basename $*),$*)
 
 # F* --> C
 # --------
 
-KRML=$(KRML_HOME)/krml
+KRML=$(KRML_HOME)/krml -fstar $(FSTAR_EXE)
 
 # Note: the implementation of the intrinsic uses external linkage, but you could
 # easily turn this file into a .h, use -add-include '"Impl_Bignum_Intrinsics.h"'

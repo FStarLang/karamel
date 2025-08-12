@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** Pretty-printer that conforms with C syntax. Also defines the grammar of
  * concrete C syntax, as opposed to our idealistic, well-formed C*. *)
@@ -75,17 +75,43 @@ let rec p_type_spec = function
       | None ->
           empty)
   | Struct (name, decls) ->
+      (* If this is a tagged union, we name the union U, then generate the fancy constructor
+         using a macro *)
+      let decls, extra =
+        match decls with
+        | Some [ _, _, _, _, _, [ Ident "tag", _, _ ] as tag_decl;
+            qs, Union (_, cases), is, ss, ex, ([ Ident "val", _, _ ] as val_decl) ] when
+          !Options.cxx17_compat ->
+            Some [ tag_decl; qs, Union (Some "U", cases), is, ss, ex, val_decl ],
+            hardline ^^ string "KRML_UNION_CONSTRUCTOR" ^^ parens (string (Option.get name))
+        | _ ->
+            decls, empty
+      in
       group (string "struct" ^/^
       (match name with Some name -> string name | None -> empty)) ^^
       (match decls with
       | Some decls ->
-          break1 ^^ braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^ semi)) decls)
+          break1 ^^ braces_with_nesting (separate_map hardline (fun p -> group (p_declaration p ^^
+          semi)) decls ^^ extra)
       | None ->
           empty)
   | Enum (name, tags) ->
       group (string "enum" ^/^
       (match name with Some name -> string name ^^ break1 | None -> empty)) ^^
-      braces_with_nesting (separate_map (comma ^^ break1) string tags)
+      braces_with_nesting (separate_map (comma ^^ break1) (fun (id, v) ->
+        let suffix =
+          match v with
+          | Some v ->
+              (* Some notes. 1) Must Z.of_string in the unlikely event that krml is running on a
+                 32-bit machine. 2) This assert may be tripped as there is currently no code to
+                 automatically decline -fenum for constants that don't fit. 3)  *)
+              if not Z.(leq v (of_string "0xffffffff") && gt v (of_string "-0xffffffff")) then
+                failwith ("Cannot use C11 enum for " ^ Option.value ~default:"???" name  ^ " since the value of one of the constants may exceed the size of int");
+              space ^^ equals ^^ space ^^ PrintAst.z v
+          | None -> empty
+        in
+        string id ^^ suffix
+      ) tags)
 
 and p_qualifier = function
   | Const -> string "const"
@@ -103,7 +129,8 @@ and p_type_declarator d =
     | Ident n ->
         string n
     | Array (qs, d, s) ->
-        p_noptr d ^^ lbracket ^^ p_qualifiers_break qs ^^ p_expr s ^^ rbracket
+        let s = match s with Some s -> p_expr s | None -> empty in
+        p_noptr d ^^ lbracket ^^ p_qualifiers_break qs ^^ s ^^ rbracket
     | Function (cc, d, params) ->
         let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
         let params =
@@ -196,6 +223,14 @@ and defeat_Wparentheses op e prec =
   | _ ->
       prec
 
+and p_constant w s =
+  let suffix = match w with
+    | K.UInt64 -> string "ULL"
+    | UInt32 | UInt16 | UInt8 | SizeT -> string "U"
+    | _ -> empty
+  in
+  string s ^^ suffix
+
 and p_expr' curr = function
   | Op1 (op, e1) ->
       let mine = prec_of_op1 op in
@@ -207,7 +242,7 @@ and p_expr' curr = function
       let right = defeat_Wparentheses op e2 right in
       let e1 = p_expr' left e1 in
       let e2 = p_expr' right e2 in
-      paren_if curr mine (e1 ^/^ print_op op ^^ jump e2)
+      paren_if curr mine (group (e1 ^/^ print_op op) ^^ group (jump e2))
   | Index (e1, e2) ->
       let mine, left, right = 1, 1, 15 in
       let e1 = p_expr' left e1 in
@@ -226,12 +261,7 @@ and p_expr' curr = function
   | Literal s ->
       dquote ^^ string s ^^ dquote
   | Constant (w, s) ->
-      let suffix = match w with
-        | UInt64 -> string "ULL"
-        | UInt32 | UInt16 | UInt8 | SizeT -> string "U"
-        | _ -> empty
-      in
-      string s ^^ suffix
+      p_constant w s
   | Name s ->
       string s
   | Cast (t, e) ->
@@ -271,11 +301,18 @@ and p_expr' curr = function
       else
         string (string_of_bool b)
   | CompoundLiteral (t, init) ->
-      (* NOTE: always parenthesize compound literal no matter what, because GCC
+      (* We always parenthesize compound literals no matter what, because GCC
        * parses an application of a function to a compound literal as an n-ary
        * application. *)
       parens_with_nesting (
-        lparen ^^ p_type_name t ^^ rparen ^^
+        (if !Options.cxx17_compat then
+          (* C++17 initializer syntax T { ..., ... } *)
+          p_type_name t
+        else if !Options.cxx_compat then
+          (* KRML_CLITERAL works either in C++20 or C11 mode *)
+          string "KRML_CLITERAL" ^^ parens (p_type_name t)
+        else
+          parens (p_type_name t)) ^^
         braces_with_nesting (separate_map (comma ^^ break1) p_init init)
       )
   | MemberAccess (expr, member) ->
@@ -286,16 +323,24 @@ and p_expr' curr = function
       surround 2 1 (p_comment s) (p_expr' curr e) (p_comment s')
   | Stmt stmts ->
       p_stmts stmts
+  | CxxInitializerList init ->
+      p_init init
 
+(* statement-level comment *)
 and p_comment s =
-  (* TODO: escape *)
-  string "/* " ^^ nest 2 (flow space (words s)) ^^ string " */"
-
+  if s <> "" then
+    (* TODO: escape *)
+    string "/* " ^^ nest 2 (separate_map hardline string (String.split_on_char '\n' s)) ^^ string " */"
+  else
+    empty
 
 and p_expr e = p_expr' 15 e
 
 and p_init (i: init) =
   match i with
+  | Designated (Dot _, i) when !Options.cxx17_compat ->
+      (* C++17-only syntax: skip designators *)
+      p_init i
   | Designated (designator, i) ->
       group (p_designator designator ^^ space ^^ equals ^^ space ^^ p_init i)
   | InitExpr e ->
@@ -311,6 +356,7 @@ and p_init (i: init) =
 
 and p_designator = function
   | Dot ident ->
+      (* C++20/C11 syntax *)
       dot ^^ string ident
   | Bracket i ->
       lbracket ^^ int i ^^ rbracket
@@ -328,14 +374,16 @@ and p_decl_and_init (decl, alignment, init) =
     | None ->
         empty)
 
-and p_declaration (qs, spec, inline, stor, { maybe_unused }, decl_and_inits) =
+and p_declaration (qs, spec, inline, stor, { maybe_unused; target }, decl_and_inits) =
   let inline =
     match inline with
     | None -> empty
     | Some C11.Inline -> string "inline" ^^ space
     | Some NoInline -> string "KRML_NOINLINE" ^^ space
+    | Some MustInline -> string "KRML_MUSTINLINE" ^^ space
   in
   let maybe_unused = if maybe_unused then string "KRML_MAYBE_UNUSED" ^^ space else empty in
+  let target = match target with | None -> empty | Some x -> string "KRML_ATTRIBUTE_TARGET" ^^ parens (dquotes (string x)) ^^ break1 in
   let stor = match stor with Some stor -> p_storage_spec stor ^^ space | None -> empty in
   let _, alignment, _ = List.hd decl_and_inits in
   if not (List.for_all (fun (_, a, _) -> a = alignment) decl_and_inits) then
@@ -347,7 +395,7 @@ and p_declaration (qs, spec, inline, stor, { maybe_unused }, decl_and_inits) =
     | None ->
         empty
   in
-  pre ^^ maybe_unused ^^ stor ^^ inline ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
+  target ^^ pre ^^ maybe_unused ^^ stor ^^ inline ^^ p_qualifiers_break qs ^^ group (p_type_spec spec) ^/^
   separate_map (comma ^^ break 1) p_decl_and_init decl_and_inits
 
 
@@ -429,6 +477,7 @@ and p_stmt (s: stmt) =
 
 and p_stmts stmts = separate_map hardline p_stmt stmts
 
+(* This is for toplevel comments *)
 let p_comments cs =
   separate_map hardline (fun c -> string ("/**\n" ^ c ^ "\n*/")) cs ^^
   if List.length cs > 0 then hardline else empty

@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __Prims_H
-#define __Prims_H
+#ifndef Prims_H
+#define Prims_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -43,5 +43,5 @@ extern Prims_string Prims_string_of_int(krml_checked_int_t x0);
 typedef void *Prims_prop;
 
 
-#define __Prims_H_DEFINED
-#endif
+#define Prims_H_DEFINED
+#endif /* Prims_H */

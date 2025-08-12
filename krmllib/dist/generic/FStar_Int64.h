@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_Int64_H
-#define __FStar_Int64_H
+#ifndef FStar_Int64_H
+#define FStar_Int64_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -19,6 +19,8 @@ extern bool FStar_Int64_uu___is_Mk(int64_t projectee);
 extern krml_checked_int_t FStar_Int64___proj__Mk__item__v(int64_t projectee);
 
 extern krml_checked_int_t FStar_Int64_v(int64_t x);
+
+typedef void *FStar_Int64_fits;
 
 extern int64_t FStar_Int64_int_to_t(krml_checked_int_t x);
 
@@ -50,6 +52,8 @@ extern int64_t FStar_Int64_shift_left(int64_t a, uint32_t s);
 
 extern bool FStar_Int64_eq(int64_t a, int64_t b);
 
+extern bool FStar_Int64_ne(int64_t a, int64_t b);
+
 extern bool FStar_Int64_gt(int64_t a, int64_t b);
 
 extern bool FStar_Int64_gte(int64_t a, int64_t b);
@@ -65,5 +69,5 @@ extern Prims_string FStar_Int64_to_string(int64_t uu___);
 extern int64_t FStar_Int64_of_string(Prims_string uu___);
 
 
-#define __FStar_Int64_H_DEFINED
-#endif
+#define FStar_Int64_H_DEFINED
+#endif /* FStar_Int64_H */

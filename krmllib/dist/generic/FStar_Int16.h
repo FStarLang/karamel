@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_Int16_H
-#define __FStar_Int16_H
+#ifndef FStar_Int16_H
+#define FStar_Int16_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -19,6 +19,8 @@ extern bool FStar_Int16_uu___is_Mk(int16_t projectee);
 extern krml_checked_int_t FStar_Int16___proj__Mk__item__v(int16_t projectee);
 
 extern krml_checked_int_t FStar_Int16_v(int16_t x);
+
+typedef void *FStar_Int16_fits;
 
 extern int16_t FStar_Int16_int_to_t(krml_checked_int_t x);
 
@@ -50,6 +52,8 @@ extern int16_t FStar_Int16_shift_left(int16_t a, uint32_t s);
 
 extern bool FStar_Int16_eq(int16_t a, int16_t b);
 
+extern bool FStar_Int16_ne(int16_t a, int16_t b);
+
 extern bool FStar_Int16_gt(int16_t a, int16_t b);
 
 extern bool FStar_Int16_gte(int16_t a, int16_t b);
@@ -65,5 +69,5 @@ extern Prims_string FStar_Int16_to_string(int16_t uu___);
 extern int16_t FStar_Int16_of_string(Prims_string uu___);
 
 
-#define __FStar_Int16_H_DEFINED
-#endif
+#define FStar_Int16_H_DEFINED
+#endif /* FStar_Int16_H */

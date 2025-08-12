@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 open Ast
 
@@ -35,6 +35,7 @@ and raw_error =
   | IfDefOnGlobal of lident
   | NotLowStarCast of expr
   | LibraryPointerAmbiguity of lident * expr
+  | UnrecognizedCCompiler of string
 
 and location =
   string

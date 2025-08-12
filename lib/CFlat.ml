@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** CFlat, without structures and with computed stack frames. *)
 
@@ -60,9 +60,9 @@ module Sizes = struct
   let array_size_of_width (w: K.width) =
     let open K in
     match w with
-    | UInt64 | Int64 | CInt ->
+    | UInt64 | Int64 | CInt | Float64 ->
         A64
-    | UInt32 | Int32 ->
+    | UInt32 | Int32 | Float32 ->
         A32
     | UInt16 | Int16 ->
         A16

@@ -1,39 +1,45 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** A very boring module that detects the environment and figures out how to
  * call the tools. *)
 
 open Warn
 
-(* Abstracting over - (dash) for msvc. vs. gcc-like. *)
+(** These three filled in by [detect_cc] and others *)
+let cc = ref ""
+let cc_args = ref []
+let cc_flavor = ref Options.Generic
+
+(* Abstracting over - (dash) for msvc. vs. gcc-like. This module
+ reads cc_flavor. *)
 module Dash = struct
   let i dir =
-    if !Options.cc = "msvc" then
+    if !cc_flavor = MSVC then
       [ "/I"; dir ]
     else
       [ "-I"; dir ]
 
   let c file =
-    if !Options.cc = "msvc" then
+    if !cc_flavor = MSVC then
       [ "/c"; file ]
     else
       [ "-c"; file ]
 
   let d opt =
-    if !Options.cc = "msvc" then
+    if !cc_flavor = MSVC then
       "/D" ^ opt
     else
       "-D" ^ opt
 
   let o_obj file =
-    if !Options.cc = "msvc" then
+    if !cc_flavor = MSVC then
       [ "/Fo:"; file ]
     else
       [ "-o"; file ]
 
   let o_exe file =
-    if !Options.cc = "msvc" then
+    if !cc_flavor = MSVC then
       [ "/Fe:"; file ]
     else
       [ "-o"; file ]
@@ -44,9 +50,10 @@ module P = Process
 (* Note: don't open [Process], otherwise any reference to [Output] will be
  * understood as a cyclic dependency on our own [Output] module. *)
 
+let cc_flavor_callback = ref (fun (_ : Options.compiler_flavor) -> ())
+
 (** These three variables filled in by [detect_fstar] *)
-let fstar = ref ""
-let fstar_home = ref ""
+let fstar = Options.fstar
 let fstar_lib = ref ""
 let fstar_rev = ref "<unknown>"
 let fstar_options = ref []
@@ -57,10 +64,6 @@ let runtime_dir = ref ""
 let include_dir = ref ""
 let misc_dir = ref ""
 let krml_rev = ref "<unknown>"
-
-(** These two filled in by [detect_gcc] and others *)
-let cc = ref ""
-let cc_args = ref []
 
 (** The base tools *)
 let readlink = ref ""
@@ -202,63 +205,50 @@ let detect_karamel_if () =
 let expand_prefixes s =
   if KString.starts_with s "FSTAR_LIB" then
     !fstar_lib ^^ KString.chop s "FSTAR_LIB"
-  else if KString.starts_with s "FSTAR_HOME" then
-    !fstar_home ^^ KString.chop s "FSTAR_HOME"
   else
     s
 
-(* Fills in fstar{,_home,_options} *)
+(* Fills in fstar{,_lib,_options}. Does NOT read any environment variables. *)
 let detect_fstar () =
   detect_karamel_if ();
 
   if not !Options.silent then
     KPrint.bprintf "%s⚙ KaRaMeL will drive F*.%s Here's what we found:\n" Ansi.blue Ansi.reset;
 
-  begin try
-    let r = Sys.getenv "FSTAR_HOME" in
-    if not !Options.silent then
-      KPrint.bprintf "read FSTAR_HOME via the environment\n";
-    fstar_home := r;
-    fstar := r ^^ "bin" ^^ "fstar.exe"
-  with Not_found -> try
-    fstar := read_one_line "which" [| "fstar.exe" |];
-    fstar_home := d (d !fstar);
-    if not !Options.silent then
-      KPrint.bprintf "FSTAR_HOME is %s (via fstar.exe in PATH)\n" !fstar_home
-  with _ ->
-    fatal_error "Did not find fstar.exe in PATH and FSTAR_HOME is not set"
+  (* Try to resolve fstar to an absolute path. This is just so the
+     full path appears in logs. *)
+  if not (KString.starts_with !fstar "/") then begin
+    try fstar := read_one_line "which" [| !fstar |]
+    with _ -> ()
   end;
 
-  let fstar_ulib = !fstar_home ^^ "ulib" in
-  if not (Sys.file_exists fstar_ulib && Sys.is_directory fstar_ulib) ; then begin
-    if not !Options.silent then
-      KPrint.bprintf "F* library not found in ulib; falling back to lib/fstar\n";
-    fstar_lib := !fstar_home ^^ "lib" ^^ "fstar"
-  end else begin
-    fstar_lib := fstar_ulib
+  if not !Options.silent then
+    KPrint.bprintf "Using fstar.exe = %s\n" !fstar;
+
+  (* Ask F* for the location of its library *)
+  begin try fstar_lib := read_one_line !fstar [| "--locate_lib" |]
+  with | _ ->
+    fatal_error "Could not locate F* library: %s --locate_lib failed" !fstar
   end;
+  if not !Options.silent then
+    KPrint.bprintf "F* library root: %s\n" !fstar_lib;
 
   if success "which" [| "cygpath" |] then begin
     fstar := read_one_line "cygpath" [| "-m"; !fstar |];
     if not !Options.silent then
       KPrint.bprintf "%sfstar converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar;
-    fstar_home := read_one_line "cygpath" [| "-m"; !fstar_home |];
-    if not !Options.silent then
-      KPrint.bprintf "%sfstar home converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_home;
     fstar_lib := read_one_line "cygpath" [| "-m"; !fstar_lib |];
     if not !Options.silent then
       KPrint.bprintf "%sfstar lib converted to windows path:%s %s\n" Ansi.underline Ansi.reset !fstar_lib
   end;
 
-  if try Sys.is_directory (!fstar_home ^^ ".git") with Sys_error _ -> false then begin
-    let cwd = Sys.getcwd () in
-    Sys.chdir !fstar_home;
-    let branch = read_one_line "git" [| "rev-parse"; "--abbrev-ref"; "HEAD" |] in
-    fstar_rev := String.sub (read_one_line "git" [| "rev-parse"; "HEAD" |]) 0 8;
-    let color = if branch = "master" then Ansi.green else Ansi.orange in
+  (* Record F* version, as output by the executable. *)
+  begin try
+    let lines = Process.read_stdout !fstar [| "--version" |] in
+    fstar_rev := String.trim (String.concat " " lines);
     if not !Options.silent then
-      KPrint.bprintf "fstar is on %sbranch %s%s\n" color branch Ansi.reset;
-    Sys.chdir cwd
+      KPrint.bprintf "%sfstar version:%s %s\n" Ansi.underline Ansi.reset !fstar_rev
+  with | _ -> ()
   end;
 
   let fstar_includes = List.map expand_prefixes !Options.includes in
@@ -268,7 +258,16 @@ let detect_fstar () =
   ] @ List.flatten (List.rev_map (fun d -> ["--include"; d]) fstar_includes);
   (* This is a superset of the needed modules... some will be dropped very early
    * on in Karamel.ml *)
-  fstar_options := (!fstar_lib ^^ "FStar.UInt128.fst") :: !fstar_options;
+
+  (* Locate and pass FStar.UInt128 *)
+  let fstar_locate_file f =
+    try read_one_line !fstar [| "--locate_file"; f |]
+    with
+    | _ ->
+      Warn.fatal_error "Could not locate file %s, is F* properly installed?" f
+  in
+  fstar_options := fstar_locate_file "FStar.UInt128.fst" :: !fstar_options;
+
   fstar_options := (!runtime_dir ^^ "WasmSupport.fst") :: !fstar_options;
   if not !Options.silent then
     KPrint.bprintf "%sfstar is:%s %s %s\n" Ansi.underline Ansi.reset !fstar (String.concat " " !fstar_options);
@@ -344,41 +343,46 @@ let run_fstar verify skip_extract skip_translate files =
       exit 0;
     !Options.tmpdir ^^ "out.krml"
 
-let detect_gnu flavor =
-  if not !Options.silent then
-    KPrint.bprintf "%s⚙ KaRaMeL will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
-  let rec search = function
-    | fmt :: rest ->
-        let cmd = KPrint.bsprintf fmt flavor in
-        if success "which" [| cmd |] then
-          cc := cmd
-        else
-          search rest
-    | [] ->
-        Warn.fatal_error "gcc not found in path!";
+let detect_compiler_flavor cc =
+  let is_gcc () =
+    try
+      (* If cc points to gcc, cc --version will say "cc version ...", instead of
+      gcc. So use -v instead, but that prints to stderr. *)
+      let rc = Process.run cc [| "-v" |] in
+      let lines = rc.stderr in
+      List.exists (fun l -> KString.starts_with l "gcc version") lines
+    with | _ -> false
   in
-  let crosscc = if !Options.m32 then format_of_string "i686-w64-mingw32-%s" else format_of_string "x86_64-w64-mingw32-%s" in
-  search [ "%s-10"; "%s-9"; "%s-8"; "%s-7"; "%s-6"; "%s-5"; crosscc; "%s" ];
-
-  if not !Options.silent then
-    KPrint.bprintf "%sgcc is:%s %s\n" Ansi.underline Ansi.reset !cc;
-
-  if !Options.m32 then
-    cc_args := "-m32" :: !cc_args;
-  if not !Options.silent then
-    KPrint.bprintf "%s%s options are:%s %s\n" Ansi.underline !cc Ansi.reset
-      (String.concat " " !cc_args)
-
-
-let detect_compcert () =
-  if success "which" [| "ccomp" |] then
-    cc := "ccomp"
-  else
-    Warn.fatal_error "ccomp not found in path!"
-
+  let is_clang () =
+    try
+      let lines = Process.read_stdout cc [| "--version" |] in
+      List.exists (fun l -> KString.exists l "clang version") lines
+    with | _ -> false
+  in
+  let is_compcert () =
+    try
+      let lines = Process.read_stdout cc [| "--version" |] in
+      List.exists (fun l -> KString.exists l "CompCert") lines
+    with | _ -> false
+  in
+  let is_msvc () =
+    try
+      let rc = Process.run cc [| |] in
+      let lines = rc.stderr in
+      List.exists (fun l -> KString.exists l "Microsoft") lines
+    with | _ -> false
+  in
+  if is_gcc ()           then Options.GCC
+  else if is_clang ()    then Options.Clang
+  else if is_compcert () then Options.Compcert
+  else if is_msvc ()     then Options.MSVC
+  else (
+    Warn.maybe_fatal_error ("detect_compiler_flavor", UnrecognizedCCompiler cc);
+    Generic
+  )
 
 let fill_cc_args () =
-  (** For the side-effect of filling in [Options.include] *)
+  (** For the side-effect of filling in [Options.includes] *)
   detect_karamel_if ();
 
   cc_args :=
@@ -388,26 +392,83 @@ let fill_cc_args () =
     @ List.rev !Options.ccopts
     @ !cc_args
 
+(* Sets cc, cc_flavor *)
+let auto_detect_cc () =
+  (* !cc can be relative or absolute, `which` handles both. *)
+  if not (success "which" [| !cc |]) then
+    Warn.fatal_error "C compiler '%s' not found!" !cc;
+
+  if not !Options.silent then begin
+    (* If not absolute print realpath too *)
+    let real =
+      if KString.starts_with !cc "/" then
+        ""
+      else
+        match
+          read_one_line !readlink [| "-f"; read_one_line "which" [| !cc |] |]
+        with
+        | exception _ -> " (couldn't resolve?)"
+        | s -> " (= " ^ s ^ ")"
+    in
+    KPrint.bprintf "%scc is:%s %s%s\n" Ansi.underline Ansi.reset !cc real
+  end;
+  match !Options.cc_flavor with
+  | Some f -> cc_flavor := f
+  | None ->   cc_flavor := detect_compiler_flavor !cc
+
+let detect_cc () =
+  detect_base_tools_if ();
+
+  if not !Options.silent then
+    KPrint.bprintf "%s⚙ KaRaMeL will drive the C compiler.%s Here's what we found:\n" Ansi.blue Ansi.reset;
+
+  (* Use Options.cc if passed, otherwise CC from env, otherwise "cc" *)
+  let cc_name =
+    if !Options.cc <> ""
+    then !Options.cc
+    else
+      match Sys.getenv "CC" with
+      | s -> s
+      | exception _ -> "cc"
+  in
+
+  if cc_name = "msvc" then (
+    (* We special-case "msvc" and use this wrapper script to find it
+       and set its environment up, it's not really feasible to
+       just find the cl.exe *)
+    KPrint.bprintf "%scc is:%s MSVC (will use cl-wrapper script)\n" Ansi.underline Ansi.reset;
+    cc := !misc_dir ^^ "cl-wrapper.bat";
+    cc_flavor := MSVC
+  ) else (
+    (* Otherwise cc_name is a normal command or path like gcc/clang,
+       auto-detect its flavor. *)
+    cc := cc_name;
+    auto_detect_cc ()
+  );
+
+  if not !Options.silent then
+    KPrint.bprintf "%scc flavor is:%s %s\n" Ansi.underline Ansi.reset
+      (Options.string_of_compiler_flavor !cc_flavor);
+
+  (* Now that we detected the flavor, call this callback to
+     right default arguments for the compiler filled in. *)
+  !cc_flavor_callback !cc_flavor;
+
+  fill_cc_args ();
+
+  if !cc_flavor = GCC && !Options.m32 then
+    cc_args := "-m32" :: !cc_args;
+
+  if not !Options.silent then
+    KPrint.bprintf "%scc options are:%s %s\n" Ansi.underline Ansi.reset
+      (String.concat " " !cc_args)
 
 let detect_cc_if () =
-  fill_cc_args ();
   if !cc = "" then
-    match !Options.cc with
-    | "gcc" ->
-        detect_gnu "gcc"
-    | "compcert" ->
-        detect_compcert ()
-    | "g++" ->
-        detect_gnu "g++"
-    | "clang" ->
-        detect_gnu "clang"
-    | "msvc" ->
-        cc := !misc_dir ^^ "cl-wrapper.bat";
-    | _ ->
-        fatal_error "Unrecognized value for -cc: %s" !Options.cc
+    detect_cc ()
 
 let o_of_c f =
-  let dot_o = if !Options.cc = "msvc" then ".obj" else ".o" in
+  let dot_o = if !cc_flavor = MSVC then ".obj" else ".o" in
   !Options.tmpdir ^^ Filename.chop_suffix (Filename.basename f) ".c" ^ dot_o
 
 

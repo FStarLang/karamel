@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_FunctionalExtensionality_H
-#define __FStar_FunctionalExtensionality_H
+#ifndef FStar_FunctionalExtensionality_H
+#define FStar_FunctionalExtensionality_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -31,5 +31,5 @@ typedef void *FStar_FunctionalExtensionality_restricted_g_t;
 typedef void *FStar_FunctionalExtensionality_op_Hat_Subtraction_Greater_Greater;
 
 
-#define __FStar_FunctionalExtensionality_H_DEFINED
-#endif
+#define FStar_FunctionalExtensionality_H_DEFINED
+#endif /* FStar_FunctionalExtensionality_H */

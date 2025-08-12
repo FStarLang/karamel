@@ -2,7 +2,6 @@ module NoShadow
 
 module U32 = FStar.UInt32
 module U64 = FStar.UInt64
-module HS = FStar.HyperStack
 
 open FStar.HyperStack.ST
 

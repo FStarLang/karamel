@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __C_H
-#define __C_H
+#ifndef C_H
+#define C_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -25,5 +25,5 @@ extern bool uu___is_EXIT_FAILURE(exit_code projectee);
 extern void print_bytes(uint8_t *b, uint32_t len);
 
 
-#define __C_H_DEFINED
-#endif
+#define C_H_DEFINED
+#endif /* C_H */

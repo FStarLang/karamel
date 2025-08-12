@@ -1,3 +1,5 @@
+include ../Makefile.common
+
 RECENT_GCC	= $(shell [ "$$(gcc -dumpversion | cut -c -1)" -ge 5 ] && echo yes)
 
 ifeq (3.81,$(MAKE_VERSION))
@@ -5,18 +7,11 @@ ifeq (3.81,$(MAKE_VERSION))
     install make, then invoke gmake instead of make)
 endif
 
-ifdef FSTAR_HOME
-  # Assume there is a F* source tree
-  FSTAR_EXE=$(FSTAR_HOME)/bin/fstar.exe
-else
-  FSTAR_EXE=$(shell which fstar.exe)
-  ifeq ($(FSTAR_EXE),)
-    $(error "fstar.exe not found, please install F*")
-  endif
-  # Assume F* in the PATH, in some ..../bin directory
-  FSTAR_HOME=$(dir FSTAR_EXE)/..
-endif
+FSTAR_EXE ?= fstar.exe
 
+# Note: these files have been moved in the F* repo in Dec 2023,
+# so this has not been tested in a while.
+ifdef FSTAR_HOME
 CRYPTO = $(shell \
   if test -d $(FSTAR_HOME)/examples/low-level/crypto ; \
   then echo $(FSTAR_HOME)/examples/low-level/crypto ; \
@@ -24,13 +19,14 @@ CRYPTO = $(shell \
   then echo $(FSTAR_HOME)/share/fstar/examples/low-level/crypto ; \
   fi \
 )
+endif
 
 ifneq ($(CRYPTO),)
   CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 endif
-TEST_OPTS	= -warn-error @4 -verbose -skip-makefiles
+TEST_OPTS	= -warn-error @4 -skip-makefiles
 KRML_BIN	= ../_build/default/src/Karamel.exe
-KRML		= $(KRML_BIN) $(KOPTS) $(TEST_OPTS)
+KRML		= $(KRML_BIN) -fstar $(FSTAR_EXE) $(KOPTS) $(TEST_OPTS)
 
 # TODO: disambiguate between broken tests that arguably should work (maybe
 # HigherOrder6?) and helper files that are required for multiple-module tests
@@ -60,7 +56,9 @@ ifneq ($(RECENT_GCC),"yes")
 endif
 
 CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased \
-  check-right-file count-deref check-global-init check-useless-alias
+  check-right-file count-deref check-global-init check-useless-alias check-inline-let \
+  check-comment check-ignore check-aggressive-inline check-malloca
+
 ifneq ($(CRYPTO),)
   CRYPTO_WASM_FILES=Crypto.Symmetric.Chacha20.wasm-test
 endif
@@ -74,21 +72,20 @@ NEGATIVE	= false
 WEB_DIR		?= web
 CACHE_DIR	= .cache
 OUTPUT_DIR	= .output
-HINTS_DIR	= .hints
 
 ifneq ($(CRYPTO),)
   INCLUDE_CRYPTO=--include $(CRYPTO)
 endif
-FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
+FSTAR		= $(FSTAR_EXE) \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
   --include hello-system --include ../krmllib/compat --include ../krmllib/obj \
   --include ../krmllib --include ../runtime \
-  $(INCLUDE_CRYPTO) --include ../book --include ../book/notfslit --use_hints --record_hints \
+  $(INCLUDE_CRYPTO) --include ../book --include ../book/notfslit --ext optimize_let_vc \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
   --trivial_pre_for_unannotated_effectful_fns false \
   --cmi --warn_error -274
 
-all: $(FILES) $(RUST_FILES) $(WASM_FILES) $(CUSTOM) ctypes-test sepcomp-test
+all: $(FILES) rust $(WASM_FILES) $(CUSTOM) ctypes-test sepcomp-test rust-val-test
 
 # Needs node
 wasm: $(WASM_FILES)
@@ -100,11 +97,16 @@ everything: all
 
 # Use F*'s dependency mechanism and fill out the missing rules.
 
+comma := ,
+
 ifndef MAKE_RESTARTS
 ifndef NODEPEND
 .depend: .FORCE
-	$(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
-	  $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*,-Prims' --output_deps_to $@
+	$(call run-with-log, \
+	  $(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
+	    $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*$(comma)-Prims' -o $@ \
+	  ,[DEPEND],\
+	  .depend)
 
 .PHONY: .FORCE
 .FORCE:
@@ -113,17 +115,17 @@ endif
 
 include .depend
 
-$(HINTS_DIR):
-	mkdir -p $@
-
-$(CACHE_DIR)/%.checked: | .depend $(HINTS_DIR)
-	$(FSTAR) $(OTHERFLAGS) --hint_file $(HINTS_DIR)/$*.hints $< && \
-	touch $@
+$(CACHE_DIR)/%.checked: | .depend
+	$(call run-with-log,$(FSTAR) $(OTHERFLAGS) -c $< -o $@ && touch $@,[VERIFY] $*,$(CACHE_DIR)/$*)
 
 $(OUTPUT_DIR)/%.krml: | .depend
-	$(FSTAR) $(OTHERFLAGS) --codegen krml \
-	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
-	  $(notdir $(subst .checked,,$<))
+	$(call run-with-log, \
+	  $(FSTAR) $(OTHERFLAGS) --codegen krml \
+	    --extract_module $(basename $(notdir $(subst .checked,,$<))) \
+	    -o $@ \
+	    $< \
+	 ,[EXTRACT] $*,\
+	  $(OUTPUT_DIR)/$*) 
 
 ###############
 # Regular (C) #
@@ -134,14 +136,19 @@ $(OUTPUT_DIR)/Ctypes2.exe: $(ALL_KRML_FILES) $(KRML_BIN)
 	  -o $@ $(filter %.krml,$^) \
         -skip-compilation $(filter %.krml,$^) \
 
+$(OUTPUT_DIR)/AggressiveInline.exe: EXTRA := $(EXTRA) -faggressive-inlining
+$(OUTPUT_DIR)/Malloca.exe: EXTRA := $(EXTRA) -warn-error -6 # Uses VLAs
+
 .PRECIOUS: $(OUTPUT_DIR)/%.exe
 $(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_BIN)
-	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
-	  -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack,\*
+	$(call run-with-log, \
+	  $(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
+	    -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack$(comma)\* \
+	,[KRML] $*,$(OUTPUT_DIR)/$*)
 
 .SECONDEXPANSION:
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe
-	@(if $(NEGATIVE); then ! $^; else $^; fi) && echo "\033[01;32m✔\033[00m [TEST,$*]" || (echo "\033[01;31m✘\033[00m [TEST,$*]" && false)
+	@(if $(NEGATIVE); then ! $^; else $^; fi) && echo -e "\033[01;32m✔\033[00m [TEST,$*]" || (echo -e "\033[01;31m✘\033[00m [TEST,$*]" && false)
 
 ifeq ($(OS),Windows_NT)
   HELLOSYSTEM_LDOPTS = -ldopts -lws2_32
@@ -179,7 +186,7 @@ $(OUTPUT_DIR)/Ctypes2.exe: EXTRA = -ctypes 'Ctypes2,Ctypes4' \
   -bundle 'Ctypes3+Ctypes4=[rename=Lowlevel]' \
   -bundle 'Ctypes2=' \
   -bundle 'Ctypes1=' \
-  -bundle '*,WindowsHack[rename=Leftovers]' \
+  -bundle '*$(comma)WindowsHack[rename=Leftovers]' \
   -no-prefix 'Ctypes4' -skip-compilation
 $(OUTPUT_DIR)/Failwith.exe: EXTRA = -ccopts -Wno-deprecated-declarations,-Wno-infinite-recursion
 $(OUTPUT_DIR)/VariableMerge.exe: EXTRA = -fmerge aggressive
@@ -236,6 +243,30 @@ check-no-erased: $(OUTPUT_DIR)/Shifting.exe
 check-right-file: $(OUTPUT_DIR)/MonomorphizationSeparate2.exe
 	egrep -q 'typedef.*pair' $(OUTPUT_DIR)/MonomorphizationSeparate2.out/MonomorphizationSeparate1.h
 
+check-inline-let: $(OUTPUT_DIR)/InlineLet.exe
+	! grep foobar $(OUTPUT_DIR)/InlineLet.out/InlineLet.c
+	! grep temp_x $(OUTPUT_DIR)/InlineLet.out/InlineLet.c
+	! grep temp_y $(OUTPUT_DIR)/InlineLet.out/InlineLet.c
+
+check-aggressive-inline: $(OUTPUT_DIR)/AggressiveInline.exe
+	! grep foobar $(OUTPUT_DIR)/AggressiveInline.out/AggressiveInline.c
+	! grep temp_x $(OUTPUT_DIR)/AggressiveInline.out/AggressiveInline.c
+	! grep temp_y $(OUTPUT_DIR)/AggressiveInline.out/AggressiveInline.c
+
+check-malloca: $(OUTPUT_DIR)/Malloca.exe
+	# Check that a single call to f remains.
+	N=$$(grep 'f()' $(OUTPUT_DIR)/Malloca.out/Malloca.c | wc -l) && \
+	  if [[ $$N -ne 1 ]]; then echo "Malloca.c seems to have several calls to f" >&2; false; fi
+
+check-comment: $(OUTPUT_DIR)/Comment.exe
+	grep -q XXX1 $(OUTPUT_DIR)/Comment.out/Comment.c && \
+	grep -q XXX2 $(OUTPUT_DIR)/Comment.out/Comment.c && \
+	grep -q XXX3 $(OUTPUT_DIR)/Comment.out/Comment.c && \
+	true
+
+check-ignore: $(OUTPUT_DIR)/KrmlTrue.exe
+	! grep -q IGNORE $(OUTPUT_DIR)/KrmlTrue.out/KrmlTrue.c
+
 clean:
 	rm -rf $(WEB_DIR) .output
 
@@ -260,6 +291,10 @@ sepcomp-test:
 	+$(MAKE) -C sepcomp
 .PHONY: sepcomp-test
 
+rust-val-test:
+	+$(MAKE) -C rust-val
+.PHONY: rust-val-test
+
 CTYPES_HAND_WRITTEN_FILES=Client.ml Makefile
 
 .PHONY: $(LOWLEVEL_DIR)/Client.native
@@ -275,11 +310,12 @@ $(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Ctypes2.exe $(addprefix $(LOWLEVEL_
 # NEGATIVE for negative tests.
 .PRECIOUS: $(OUTPUT_DIR)/%.wasm
 $(OUTPUT_DIR)/%.wasm: $(ALL_KRML_FILES) $(KRML_BIN)
-	$(KRML) -minimal -bundle WasmSupport= -bundle 'FStar.*' -bundle Prims \
+	$(call run-with-log,$(KRML) -minimal -bundle WasmSupport= -bundle 'FStar.*' -bundle Prims \
 	  -bundle C -bundle C.Endianness -bundle C.Nullity -bundle C.String \
 	  -bundle TestLib \
-	  -bundle $(subst _,.,$*)=WindowsHack,\* \
-	  -backend wasm $(EXTRA) -tmpdir $@ $(JSFILES) -no-prefix $* $(filter %.krml,$^)
+	  -bundle $(subst _,.,$*)=WindowsHack$(comma)\* \
+	  -backend wasm $(EXTRA) -tmpdir $@ $(JSFILES) -no-prefix $* $(filter %.krml,$^)\
+	  ,[KRML-WASM] $*,$(OUTPUT_DIR)/$*)
 	[ x$(JSFILES) != x ] && cp $(JSFILES) $@ || true
 
 %.wasm-test: $(OUTPUT_DIR)/%.wasm
@@ -298,14 +334,19 @@ WasmTrap.wasm-test: NEGATIVE = true
 
 .PRECIOUS: %.rs
 %.rs: $(ALL_KRML_FILES) $(KRML_BIN)
-	$(KRML) -minimal -bundle $(notdir $*)=\* \
-	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)
-	$(SED) -i 's/\(assignments..\)/\1\nmod lowstar { pub mod ignore { pub fn ignore<T>(_x: T) {}}}\n/' $@
+	$(call run-with-log,$(KRML) -minimal -bundle $(notdir $(subst rust,Rust,$*))=\* \
+	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)\
+	  ,[KRML-RS] $(basename $*),$*)
+	$(SED) -i 's/\(patterns..\)/\1\nmod lowstar { pub mod ignore { pub fn ignore<T>(_x: T) {}}}\n/' $@
 	echo 'fn main () { let r = main_ (); if r != 0 { println!("main_ returned: {}\\n", r); panic!() } }' >> $@
 
-%.rust-test: $(OUTPUT_DIR)/%.rs
-	rustc $< && ./$*
+$(OUTPUT_DIR)/rustpair.rs: KOPTS+=-fkeep-tuples
+$(OUTPUT_DIR)/rustptrfield.rs: KOPTS+=-fkeep-tuples
+$(OUTPUT_DIR)/rustamblifetime.rs: KOPTS+=-fkeep-tuples -fno-box
 
-rust: $(RUST_FILES) $(patsubst %.fst,%.rust-test,$(filter-out Rust1.fst Rust2.fst Rust3.fst,$(wildcard Rust*.fst)))
+%.rust-test: $(OUTPUT_DIR)/%.rs
+	rustc $< -o $*.exe && ./$*.exe
+
+rust: $(RUST_FILES) $(patsubst Rust%.fst,rust%.rust-test,$(filter-out Rust1.fst Rust2.fst Rust3.fst,$(wildcard Rust*.fst)))
 
 RUST_FILES = $(patsubst %.rs,%.rust-test,$(wildcard Rust*.fst))

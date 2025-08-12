@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** Generating Ctypes OCaml bindings for C declarations *)
 
@@ -77,7 +77,7 @@ let mk_simple_app_decl (name: ident) (typ: ident option) (head: ident)
  * -no-prefix options. If this is the beginning of a top-level name, lower is
  * true and we force the first letter to be lowercase_ascii to abide by OCaml syntax
  * restrictions. *)
-let mk_unqual_name m (n: A.lident) =
+let mk_unqual_name m (n: A.lident * GlobalNames.kind) =
   let n = GlobalNames.to_c_name m n in
   if Char.lowercase_ascii n.[0] <> n.[0] then
     String.make 1 (Char.lowercase_ascii n.[0]) ^ String.sub n 1 (String.length n - 1)
@@ -145,7 +145,7 @@ let mk_struct_manifest (k: structured) t =
 let mk_qualified_type m (typ: A.lident) =
   (* m is for debug only *)
   try exp_ident (Hashtbl.find special_types typ)
-  with Not_found -> exp_ident (mk_unqual_name m typ)
+  with Not_found -> exp_ident (mk_unqual_name m (typ, Type))
 
 let rec mk_typ ?(bytes=false) m = function
   | Int w -> exp_ident (PrintCommon.width_to_string w ^ "_t")
@@ -179,7 +179,7 @@ and mk_extern_decl m name keyword typ: structure_item =
  *   let point_y = field point "y" uint32_t
  *   let _ = seal point *)
 and mk_struct_decl ?(sealed=true) m (k: structured) (name: A.lident) fields: structure_item list =
-  let unqual_name = mk_unqual_name m name in
+  let unqual_name = mk_unqual_name m (name, Type) in
   let tm = mk_struct_manifest k unqual_name in
   let ctypes_structure =
     let struct_name = match k with
@@ -189,7 +189,7 @@ and mk_struct_decl ?(sealed=true) m (k: structured) (name: A.lident) fields: str
       | Struct ->
           mk_struct_name name
     in
-    let struct_name = GlobalNames.to_c_name m struct_name in
+    let struct_name = GlobalNames.to_c_name m (struct_name, Type) in
     let t = Typ.mk (Ptyp_constr (mk_ident "typ", [tm])) in
     let e = mk_app (exp_ident (structured_kw k)) [mk_const struct_name] in
     let p = Pat.mk (Ppat_var (mk_sym unqual_name)) in
@@ -226,7 +226,7 @@ and mk_struct_decl ?(sealed=true) m (k: structured) (name: A.lident) fields: str
 and mk_typedef m name typ =
   let type_const = match typ with
     | Int Constant.UInt8 -> Typ.mk (Ptyp_constr (mk_ident "Unsigned.UInt8.t", []))
-    | Qualified t -> Typ.mk (Ptyp_constr (mk_ident (mk_unqual_name m t), []))
+    | Qualified t -> Typ.mk (Ptyp_constr (mk_ident (mk_unqual_name m (t, Type)), []))
     | _ -> Warn.fatal_error "Unreachable"
   in
   let typ_name = mk_unqual_name m name in
@@ -278,16 +278,16 @@ let mk_ctypes_decl m (d: decl): structure =
       (* Don't generate bindings for projectors and internal names *)
       if not (KString.starts_with (snd name) "__proj__") &&
          not (KString.starts_with (snd name) "uu___") then
-        [build_binding m name return_type parameters]
+        [build_binding m (name, Other) return_type parameters]
       else
         []
   | Type (name, typ, _) -> begin
       match typ with
       | Struct fields  -> mk_struct_decl m Struct name fields
       | Enum tags ->
-          let tags = List.map (GlobalNames.to_c_name m) tags in
-          (mk_typedef m name (Int Constant.UInt8)) @ (mk_enum_tags m name tags)
-      | Qualified t -> mk_typedef m name (Qualified t)
+          let tags = List.map (fun lid -> GlobalNames.to_c_name m (lid, Other)) (List.map fst tags) in
+          (mk_typedef m (name, Type) (Int Constant.UInt8)) @ (mk_enum_tags m (name, Type) tags)
+      | Qualified t -> mk_typedef m (name, Type) (Qualified t)
       | _ -> []
       end
   | Global (name, _, flags, typ, _) -> begin
@@ -296,11 +296,11 @@ let mk_ctypes_decl m (d: decl): structure =
       else
         match typ with
         | Function _ ->
-          [mk_extern_decl m name "foreign" typ]
+          [mk_extern_decl m (name, Other) "foreign" typ]
         | Pointer _ ->
           warn_drop_declaration "" (lid_of_decl d) ([], "extern *");
           []
-        | _ -> [mk_extern_decl m name "foreign_value" typ]
+        | _ -> [mk_extern_decl m (name, Other) "foreign_value" typ]
         end
   | External _
   | TypeForward _ -> []

@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** A bunch of little helpers to deal with our AST. *)
 
@@ -27,7 +27,10 @@ end
 
 (* Creating AST nodes *********************************************************)
 
+let uint8 = TInt K.UInt8
+let uint16 = TInt K.UInt16
 let uint32 = TInt K.UInt32
+let uint64 = TInt K.UInt64
 let usize = TInt K.SizeT
 
 let type_of_op op w =
@@ -71,7 +74,7 @@ let pwild = with_type TAny PWild
 
 let mk_op op w =
   { node = EOp (op, w);
-    typ = type_of_op op w }
+    typ = type_of_op op w; meta = [] }
 
 (* @0 < <finish> *)
 let mk_lt w finish =
@@ -87,21 +90,26 @@ let mk_lt_usize =
   mk_lt K.SizeT
 
 (* @0 <- @0 + 1ul *)
-let mk_incr w =
+let mk_incr_e w e =
   let t = TInt w in
   with_type TUnit (
     EAssign (with_type t (
       EBound 0), with_type t (
       EApp (mk_op K.Add w, [
         with_type t (EBound 0);
-        one w ]))))
+        e ]))))
+
+let mk_incr w = mk_incr_e w (one w)
 
 let mk_incr32 = mk_incr K.UInt32
 
 let mk_incr_usize = mk_incr K.SizeT
 
+let assert_tint_or_tbool t =
+  match t with TInt w -> w | TBool -> Bool | t -> Warn.fatal_error "Not an int/bool: %a" ptyp t
+
 let mk_neq e1 e2 =
-  with_type TBool (EApp (mk_op K.Neq K.UInt32, [ e1; e2 ]))
+  with_type TBool (EApp (mk_op K.Neq (assert_tint_or_tbool e1.typ), [ e1; e2 ]))
 
 let mk_not e1 =
   with_type TBool (EApp (mk_op K.Not K.Bool, [ e1 ]))
@@ -140,8 +148,8 @@ let mk_deref t ?(const=false) e =
 
 (* Binder nodes ***************************************************************)
 
-let fresh_binder ?(mut=false) name typ =
-  with_type typ { name; mut; mark = ref Mark.default; meta = None; atom = Atom.fresh () }
+let fresh_binder ?(mut=false) ?(attempt_inline=false) name typ =
+  with_type typ { name; mut; mark = ref Mark.default; meta = (if attempt_inline then [ AttemptInline ] else []); atom = Atom.fresh () }
 
 let mark_mut b =
   { b with node = { b.node with mut = true }}
@@ -150,8 +158,8 @@ let sequence_binding () = with_type TUnit {
   name = "_";
   mut = false;
   mark = ref Mark.default;
-  meta = Some MetaSequence;
-  atom = Atom.fresh ()
+  meta = [ MetaSequence ];
+  atom = Atom.fresh ();
 }
 
 let unused_binding = sequence_binding
@@ -159,13 +167,13 @@ let unused_binding = sequence_binding
 let mk_binding ?(mut=false) name t =
   let b = fresh_binder name t in
   { b with node = { b.node with mut } },
-  { node = EOpen (b.node.name, b.node.atom); typ = t }
+  { node = EOpen (b.node.name, b.node.atom); typ = t; meta = [] }
 
 (** Generates "let [[name]]: [[t]] = [[e]] in [[name]]" *)
 let mk_named_binding name t e =
   let b, ref = mk_binding name t in
   b,
-  { node = e; typ = t },
+  { node = e; typ = t; meta = [] },
   ref
 
 
@@ -289,14 +297,20 @@ let pure_builtin_lids = [
   [ "FStar"; "UInt128" ], "";
 ]
 
-let is_readonly_builtin_lid_ = ref (fun lid ->
+let is_readonly_builtin_lid_ = ref (fun lid _t ->
   List.exists (fun lid' ->
     let lid = Idents.string_of_lident lid in
     let lid' = Idents.string_of_lident lid' in
     KString.starts_with lid lid'
   ) pure_builtin_lids)
 
-let is_readonly_builtin_lid lid = !is_readonly_builtin_lid_ lid
+let is_readonly_builtin_lid e =
+  let lid = match e.node with
+    | EQualified lid
+    | ETApp ({ node = EQualified lid; _ }, _, _, _) -> lid
+    | _ -> failwith "not an lid"
+  in
+  !is_readonly_builtin_lid_ lid e.typ
 
 class ['self] closed_term_visitor = object (_: 'self)
   inherit [_] reduce
@@ -338,9 +352,11 @@ class ['self] readonly_visitor = object (self: 'self)
     | EPolyComp _
     | EOp _ ->
         List.for_all (self#visit_expr_w ()) es
-    | EQualified lid when is_readonly_builtin_lid lid ->
+    | EQualified _
+    when is_readonly_builtin_lid e ->
         List.for_all (self#visit_expr_w ()) es
-    | ETApp ({ node = EQualified lid; _ }, _, _) when is_readonly_builtin_lid lid ->
+    | ETApp ({ node = EQualified _; _ } as e, _, _, _)
+    when is_readonly_builtin_lid e ->
         List.for_all (self#visit_expr_w ()) es
     | _ ->
         false
@@ -402,7 +418,7 @@ let rec is_initializer_constant e =
   match e with
   | { node = EAddrOf { node = EQualified _; _ }; _ } ->
       true
-  | { node = EQualified _; typ = t } ->
+  | { node = EQualified _; typ = t; _ } ->
       is_address t
   | { node = EEnum _; _ } ->
       true
@@ -679,7 +695,7 @@ let rec strip_cast e =
 let rec nest bs t e2 =
   match bs with
   | (b, e1) :: bs ->
-      { node = ELet (b, e1, close_binder b (nest bs t e2)); typ = t }
+      { node = ELet (b, e1, close_binder b (nest bs t e2)); typ = t; meta = [] }
   | [] ->
       e2
 
@@ -706,22 +722,22 @@ let rec nest_in_return_pos i typ f e =
   match e.node with
   | ELet (b, e1, e2) ->
       let e2 = nest_in_return_pos (i + 1) typ f e2 in
-      { node = ELet (b, e1, e2); typ }
+      { node = ELet (b, e1, e2); typ; meta = [] }
   | EIfThenElse (e1, e2, e3) ->
       let e2 = nest_in_return_pos i typ f e2 in
       let e3 = nest_in_return_pos i typ f e3 in
-      { node = EIfThenElse (e1, e2, e3); typ }
+      { node = EIfThenElse (e1, e2, e3); typ; meta = [] }
   | ESwitch (e, branches) ->
       let branches = List.map (fun (t, e) ->
         t, nest_in_return_pos i typ f e
       ) branches in
-      { node = ESwitch (e, branches); typ }
+      { node = ESwitch (e, branches); typ; meta = [] }
   | EMatch (c, e, branches) ->
       { node =
         EMatch (c, e, List.map (fun (bs, p, e) ->
           bs, p, nest_in_return_pos (i + List.length bs) typ f e
         ) branches);
-        typ }
+        typ; meta = [] }
   | ESequence es ->
       let l = List.length es in
       { node = ESequence (List.mapi (fun j e ->
@@ -729,7 +745,7 @@ let rec nest_in_return_pos i typ f e =
             nest_in_return_pos i typ f e
           else
             e
-        ) es); typ }
+        ) es); typ; meta = [] }
   | _ ->
       f i e
 
@@ -741,7 +757,7 @@ let push_ignore = nest_in_return_pos TUnit (fun _ e ->
       ETApp (
         with_type (TArrow (TBound 0, TUnit))
           (EQualified (["LowStar"; "Ignore"], "ignore")),
-        [],
+        [], [],
         [ e.typ ]
       )),
     [ e ])))

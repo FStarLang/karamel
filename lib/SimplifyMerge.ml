@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** Merging variables together to avoid un-necessary let-bindings *)
 
@@ -303,10 +303,6 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
       let d1, u, e1 = merge env u e1 in
       let s = closing_binder binder in
       KList.reduce S.inter [ d1; d2; d3; d4 ], u, w (EFor (b, e1, s e2, s e3, s e4))
-
-  | EComment (s1, e, s2) ->
-      let d, u, e = merge env u e in
-      d, u, w (EComment (s1, e, s2))
 
   | EAddrOf e ->
       let d, u, e = merge env u e in

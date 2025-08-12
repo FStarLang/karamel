@@ -1,6 +1,5 @@
 module HigherOrder2
 
-module HS = FStar.HyperStack
 module HST = FStar.HyperStack.ST
 module I32 = FStar.Int32
 module M = LowStar.Modifies

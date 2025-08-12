@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** Monormophization of data types, including tuples, then compilation of
  * pattern matches and of data types into structs & unions. *)
@@ -67,7 +67,7 @@ let remove_unused_type_arguments files =
       method! visit_TApp env lid args =
         self#visit_app env lid args
 
-      method! visit_ETApp env e _ args =
+      method! visit_ETApp env e _ _ args =
         (* TODO: for now, we ignore unused const generics *)
         let lid = assert_elid e.node in
         self#visit_app (fst env) lid args
@@ -137,15 +137,15 @@ let remove_unused_type_arguments files =
             chop (kept + 1) (i + 1) (def, binders, ret)
           else
             let def = DeBruijn.subst_te TAny (n - i - 1) def in
-            let binders = List.map (fun { node; typ } -> { node; typ = DeBruijn.subst_t TAny (n - i - 1) typ }) binders in
+            let binders = List.map (fun { node; typ; _ } -> { node; typ = DeBruijn.subst_t TAny (n - i - 1) typ; meta = [] }) binders in
             let ret = DeBruijn.subst_t TAny (n - i - 1) ret in
             chop kept (i + 1) (def, binders, ret)
       in
       let n, (def, binders, ret) = chop 0 0 (def, binders, ret) in
       DFunction (cc, flags, n_cgs, n, ret, lid, binders, def)
 
-    method! visit_ETApp env e cgs args =
-      assert (cgs = []);
+    method! visit_ETApp env e cgs cgs' args =
+      assert (cgs @ cgs' = []);
       let lid = assert_elid e.node in
       let args = List.map (self#visit_typ_wo env) args in
       let args = KList.filter_mapi (fun i arg ->
@@ -155,7 +155,7 @@ let remove_unused_type_arguments files =
           None
       ) args in
       if List.length args > 0 then
-        ETApp (e, [], args)
+        ETApp (e, [], [], args)
       else
         e.node
   end in
@@ -193,6 +193,10 @@ let one_non_constant_branch branches =
   ) branches in
   KList.one non_constant
 
+(* In addition to the scheme (above), we thread two additional maps throughout the compilation of
+   data types: the first one maps a set of identifiers and enum value to a type declaration, and is
+   useful to deduplicate tag declarations that are identical; the second one records that, should an
+   identical declaration be found, the latter type becomes and alias for the former. *)
 let build_scheme_map files =
   let map = build_map files (fun map -> function
     | DType (lid, _, _, 0, Variant branches) ->
@@ -203,18 +207,23 @@ let build_scheme_map files =
           Hashtbl.add map lid ToEnum (* logic replicated in Monomorphization *)
         else if List.length branches = 1 then
           Hashtbl.add map lid (ToFlat (List.map fst (snd (List.hd branches))))
-        else if List.length non_constant = 1 then
+        else if List.length non_constant = 1 && not (Options.rust ()) then
           Hashtbl.add map lid (ToFlatTaggedUnion branches)
         else
           Hashtbl.add map lid (ToTaggedUnion branches);
         (* Shadow the previous binding if we *think* we can "eliminate". *)
         begin match branches with
-        | [ _, [ _, (t, _ )] ] ->
+        | [ _, [ _, (t, _ )] ] when not (Helpers.is_array t) ->
+            (* An array wrapped in a struct is passed by copy. An array NOT
+               wrapped in a struct decays to a pointer and is passed by
+               reference. This phase is only correct if t is not an array. *)
             Hashtbl.add map lid (Eliminate t)
         | _ ->
             ()
         end
-    | DType (lid, _, _, 0, Flat [ _, (t, _) ]) ->
+    | DType (lid, _, _, 0, Enum _) ->
+        Hashtbl.add map lid ToEnum
+    | DType (lid, _, _, 0, Flat [ _, (t, _) ]) when not (Helpers.is_array t) ->
         Hashtbl.add map lid (Eliminate t)
     | _ ->
         ()
@@ -236,15 +245,18 @@ let build_scheme_map files =
         | _ ->
             ()
   end)#visit_files () files;
-  map, Hashtbl.create 41
+  map, Hashtbl.create 41, Hashtbl.create 41
 
 (** Second thing: handle the trivial case of a data type definition with only
  * tags (it's just an enum) and the trivial case of a type definition with one
  * branch (it's just a flat record), i.e. the first two cases of [scheme] *)
 
-let mk_tag_lid type_lid cons =
-  let prefix, _ = type_lid in
-  prefix, cons
+let find_tag_lid tag_remap lid cons =
+  try
+    let tag_type = Hashtbl.find tag_remap lid in 
+    fst tag_type, cons
+  with Not_found ->
+    Warn.fatal_error "The tag type of type %a was not found" plid lid
 
 let try_mk_switch c e branches =
   (* TODO if the last case is a PWild then make it the default case of the
@@ -311,23 +323,47 @@ type cached_lid =
 
 (* We cache sets of tags assigned to a given enum so that there's no collisions
  * in the global scope. *)
-let allocate_tag enums preferred_lid tags =
-  match Hashtbl.find enums tags with
-  | lid ->
-      Found lid
+let allocate_tag (enums: ((ident * Z.t option) list, lident) Hashtbl.t) (tag_remap: _) lid
+  preferred_tag_lid (tags_without_prefix: (string * _) list)
+=
+  (* Tags need to retain a long name, otherwise, Checker will confuse identical tags across types.
+     But, we hash-cons them without the prefix, on the basis that monomorphized instances of the
+     same data type need to share the same type for the tag rather than duplicate the tag type in
+     every module. *)
+  let tags_with_prefix = List.map (fun (tag, value) -> ((fst preferred_tag_lid, tag), value)) tags_without_prefix in
+  match Hashtbl.find enums tags_without_prefix with
+  | tag_lid ->
+      (* KPrint.bprintf "for tags %s, found %a\n" *)
+      (*   (String.concat ", " (List.map fst tags_without_prefix)) *)
+      (*   plid tag_lid; *)
+      if not (Hashtbl.mem tag_remap lid) then
+        Hashtbl.add tag_remap lid tag_lid;
+      Found tag_lid
   | exception Not_found ->
-      Hashtbl.add enums tags preferred_lid;
+      (* KPrint.bprintf "for tags %s, NOT found, preferred=%a\n" *)
+      (*   (String.concat ", " (List.map fst tags_without_prefix)) *)
+      (*   plid preferred_tag_lid; *)
+      Hashtbl.add enums tags_without_prefix preferred_tag_lid;
+      Hashtbl.add tag_remap lid preferred_tag_lid;
       (* Private will be removed, if needed, by the cross-call analysis. *)
-      Fresh (DType (preferred_lid, [ Common.Private ], 0, 0, Enum tags))
+      Fresh (DType (preferred_tag_lid, [ Common.Private ], 0, 0, Enum tags_with_prefix))
 
 let field_for_tag = "tag"
 let field_for_union = "val"
+
+type map =
+  (* Compilation scheme for each data type *)
+  (lident, scheme) Hashtbl.t *
+  (* Hash-consing the tag types -- so that all instances of a monomorphized type share the same tag type. *)
+  ((ident * Z.t option) list, lident) Hashtbl.t *
+  (* The name of the type that declares the tags of a given data type. *)
+  (lident, lident) Hashtbl.t
 
 (* This does two things:
  * - deal with the simple compilation schemes (not tagged union)
  * - pre-allocate types for tags for the next phase (tagged union compilation)
  *)
-let compile_simple_matches (map, enums) = object(self)
+let compile_simple_matches ((map, enums, tag_remap): map) = object(self)
 
   inherit [_] map
 
@@ -396,7 +432,7 @@ let compile_simple_matches (map, enums) = object(self)
         ECons (cons, List.map (self#visit_expr_w ()) args)
     | ToEnum ->
         assert (List.length args = 0);
-        EEnum (mk_tag_lid lid cons)
+        EEnum (find_tag_lid tag_remap lid cons)
     | ToFlat names ->
         EFlat (List.map2 (fun n e -> Some n, self#visit_expr_w () e) names args)
     | ToFlatTaggedUnion branches ->
@@ -409,7 +445,7 @@ let compile_simple_matches (map, enums) = object(self)
             List.map2 (fun (f, _) e -> Some f, self#visit_expr_w () e) fields args
         in
         EFlat ([
-          Some field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons))
+          Some field_for_tag, with_type t_tag (EEnum (find_tag_lid tag_remap lid cons))
         ] @ fields)
 
   method! visit_PCons (_, typ) cons args =
@@ -427,7 +463,7 @@ let compile_simple_matches (map, enums) = object(self)
         PCons (cons, List.map (self#visit_pattern_w ()) args)
     | ToEnum ->
         assert (List.length args = 0);
-        PEnum (mk_tag_lid lid cons)
+        PEnum (find_tag_lid tag_remap lid cons)
     | ToFlat names ->
         PRecord (List.map2 (fun n e -> n, self#visit_pattern_w () e) names args)
     | ToFlatTaggedUnion branches ->
@@ -440,16 +476,16 @@ let compile_simple_matches (map, enums) = object(self)
             List.map2 (fun (f, _) e -> f, self#visit_pattern_w () e) fields args
         in
         PRecord ([
-          field_for_tag, with_type t_tag (PEnum (mk_tag_lid lid cons))
+          field_for_tag, with_type t_tag (PEnum (find_tag_lid tag_remap lid cons))
         ] @ fields)
 
   method private allocate_enum_lid lid branches =
-    let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
+    let tags = List.map (fun (cons, _) -> cons, None) branches in
     (* Pre-allocate the named type for this type's tags. Has to be done
      * here so that the enum declaration is inserted in the right spot.
      * *)
     let preferred_lid = fst lid, snd lid ^ "_tags" in
-    match allocate_tag enums preferred_lid tags with
+    match allocate_tag enums tag_remap lid preferred_lid tags with
     | Found tag_lid ->
         tag_lid
     | Fresh decl ->
@@ -471,8 +507,8 @@ let compile_simple_matches (map, enums) = object(self)
             ignore (self#allocate_enum_lid lid branches);
             DType (lid, flags, 0, 0, Variant branches)
         | ToEnum ->
-            let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
-            begin match allocate_tag enums lid tags with
+            let tags = List.map (fun (cons, _) -> cons, None) branches in
+            begin match allocate_tag enums tag_remap lid lid tags with
             | Found other_lid ->
                 DType (lid, flags, 0, 0, Abbrev (TQualified other_lid))
             | Fresh decl ->
@@ -508,24 +544,24 @@ let compile_simple_matches (map, enums) = object(self)
   method! visit_expr_w env x =
     let node = self#visit_expr' (env, x.typ) x.node in
     let typ = self#visit_typ env x.typ in
-    { node; typ }
+    { node; typ; meta = x.meta }
 
   method! visit_pattern_w env x =
     let node = self#visit_pattern' (env, x.typ) x.node in
     let typ = self#visit_typ env x.typ in
-    { node; typ }
+    { node; typ; meta = x.meta }
 
   method! visit_with_type f (env, _) x =
       let node = f (env, x.typ) x.node in
       let typ = self#visit_typ env x.typ in
-      { node; typ }
+      { node; typ; meta = x.meta }
 
-  method! visit_TQualified _ lid =
+  method! visit_TQualified env lid =
     match Hashtbl.find map lid with
     | exception Not_found ->
         TQualified lid
     | Eliminate t ->
-        t
+        self#visit_typ env t
     | _ ->
         TQualified lid
 
@@ -632,6 +668,13 @@ let remove_unit_buffers = object (self)
         EUnit
     | _ ->
       super#visit_EBufFree env e1
+
+  method! visit_EAddrOf env e1 =
+    match e1.typ with
+    | TUnit (* | TAny *) ->
+        EUnit
+    | _ ->
+      super#visit_EAddrOf env e1
 
   method! visit_EApp env e1 es =
     match e1.node, es with
@@ -906,8 +949,8 @@ let rec compile_pattern env scrut pat expr =
         name = i;
         mut = false;
         mark = ref Mark.default;
-        meta = None;
-        atom = b
+        meta = [];
+        atom = b;
       } in
       [], with_type expr.typ (ELet (b, scrut, close_binder b expr))
   | PWild ->
@@ -978,12 +1021,12 @@ let field_names_of_cons cons branches =
 
 (* Fifth step: implement the general transformation of data types into tagged
  * unions. *)
-let compile_all_matches (map, enums) = object (self)
+let compile_all_matches (map, enums, tag_remap) = object (self)
 
   inherit [_] map
 
   method private tag_and_val_type lid branches =
-    let tags = List.map (fun (cons, _fields) -> mk_tag_lid lid cons) branches in
+    let tags = List.map (fun (cons, _) -> cons, None) branches in
     let structs = List.filter_map (fun (cons, fields) ->
       let fields = List.map (fun (f, t) -> Some f, t) fields in
       match List.length fields with
@@ -1002,7 +1045,7 @@ let compile_all_matches (map, enums) = object (self)
     ) branches in
     let preferred_lid = fst lid, snd lid ^ "_tags" in
     let tag_lid =
-      match allocate_tag enums preferred_lid tags with
+      match allocate_tag enums tag_remap lid preferred_lid tags with
       | Found lid -> lid
       | Fresh _ ->
           (* pre-allocated by the previous phase *)
@@ -1042,7 +1085,7 @@ let compile_all_matches (map, enums) = object (self)
     (** This is sound because we rely on left-to-right, lazy semantics for
      * pattern-matching. So, we read the "right" field from the union only
      * after we've ascertained that we're in the right case. *)
-    PRecord ([ field_for_tag, with_type t_tag (PEnum (mk_tag_lid lid cons)) ] @
+    PRecord ([ field_for_tag, with_type t_tag (PEnum (find_tag_lid tag_remap lid cons)) ] @
     match List.length fields with
     | 0 ->
         []
@@ -1064,7 +1107,7 @@ let compile_all_matches (map, enums) = object (self)
     let record_expr = EFlat (List.combine field_names exprs) in
     let t_tag, t_val = self#tag_and_val_type lid branches in
     EFlat (
-      [ Some field_for_tag, with_type t_tag (EEnum (mk_tag_lid lid cons)) ] @
+      [ Some field_for_tag, with_type t_tag (EEnum (find_tag_lid tag_remap lid cons)) ] @
       match List.length exprs with
       | 0 ->
           []
@@ -1122,7 +1165,7 @@ let is_tagged_union map lid =
 
 (* Sixth step: if the compiler supports it, use C11 anonymous structs. *)
 
-let anonymous_unions (map, _) = object (self)
+let anonymous_unions (map, _, _) = object (self)
   inherit [_] map as super
 
   method! visit_EField env e f =
@@ -1147,6 +1190,8 @@ let anonymous_unions (map, _) = object (self)
     | [ Some f1, t1; Some f2, t2 ], TQualified lid when
       f1 = field_for_tag && f2 = field_for_union &&
       is_tagged_union map lid ->
+        (* No need to visit t1, it's a tag. *)
+        let t2 = self#visit_expr_w env t2 in
         EFlat [ Some f1, t1; None, t2 ]
     | _ ->
         EFlat (self#visit_fields_e_opt_w env fields)
@@ -1276,9 +1321,26 @@ let remove_empty_structs files =
         LidSet.empty
   end)#visit_files () files in
 
+  let files = List.map (fun (f, decls) ->
+    f, List.filter (fun d -> not (LidSet.mem (lid_of_decl d) empty_structs)) decls
+  ) files in
+
   (object
 
     inherit [_] map as super
+
+    method! visit_TApp _ lid ts =
+      if LidSet.mem lid empty_structs then
+        TUnit
+      else
+        super#visit_TApp () lid ts
+
+    method! visit_TCgApp _ t cg =
+      let lid, _, _ = flatten_tapp (TCgApp (t, cg)) in
+      if LidSet.mem lid empty_structs then
+        TUnit
+      else
+        super#visit_TCgApp () t cg
 
     method! visit_TQualified _ lid =
       if LidSet.mem lid empty_structs then
@@ -1310,11 +1372,37 @@ let optimize files =
   let files = remove_unit_fields#visit_files () files in
   files
 
+(* For Rust, we leave `match` nodes in the AST -- Rust *does* have
+   pattern-matching, after all. However, F* code contains a lot of one-branch
+   matches, of the form `match e with _ -> ...` or `match e with { f = x; } ->
+   ...`. Therefore, for code quality, we replace the latter with `...` and the
+   former with `let x = e.f in ...`. *)
+let remove_one_branch_matches = object (self)
+
+  inherit [_] map as _super
+
+  method! visit_EMatch (_, _t as env) c scrut branches =
+    let scrut = self#visit_expr env scrut in
+    match branches with
+    | [ [], _, e ] ->
+        (* A match made of a single branch; e is always evaluated. *)
+        (self#visit_expr env e).node
+    | [ [ b ], { node = PBound _; _ }, e ] ->
+        (* match scrut with \ b. x -> e  ~~>  let x = scrut in e *)
+        ELet (b, scrut, self#visit_expr env e)
+    | [ [ b ], { node = PRecord ps; _ }, e ] ->
+        (* match scrut with \ b. { f = x } -> e  ~~>  let x = scrut.f in e *)
+        let f = Option.get (List.find_map (fun (f, x) -> match x.node with PBound _ -> Some f | _ -> None) ps) in
+        ELet (b, with_type b.typ (EField (scrut, f)), self#visit_expr env e)
+    | _ ->
+        EMatch (c, scrut, self#visit_branches env branches)
+end
+
 (* General compilation scheme *)
 let everything files =
   let map = build_scheme_map files in
   let files = (compile_simple_matches map)#visit_files () files in
-  let files = (compile_all_matches map)#visit_files () files in
+  let files = if Options.rust () then remove_one_branch_matches#visit_files () files else (compile_all_matches map)#visit_files () files in
   let files = remove_non_scalar_casts#visit_files () files in
   let files = remove_empty_structs files in
   map, files

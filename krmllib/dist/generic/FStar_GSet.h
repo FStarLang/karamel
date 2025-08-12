@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_GSet_H
-#define __FStar_GSet_H
+#ifndef FStar_GSet_H
+#define FStar_GSet_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -21,5 +21,5 @@ typedef void *FStar_GSet_disjoint;
 typedef void *FStar_GSet_subset;
 
 
-#define __FStar_GSet_H_DEFINED
-#endif
+#define FStar_GSet_H_DEFINED
+#endif /* FStar_GSet_H */

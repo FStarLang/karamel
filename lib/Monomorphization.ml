@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (* Monomorphization of functions and data types. *)
 
@@ -8,6 +8,153 @@ open PrintAst.Ops
 open Helpers
 
 module K = Constant
+
+(* Name generation ***********************************************************)
+
+(* This module encapsulates the name generation facility that to each monomorphized type or
+   function, associates a suitable top-level name. Specifically, given a polymorphic `lid` and
+   concrete type arguments `ts` and expression arguments `cgs`, this module picks a name and records
+   that information in a global state. *)
+
+let explanation = {|Some debug info to figure out what the hash codes correspond to...
+
+"trait impl" means that the charon-provided name includes the name of the trait
+implementation block that this function was defined in -- this is typically a
+rather long name, so here we simply feed the string through a hash function to
+compute a unique two-byte code that allows shortening the function name
+(otherwise, the C code would be pretty unreadable)
+
+the other case is for parameterized types and functions
+- for types, we need to monomorphize a type according to the choice of type and
+  const generic arguments; to avoid a long name, we simply feed those arguments
+  into a hash function and take a two-byte unique suffix
+- for functions, we need to monomorphize the function according to the choice of
+  type, const generic arguments, and the choice of trait implementation (which
+  internally amounts to passing a function pointer for each one of the
+  implementation methods in the chosen trait); those are also fed into the hash
+  function to compute a two-byte unique suffix
+
+because of this, the suffixes are identical if, say, two functions rely on the
+same set of monomorphization parameters, or originate from the same trait impl
+
+--------------------------------------------------------------------------------
+
+|}
+
+
+let maybe_debug_hash =
+  let oc = ref None in
+  let seen = Hashtbl.create 41 in
+  let printed_info = ref false in
+  let open_out () =
+    match !oc with
+    | Some oc -> oc
+    | None -> let s = open_out_bin "hash_map" in oc := Some s; s
+  in
+  fun hash pretty ->
+    if Options.debug "hashes" && not (Hashtbl.mem seen hash) then begin
+      if not !printed_info then
+        output_string (open_out ()) explanation;
+      printed_info := true;
+      KPrint.bfprintf (open_out ()) "%02x --> %a\n\n"
+        (hash land 0xFF)
+        PrintCommon.pdoc (Lazy.force pretty);
+      Hashtbl.add seen hash ()
+    end
+
+module NameGen = struct
+
+  open PPrint
+  open PrintAst
+
+  (* TODO: expose via an option if there is enough interest *)
+  let short_names = ref false
+
+  (* This avoids collisions, and puts monomorphized types and functions within the same namespace --
+     this could potentially generate spurious collisions, though I doubt this is likely (famous last
+     words?). *)
+  let seen = Hashtbl.create 41
+
+  (* For types, the arguments at application site are `cg`s, and we do not have names available
+     (this might be worth fixing).
+     For expressions, the arguments at application site are `expr`s; all of the arguments go into
+     hash-consing, but for pretty-printing, we only retain those that are const generics, not those
+     that are trait instance methods. *)
+  type extra = Cg of cg list | Expr of int * expr list * binder_w list
+
+  let print_extra = function
+    | Cg cgs -> separate_map underscore print_cg cgs
+    | Expr (n_cgs, cgs, _) -> separate_map underscore (print_expr empty_env) (fst (KList.split n_cgs cgs))
+
+  (* An informative comment in case the short name option is chosen. *)
+  let gen_comment original_name ts extra =
+    let pconst e =
+      match e.node with
+      | EConstant (_, s) -> string s
+      | _ -> failwith "impossible"
+    in
+    let extra = match extra with
+      | Cg cgs ->
+          if cgs <> [] then
+            string "with const generics" ^^ break 1 ^^ hardline ^^
+            separate_map hardline (fun cg -> string "-" ^^ space ^^ print_cg cg) cgs
+          else
+            empty
+      | Expr (n_cgs, cgs, binders) ->
+          if cgs <> [] then
+            let cgs, _ = KList.split n_cgs cgs in
+            let binders, _ = KList.split n_cgs binders in
+            string "with const generics" ^^ break 1 ^^ hardline ^^
+            separate_map hardline (fun (b, e) -> string "-" ^^ space ^^ string b.node.name ^^ equals ^^
+            space ^^ pconst e) (List.combine binders cgs)
+          else
+            empty
+    in
+    let comment =
+      string "A monomorphic instance of " ^^ print_lidents [ original_name ] ^^ hardline ^^
+      (if ts <> [] then string "with types" ^^ break 1 ^^ group (print_typs ts) ^^ hardline else
+        empty) ^^
+      extra
+    in
+    Common.Comment (KPrint.bsprintf "%a" PrintCommon.pdoc comment)
+
+  let gen_lid lid ts (extra: extra) =
+    if !short_names then
+      if lid = tuple_lid && List.for_all ((=) (List.hd ts)) ts then
+        let n = KPrint.bsprintf "%a_x%d" ptyp (List.hd ts) (List.length ts) in
+        ([], n), [ Common.AutoGenerated ]
+      else
+        let m, n = if lid = tuple_lid then [], "tuple" else lid in
+        (* Skip binders that are there for debugging only. *)
+        let hash = match extra with
+          | Cg cgs -> Hashtbl.hash (ts, cgs)
+          | Expr (n_cgs, cgs, _) -> Hashtbl.hash (ts, (n_cgs, cgs))
+        in
+        (* Big debug smorgasbord *)
+        maybe_debug_hash hash (lazy (
+          let open PPrint in
+          let open PrintAst in
+          string "type arguments" ^^ hardline ^^
+          (if ts = [] then string "no types" else separate_map hardline print_typ ts) ^^ hardline ^^
+          match extra with
+            | Expr (n_cgs, es, _bs) ->
+                string "(expr)" ^/^ string (string_of_int n_cgs) ^/^ string "const generics, followed by trait method impl arguments" ^^ hardline ^^
+                separate_map hardline (print_expr empty_env) es
+            | Cg cgs ->
+                string "(type) const generics" ^^ hardline ^^ separate_map hardline print_cg cgs
+          ));
+        (* Actual Logic *)
+        let n = Printf.sprintf "%s_%02x" n (hash land 0xFF) in
+        let n = Idents.mk_fresh n (fun n -> Hashtbl.mem seen (m, n)) in
+        Hashtbl.add seen (m, n) ();
+        (m, n), [ Common.AutoGenerated; gen_comment lid ts extra ]
+    else
+      let doc =
+        separate_map underscore print_typ ts ^^
+        (let extra = print_extra extra in if extra <> empty then underscore ^^ extra else empty)
+      in
+      (fst lid, snd lid ^ KPrint.bsprintf "__%a" PrintCommon.pdoc doc), [ Common.AutoGenerated ]
+end
 
 (* Monomorphization of data type definitions **********************************)
 
@@ -59,12 +206,16 @@ let build_def_map files =
 
 include MonomorphizationState
 
-let has_variables ts=
+let has_variables ts =
   let r =
     (object
       inherit [_] reduce
       method zero = false
       method plus = (||)
+      method! visit_CgVar _ _ =
+        true
+      method! visit_TCgArray _ _ _ =
+        true
       method! visit_TBound _ _ =
         true
     end)#visit_TApp () ([], "") ts
@@ -101,7 +252,7 @@ let monomorphize_data_types map = object(self)
   (* Current file, for warning purposes. *)
   val mutable current_file = ""
   (* Possibly populated with something relevant *)
-  val mutable best_hint: node * lident = (dummy_lid, [], []), dummy_lid
+  val mutable best_hint: node * lident * flag list = (dummy_lid, [], []), dummy_lid, []
   (* For forward references, a map from lid to its pending monomorphizations
      (type arguments) *)
   val pending_monomorphizations: (lident, (typ list * cg list)) Hashtbl.t = Hashtbl.create 41
@@ -139,7 +290,7 @@ let monomorphize_data_types map = object(self)
         | exception Not_found ->
             let args = List.map (self#visit_typ false) args in
             TTuple args
-        | _, chosen_lid ->
+        | _, chosen_lid, _ ->
             TQualified chosen_lid
 
       method! visit_TApp () lid args =
@@ -147,29 +298,37 @@ let monomorphize_data_types map = object(self)
         | exception Not_found ->
             let args = List.map (self#visit_typ false) args in
             TApp (lid, args)
-        | _, chosen_lid ->
+        | _, chosen_lid, _ ->
             TQualified chosen_lid
     end)#visit_typ () t
+
+  (* We need to renormalize entries in the map for the Checker module. For
+     instance, the map might contain `t (u v) -> t0` and `u v -> u0`, but at
+     this stage, we will have a type error when trying to compare  `t (u v)` and
+     `t u0`, since the latter does not appear in the map. *)
+  method private renormalize_entry (n, ts, cgs) chosen_lid =
+    (* We do this on the fly to make sure that types that appear in ts have
+       themselves been renormalized. *)
+    let ts' = List.map resolve_deep ts in
+    if not (Hashtbl.mem state (n, ts', cgs)) then
+      Hashtbl.add state (n, ts', cgs) (Black, chosen_lid, true)
 
   (* Compute the name of a given node in the graph. *)
   method private lid_of (n: node) =
     let lid, ts, cgs = n in
     if ts = [] && cgs = [] then
       lid, []
-    else if fst best_hint = n then
-      snd best_hint, []
+    else if fst3 best_hint = n then
+      snd3 best_hint, []
     else
-      let doc = PPrint.(separate_map underscore PrintAst.print_typ (List.map self#pretty ts) ^^
-        if cgs = [] then empty else underscore ^^ separate_map underscore PrintAst.print_cg cgs)
-      in
-      let name = fst lid, KPrint.bsprintf "%s__%a" (snd lid) PrintCommon.pdoc doc in
+      let name, flags = NameGen.gen_lid lid ts (Cg cgs) in
       if Options.debug "monomorphization" then
         KPrint.bprintf "No hint provided for %a\n  current best hint: %a -> %a\n  picking: %a\n"
           ptyp (fold_tapp (lid, ts, []))
-          ptyp (fold_tapp (fst best_hint))
-          plid (snd best_hint)
+          ptyp (fold_tapp (fst3 best_hint))
+          plid (snd3 best_hint)
           plid name;
-      name, [ Common.AutoGenerated ]
+      name, flags
 
   (* Prettifying the field names for n-uples. *)
   method private field_at i =
@@ -190,25 +349,28 @@ let monomorphize_data_types map = object(self)
         if Options.debug "data-types-traversal" then
           KPrint.bprintf "visiting %a: Not_found\n" ptyp (fold_tapp n);
         let chosen_lid, flag = self#lid_of n in
+        let flag = if fst3 best_hint = n then thd3 best_hint @ flag else flag in
         if lid = tuple_lid then begin
-          Hashtbl.add state n (Gray, chosen_lid);
+          Hashtbl.add state n (Gray, chosen_lid, false);
           let args = List.map (self#visit_typ under_ref) args in
           (* For tuples, we immediately know how to generate a definition. *)
           let fields = List.mapi (fun i arg -> Some (self#field_at i), (arg, false)) args in
           self#record (DType (chosen_lid, [ Common.Private ] @ flag, 0, 0, Flat fields));
-          Hashtbl.replace state n (Black, chosen_lid)
+          self#renormalize_entry n chosen_lid;
+          Hashtbl.replace state n (Black, chosen_lid, false)
         end else begin
           (* This specific node has not been visited yet. *)
-          Hashtbl.add state n (Gray, chosen_lid);
+          Hashtbl.add state n (Gray, chosen_lid, false);
 
           let subst fields = List.map (fun (field, (t, m)) ->
-            field, (DeBruijn.subst_ctn' cgs (DeBruijn.subst_tn args t), m)
+            field, (DeBruijn.subst_tn args (DeBruijn.subst_ctn' cgs t), m)
           ) fields in
           assert (not (Hashtbl.mem map lid) || not (has_variables args) && not (has_cg_variables cgs));
           begin match Hashtbl.find map lid with
           | exception Not_found ->
               (* Unknown, external non-polymorphic lid, e.g. Prims.int *)
-              Hashtbl.replace state n (Black, chosen_lid)
+              self#renormalize_entry n chosen_lid;
+              Hashtbl.replace state n (Black, chosen_lid, false)
           | flags, ((Variant _ | Flat _ | Union _) as def) when under_ref && not (Hashtbl.mem seen_declarations lid) ->
               (* Because this looks up a definition in the global map, the
                  definitions are reordered according to the traversal order, which
@@ -238,11 +400,13 @@ let monomorphize_data_types map = object(self)
               let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
               let branches = self#visit_branches_t under_ref branches in
               self#record (DType (chosen_lid, flag @ flags, 0, 0, Variant branches));
-              Hashtbl.replace state n (Black, chosen_lid)
+              self#renormalize_entry n chosen_lid;
+              Hashtbl.replace state n (Black, chosen_lid, false)
           | flags, Flat fields ->
               let fields = self#visit_fields_t_opt under_ref (subst fields) in
               self#record (DType (chosen_lid, flag @ flags, 0, 0, Flat fields));
-              Hashtbl.replace state n (Black, chosen_lid)
+              self#renormalize_entry n chosen_lid;
+              Hashtbl.replace state n (Black, chosen_lid, false)
           | flags, Union fields ->
               let fields = List.map (fun (f, t) ->
                 let t = DeBruijn.subst_tn args t in
@@ -250,18 +414,21 @@ let monomorphize_data_types map = object(self)
                 f, t
               ) fields in
               self#record (DType (chosen_lid, flag @ flags, 0, 0, Union fields));
-              Hashtbl.replace state n (Black, chosen_lid)
+              self#renormalize_entry n chosen_lid;
+              Hashtbl.replace state n (Black, chosen_lid, false)
           | flags, Abbrev t ->
               let t = DeBruijn.subst_tn args t in
               let t = self#visit_typ under_ref t in
               self#record (DType (chosen_lid, flag @ flags, 0, 0, Abbrev t));
-              Hashtbl.replace state n (Black, chosen_lid)
+              self#renormalize_entry n chosen_lid;
+              Hashtbl.replace state n (Black, chosen_lid, false)
           | _ ->
-              Hashtbl.replace state n (Black, chosen_lid)
+              self#renormalize_entry n chosen_lid;
+              Hashtbl.replace state n (Black, chosen_lid, false)
           end
         end;
         chosen_lid
-    | Gray, chosen_lid ->
+    | Gray, chosen_lid, _ ->
         if Options.debug "data-types-traversal" then
           KPrint.bprintf "visiting %a: Gray\n" ptyp (fold_tapp n);
         begin match Hashtbl.find map lid with
@@ -273,7 +440,7 @@ let monomorphize_data_types map = object(self)
             self#record (DType (chosen_lid, flags, 0, 0, Forward FStruct))
         end;
         chosen_lid
-    | Black, chosen_lid ->
+    | Black, chosen_lid, _ ->
         if Options.debug "data-types-traversal" then
           KPrint.bprintf "visiting %a: Black\n" ptyp (fold_tapp n);
         chosen_lid
@@ -288,16 +455,16 @@ let monomorphize_data_types map = object(self)
       if Options.debug "data-types-traversal" then
         KPrint.bprintf "decl %a\n" plid (lid_of_decl d);
       match d with
-      | DType (lid, _, 0, 0, Abbrev (TTuple args)) when not (Hashtbl.mem state (tuple_lid, args, [])) ->
+      | DType (lid, flags, 0, 0, Abbrev (TTuple args)) when not !Options.keep_tuples && not (Hashtbl.mem state (tuple_lid, args, [])) ->
           Hashtbl.remove map lid;
           if Options.debug "monomorphization" then
             KPrint.bprintf "%a abbreviation for %a\n" plid lid ptyp (TApp (tuple_lid, args));
-          best_hint <- (tuple_lid, args, []), lid;
+          best_hint <- (tuple_lid, args, []), lid, flags;
           ignore (self#visit_node false (tuple_lid, args, []));
           Hashtbl.add seen_declarations lid ();
           self#clear ()
 
-      | DType (lid, _, 0, 0, Abbrev ((TApp _ | TCgApp _) as t)) when not (Hashtbl.mem state (flatten_tapp t)) ->
+      | DType (lid, flags, 0, 0, Abbrev ((TApp _ | TCgApp _) as t)) when not (Hashtbl.mem state (flatten_tapp t)) ->
           (* We have not yet monomorphized this type, and conveniently, we have
              a type abbreviation that provides us with a name hint! We simply
              ditch the type abbreviation and replace it with a monomorphization
@@ -316,9 +483,9 @@ let monomorphize_data_types map = object(self)
           let abbrev_for_gc_type = Hashtbl.mem map hd && List.mem Common.GcType (fst (Hashtbl.find map hd)) in
 
           if abbrev_for_gc_type then
-            best_hint <- (hd, args, cgs), (fst lid, snd lid ^ "_gc")
+            best_hint <- (hd, args, cgs), (fst lid, snd lid ^ "_gc"), flags
           else
-            best_hint <- (hd, args, cgs), lid;
+            best_hint <- (hd, args, cgs), lid, flags;
 
           ignore (self#visit_node false (hd, args, cgs));
 
@@ -370,13 +537,19 @@ let monomorphize_data_types map = object(self)
       super#visit_DType env name flags n d
 
   method! visit_ETuple under_ref es =
-    EFlat (List.mapi (fun i e -> Some (self#field_at i), self#visit_expr under_ref e) es)
+    if not !Options.keep_tuples then
+      EFlat (List.mapi (fun i e -> Some (self#field_at i), self#visit_expr under_ref e) es)
+    else
+      super#visit_ETuple under_ref es
 
   method! visit_PTuple under_ref pats =
-    PRecord (List.mapi (fun i p -> self#field_at i, self#visit_pattern under_ref p) pats)
+    if not !Options.keep_tuples then
+      PRecord (List.mapi (fun i p -> self#field_at i, self#visit_pattern under_ref p) pats)
+    else
+      super#visit_PTuple under_ref pats
 
   method! visit_TTuple under_ref ts =
-    if not (has_variables ts) && not (has_cg_array ts) then
+    if not !Options.keep_tuples && not (has_variables ts) && not (has_cg_array ts) then
       TQualified (self#visit_node under_ref (tuple_lid, ts, []))
     else
       super#visit_TTuple under_ref ts
@@ -392,10 +565,11 @@ let monomorphize_data_types map = object(self)
 
   method! visit_TCgApp under_ref t cg =
     let lid, ts, cgs = flatten_tapp (TCgApp (t, cg)) in
-    if Hashtbl.mem map lid && not (has_variables ts) && not (has_cg_variables cgs) then
+    if Hashtbl.mem map lid && not (has_variables (List.map (DeBruijn.subst_ctn' cgs) ts)) && not (has_cg_variables cgs) then
       TQualified (self#visit_node under_ref (lid, ts, cgs))
     else
-      super#visit_TCgApp under_ref t cg
+      let ts = List.map (self#visit_typ under_ref) ts in
+      fold_tapp (lid, ts, cgs)
 
   method! visit_TBuf _ t const =
     TBuf (self#visit_typ true t, const)
@@ -411,21 +585,13 @@ let datatypes files =
 
 (* Type monomorphization of functions. ****************************************)
 
-(* JP: TODO: share the functionality with type monomorphization... the call to
- * Hashtbl.find is in the visitor but the Gen functionality is clearly
- * outside... sigh. *)
+(* This provides a queue of pending monomorphized definitions, that can be cleared when it is
+   time for those definitions to be inserted. For type definitions, this functionality is inlined
+   within the main visitor. *)
 module Gen = struct
-  let generated_lids = Hashtbl.create 41
-  let pending_defs = ref []
 
-  let gen_lid lid ts cgs =
-    let doc =
-      let open PPrint in
-      let open PrintAst in
-      separate_map underscore print_typ ts ^^
-      (if cgs = [] then empty else underscore ^^ separate_map underscore print_expr cgs)
-    in
-    fst lid, snd lid ^ KPrint.bsprintf "__%a" PrintCommon.pdoc doc
+  (* Pending definitions *)
+  let pending_defs = ref []
 
   let register_def current_file original_lid cgs ts lid def =
     Hashtbl.add generated_lids (original_lid, cgs, ts) lid;
@@ -486,60 +652,79 @@ let functions files =
             [ d ]
       ) decls
 
-    method! visit_ETApp ((diff, _) as env) e cgs ts =
+    method! visit_ETApp ((diff, _) as env) e cgs cgs' ts =
+      (* Partial cg application generates this *)
+      let rec flatten_etapp e =
+        match e.node with
+        | ETApp (e, cgs, cgs_, ts) ->
+            assert (cgs_ = []);
+            let e, cgs', ts' = flatten_etapp e in
+            e, cgs' @ cgs, ts' @ ts
+        | _ ->
+            e, [], []
+      in
+      let e, cgs_, ts_ = flatten_etapp e in
+      let cgs, ts = cgs_ @ cgs, ts_ @ ts in
+
       let fail_if () =
-        if cgs <> [] then
+        if cgs @ cgs' <> [] then
           Warn.fatal_error "TODO: e=%a\ncgs=%a\nts=%a\n%a\n"
             pexpr e
             pexprs cgs
             ptyps ts
-            pexpr (with_type TUnit (ETApp (e, cgs, ts)));
+            pexpr (with_type TUnit (ETApp (e, cgs, cgs', ts)));
       in
       match e.node with
       | EQualified lid ->
           begin try
             (* Already monomorphized? *)
-            EQualified (Hashtbl.find Gen.generated_lids (lid, cgs, ts))
+            EQualified (Hashtbl.find generated_lids (lid, cgs @ cgs', ts))
           with Not_found ->
             match Hashtbl.find map lid with
             | exception Not_found ->
                 (* External function. Bail. Leave cgs -- treated as normal
                    arguments when going to C. C'est la vie. *)
                 if !Options.allow_tapps || AstToCStar.whitelisted_tapp e then
-                  super#visit_ETApp env e cgs ts
+                  super#visit_ETApp env e cgs cgs' ts
                 else
                   (self#visit_expr env e).node
             | `Function (cc, flags, n_cgs, n, ret, name, binders, body) ->
                 (* Need to generate a new instance. *)
                 if n <> List.length ts then begin
                   KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
-                  (self#visit_expr env e).node
+                  ETApp (self#visit_expr env e, cgs, cgs', ts)
                 end else if n_cgs <> List.length cgs then begin
                   KPrint.bprintf "%a is not fully cg-applied!\n" plid lid;
-                  (self#visit_expr env e).node
+                  ETApp (self#visit_expr env e, cgs, cgs', ts)
                 end else
                   (* The thunk allows registering the name before visiting the
                    * body, for polymorphic recursive functions. *)
-                  let name = Gen.gen_lid name ts cgs in
+                  let name, comment = NameGen.gen_lid name ts (Expr (n_cgs, cgs @ cgs', binders)) in
                   let def () =
                     let ret = DeBruijn.(subst_ctn diff cgs (subst_tn ts ret)) in
                     assert (List.length cgs = n_cgs);
-                    let _, binders = KList.split (List.length cgs) binders in
-                    let binders = List.map (fun { node; typ } ->
-                      { node; typ = DeBruijn.(subst_ctn diff cgs (subst_tn ts typ)) }
+                    (* binders are the remaining binders after the cg-binders have been eliminated *)
+                    let diff = List.length binders - List.length cgs in
+                    let _cg_binders, binders = KList.split (List.length cgs + List.length cgs') binders in
+                    let binders = List.map (fun { node; typ; _ } ->
+                      { node; typ = DeBruijn.(subst_ctn diff cgs (subst_tn ts typ)); meta = [] }
                     ) binders in
-                    (* KPrint.bprintf "about to substitute: e=%a\ncgs=%a\nts=%a\n%a\n" *)
+                    (* KPrint.bprintf "about to substitute:\n  e=%a\n  cgs=%a\n cgs'=%a\n  ts=%a\n  head type=%a\n%a\n" *)
                     (*   pexpr e *)
                     (*   pexprs cgs *)
+                    (*   pexprs cgs' *)
                     (*   ptyps ts *)
-                    (*   pexpr (with_type TUnit (ETApp (e, cgs, ts))); *)
-                    (* KPrint.bprintf "after to substitute: body:%a\n\n" pexpr body; *)
-                    let body = DeBruijn.(subst_cen (List.length binders) cgs (subst_ten ts body)) in
-                    (* KPrint.bprintf "after substitution: body:%a\n\n" pexpr body; *)
+                    (*   ptyp e.typ *)
+                    (*   pexpr (with_type TUnit (ETApp (e, cgs, cgs', ts))); *)
+                    (* KPrint.bprintf "body: %a\n\n" pexpr body; *)
+                    (* KPrint.bprintf "subst_ten ts body: %a\n\n" pexpr DeBruijn.(subst_ten ts body); *)
+                    (* KPrint.bprintf "subst_cen diff cgs (subst_ten ts body): %a\n\n" pexpr DeBruijn.(subst_cen diff cgs (subst_ten ts body)); *)
+                    let body = DeBruijn.(subst_n' (List.length binders) (subst_cen diff cgs (subst_ten ts body)) cgs') in
+                    (* KPrint.bprintf "after substitution: body :%a\n\n" pexpr body; *)
                     let body = self#visit_expr env body in
-                    DFunction (cc, flags, 0, 0, ret, name, binders, body)
+                    DFunction (cc, flags @ comment, 0, 0, ret, name, binders, body)
                   in
-                  EQualified (Gen.register_def current_file lid cgs ts name def)
+                  EQualified (Gen.register_def current_file lid (cgs @ cgs') ts name def)
 
             | `Global (flags, name, n, t, body) ->
                 fail_if ();
@@ -547,12 +732,12 @@ let functions files =
                   KPrint.bprintf "%a is not fully type-applied!\n" plid lid;
                   (self#visit_expr env e).node
                 end else
-                  let name = Gen.gen_lid name ts [] in
+                  let name, comment = NameGen.gen_lid name ts (Cg []) in
                   let def () =
                     let t = DeBruijn.subst_tn ts t in
                     let body = DeBruijn.subst_ten ts body in
                     let body = self#visit_expr env body in
-                    DGlobal (flags, name, 0, t, body)
+                    DGlobal (flags @ comment, name, 0, t, body)
                   in
                   EQualified (Gen.register_def current_file lid [] ts name def)
 
@@ -566,7 +751,7 @@ let functions files =
 
       | _ ->
           KPrint.bprintf "%a is not an lid in the type application\n" pexpr e;
-          (self#visit_expr env e).node
+          ETApp (self#visit_expr env e, cgs, cgs', ts)
 
   end in
 
@@ -649,7 +834,7 @@ let equalities files =
         | K.PEq -> [], "__eq"
         | K.PNeq -> [], "__neq"
       in
-      let instance_lid = Gen.gen_lid eq_lid [ t ] [] in
+      let instance_lid, _ = NameGen.gen_lid eq_lid [ t ] (Cg []) in
       let x = fresh_binder "x" t in
       let y = fresh_binder "y" t in
 
@@ -698,7 +883,7 @@ let equalities files =
       | TQualified lid when Hashtbl.mem types_map lid ->
           begin try
             (* Already monomorphized? *)
-            let existing_lid = Hashtbl.find Gen.generated_lids (eq_lid, [], [ t ]) in
+            let existing_lid = Hashtbl.find generated_lids (eq_lid, [], [ t ]) in
             let is_cycle = List.exists (fun d -> lid_of_decl d = existing_lid) !Gen.pending_defs in
             if is_cycle then
               has_cycle <- true;
@@ -809,7 +994,7 @@ let equalities files =
       | _ ->
           try
             (* Already monomorphized? *)
-            EQualified (Hashtbl.find Gen.generated_lids (eq_lid, [], [ t ]))
+            EQualified (Hashtbl.find generated_lids (eq_lid, [], [ t ]))
           with Not_found ->
             (* External type without a definition. Comparison of function types? *)
             gen_poly ()
@@ -826,11 +1011,11 @@ let equalities files =
       in
       try
         (* Already monomorphized? *)
-        let existing_lid = Hashtbl.find Gen.generated_lids (eq_lid, [], [ t ]) in
+        let existing_lid = Hashtbl.find generated_lids (eq_lid, [], [ t ]) in
         EQualified existing_lid
       with Not_found ->
         let eq_typ = TArrow (t, TArrow (t, TBool)) in
-        let instance_lid = Gen.gen_lid eq_lid [ t ] [] in
+        let instance_lid, _ = NameGen.gen_lid eq_lid [ t ] (Cg []) in
         let x = fresh_binder "x" t in
         let y = fresh_binder "y" t in
         EQualified (Gen.register_def current_file eq_lid [] [ t ] instance_lid (fun _ ->

@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** The internal, typed AST that we perform all transformations on. *)
 
@@ -16,20 +16,21 @@ module K = Constant
 
 (* Just like int, float, and other OCaml base types, we generate polymorphic
  * methods for the "base types" of our AST. *)
-type calling_convention = Common.calling_convention [@ opaque]
+type calling_convention = Common.calling_convention [@ visitors.opaque]
 and calling_convention_option = calling_convention option
-and atom_t = Atom.t [@ opaque]
-and flag = Common.flag [@ opaque]
+and atom_t = Atom.t [@ visitors.opaque]
+and flag = Common.flag [@ visitors.opaque]
 and flags = flag list
-and op = K.op [@ opaque]
-and width = K.width [@ opaque]
-and lifetime = Common.lifetime [@ opaque]
-and constant = K.t [@ opaque]
-and ident = string [@ opaque]
-and poly_comp = K.poly_comp [@ opaque]
-and forward_kind = Common.forward_kind [@ opaque]
-and lident = ident list * ident [@ opaque]
-and valuation = Mark.occurrence * Mark.usage [@ opaque]
+and op = K.op [@ visitors.opaque]
+and width = K.width [@ visitors.opaque]
+and lifetime = Common.lifetime [@ visitors.opaque]
+and constant = K.t [@ visitors.opaque]
+and ident = string [@ visitors.opaque]
+and z = Z.t [@ opaque]
+and poly_comp = K.poly_comp [@ visitors.opaque] [@ show.opaque]
+and forward_kind = Common.forward_kind [@ visitors.opaque]
+and lident = ident list * ident [@ visitors.opaque]
+and valuation = Mark.occurrence * Mark.usage [@ visitors.opaque]
   [@@deriving show,
     visitors { variety = "iter"; name = "iter_misc"; polymorphic = true },
     visitors { variety = "reduce"; name = "reduce_misc"; polymorphic = true },
@@ -41,9 +42,33 @@ type cg =
   | CgVar of int
   | CgConst of constant
 
+(* From 2016-2024, krml spent eight blissful years not dealing with
+   higher-order types, and all was fun and dandy. However, with the arrival of
+   Rust-style monomorphization, and the passing of trait methods as function
+   pointers before whole-program monomorphization, we now need to deal with
+   things such as:
+
+     trait Foo<const K: usize> { fn bar<const L: usize>(x: [u8; K]) -> (); }
+     fn f<const K:usize, T: Foo<K>>() { }
+
+   which needs to be translated as:
+
+     fn bar<K, L>(x: [u8; K]) -> ()
+
+     fn f<K: usize, T>(bar_k: <L>(x: [u8; K]) -> ())
+
+   and when instantiating the type scheme of f we need to know not to substitute
+   under <L>. *)
+and type_scheme = {
+  n_cgs: int;
+  n: int;
+}
+
 (* The visitor of types composes with the misc. visitor. *)
 and typ =
   | TInt of width
+      (** this constructor includes also **floating points** for historical
+       * reason. *)
   | TBool
   | TUnit
   | TAny
@@ -71,6 +96,8 @@ and typ =
       (** disappears after tuple removal *)
   | TAnonymous of type_def
       (** appears after data type translation to tagged enums *)
+  | TPoly of type_scheme * typ
+      (** only generated from trait methods in Rust *)
   [@@deriving show,
     visitors { variety = "iter"; ancestors = [ "iter_misc" ]; name = "iter_typ" },
     visitors { variety = "reduce"; ancestors = [ "reduce_misc" ]; name = "reduce_typ" },
@@ -80,7 +107,7 @@ and type_def =
   | Abbrev of typ
   | Flat of fields_t_opt
   | Variant of branches_t
-  | Enum of lident list
+  | Enum of (lident * z option) list
   | Union of (ident * typ) list
   | Forward of forward_kind
 
@@ -96,12 +123,18 @@ and branch_t =
 and fields_t =
   (ident * (typ * bool)) list
 
+type node_meta =
+  | CommentBefore of string
+  | CommentAfter of string
+
+and node_meta' = node_meta [@visitors.opaque] [@@deriving show]
 
 (* This type, by virtue of being separated from the recursive definition of expr
  * and pattern, generates no implementation. We provide our own below. *)
 type 'a with_type = {
   node: 'a;
-  mutable typ: typ
+  mutable typ: typ;
+  meta: node_meta' list;
     (** Filled in by [Checker] *)
 }
   [@@deriving show]
@@ -139,7 +172,7 @@ class ['self] map_typ_adapter = object (self: 'self)
     fun f (env, _) x ->
       let typ = self#visit_typ env x.typ in
       let node = f (env, typ) x.node in
-      { node; typ }
+      { node; typ; meta = x.meta }
 end
 
 class ['self] iter_typ_adapter = object (self: 'self)
@@ -197,7 +230,13 @@ type expr' =
   | EIgnore of expr
 
   | EApp of expr * expr list
-  | ETApp of expr * expr list * typ_wo list
+  | ETApp of expr * expr list * expr list * typ_wo list
+    (** The arguments are:
+      - the head of the application
+      - the const generic args (TODO: would be nice to have a way to deal with
+        those without those silly diff computations)
+      - additional arguments to monomorphize over NOT IN SCOPE in types
+      - type arguments *)
   | EPolyComp of poly_comp * typ_wo
   | ELet of binder * expr * expr
   | EFun of binder list * expr * typ_wo
@@ -253,7 +292,6 @@ type expr' =
      * ]}
      * The scope of the binder is the second, third and fourth expressions. *)
   | ECast of expr * typ_wo
-  | EComment of string * expr * string
   | EStandaloneComment of string
   | EAddrOf of expr
 
@@ -314,7 +352,7 @@ and binder' = {
   name: ident;
   mut: bool;
   mark: valuation ref;
-  meta: meta option;
+  meta: meta list;
   atom: atom_t;
     (** Only makes sense when opened! *)
 }
@@ -324,6 +362,8 @@ and binder =
 
 and meta =
   | MetaSequence
+  | AttemptInline
+  | Align of int (* in bytes *)
 
 and match_flavor = | Checked | Unchecked
 
@@ -350,7 +390,7 @@ class ['self] map_expr_adapter = object (self: 'self)
     fun f env x ->
       let typ = self#visit_typ env x.typ in
       let node = f (env, typ) x.node in
-      { node; typ }
+      { node; typ; meta = x.meta }
 
   method visit_expr_w env e =
     self#visit_expr (env, e.typ) e
@@ -522,12 +562,20 @@ class ['self] map = object (self: 'self)
     let e = self#visit_expr_w env e in
     DFunction (cc, flags, n_cg, n, t, lid, bs, e)
 
-  method! visit_ETApp env e es ts =
+  method! visit_TPoly env ts t =
+    TPoly (ts, self#visit_typ (self#extend_tmany env ts.n) t)
+
+  method! visit_ETApp env e es es' ts =
     let ts = List.map (self#visit_typ_wo env) ts in
     let es = List.map (self#visit_expr env) es in
-    let env = self#extend_tmany (fst env) (List.length ts) in
+    let es' = List.map (self#visit_expr env) es' in
+    let n = match e.typ with
+      | TPoly ({ n; _ }, _) -> n
+      | _ -> List.length ts
+    in
+    let env = self#extend_tmany (fst env) n in
     let e = self#visit_expr_w env e in
-    ETApp (e, es, ts)
+    ETApp (e, es, es', ts)
 end
 
 class ['self] iter = object (self: 'self)
@@ -640,7 +688,7 @@ let map_decls f files =
   List.map (fun (file, decls) -> file, List.map f decls) files
 
 let with_type typ node =
-  { typ; node }
+  { typ; node; meta = [] }
 
 let flatten_tapp t =
   let rec flatten_tapp cgs t =
@@ -652,7 +700,7 @@ let flatten_tapp t =
     | TQualified lid ->
         lid, [], List.rev cgs
     | _ ->
-        invalid_arg "flatten_tapp"
+        invalid_arg ("flatten_tapp: " ^ show_typ t)
   in
   flatten_tapp [] t
 
@@ -675,3 +723,7 @@ let flags_of_decl = function
       flags
 
 let tuple_lid = [ "K" ], ""
+
+let fst3 (x, _, _) = x
+let snd3 (_, y, _) = y
+let thd3 (_, _, z) = z

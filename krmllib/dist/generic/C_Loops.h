@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __C_Loops_H
-#define __C_Loops_H
+#ifndef C_Loops_H
+#define C_Loops_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -36,5 +36,5 @@ typedef void *C_Loops_repeat_range_body_interp;
 typedef void (*C_Loops_repeat_range_body_impl)(uint32_t x0);
 
 
-#define __C_Loops_H_DEFINED
-#endif
+#define C_Loops_H_DEFINED
+#endif /* C_Loops_H */

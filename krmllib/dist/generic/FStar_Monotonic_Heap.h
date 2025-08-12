@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_Monotonic_Heap_H
-#define __FStar_Monotonic_Heap_H
+#ifndef FStar_Monotonic_Heap_H
+#define FStar_Monotonic_Heap_H
 
 #include "FStar_Bytes.h"
 #include <inttypes.h>
@@ -15,26 +15,26 @@
 
 typedef void *FStar_Monotonic_Heap_tset;
 
-typedef struct FStar_Pervasives_dtuple4_____FStar_Pervasives_Native_option_____bool_any_s
+typedef struct FStar_Pervasives_dtuple4_____FStar_Pervasives_Native_option____bool_any_s
 {
   FStar_Pervasives_Native_option__Prims_string_tags _2;
   bool _3;
   void *_4;
 }
-FStar_Pervasives_dtuple4_____FStar_Pervasives_Native_option_____bool_any;
+FStar_Pervasives_dtuple4_____FStar_Pervasives_Native_option____bool_any;
 
 typedef struct
-FStar_Pervasives_Native_option__FStar_Pervasives_dtuple4____FStar_Pervasives_Native_option_____bool_any_s
+FStar_Pervasives_Native_option__FStar_Pervasives_dtuple4____FStar_Pervasives_Native_option____bool_any_s
 {
   FStar_Pervasives_Native_option__Prims_string_tags tag;
-  FStar_Pervasives_dtuple4_____FStar_Pervasives_Native_option_____bool_any v;
+  FStar_Pervasives_dtuple4_____FStar_Pervasives_Native_option____bool_any v;
 }
-FStar_Pervasives_Native_option__FStar_Pervasives_dtuple4____FStar_Pervasives_Native_option_____bool_any;
+FStar_Pervasives_Native_option__FStar_Pervasives_dtuple4____FStar_Pervasives_Native_option____bool_any;
 
 typedef struct FStar_Monotonic_Heap_heap_rec_s
 {
   krml_checked_int_t next_addr;
-  FStar_Pervasives_Native_option__FStar_Pervasives_dtuple4____FStar_Pervasives_Native_option_____bool_any
+  FStar_Pervasives_Native_option__FStar_Pervasives_dtuple4____FStar_Pervasives_Native_option____bool_any
   (*memory)(krml_checked_int_t x0);
 }
 FStar_Monotonic_Heap_heap_rec;
@@ -78,5 +78,5 @@ extern void
 **FStar_Monotonic_Heap_ref_of(FStar_Monotonic_Heap_heap_rec h, FStar_Monotonic_Heap_aref_ a);
 
 
-#define __FStar_Monotonic_Heap_H_DEFINED
-#endif
+#define FStar_Monotonic_Heap_H_DEFINED
+#endif /* FStar_Monotonic_Heap_H */

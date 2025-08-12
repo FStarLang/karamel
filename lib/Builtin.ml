@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** Removing all traces of F* models and replacing them with built-in
  * definitions or abstract ones before re-checking the program as Low*. *)
@@ -351,14 +351,13 @@ let addendum = [
 ]
 
 let make_abstract_function_or_global = function
-  | DFunction (cc, flags, n_cg, n, t, name, bs, _) ->
+  | DFunction (cc, flags, n_cgs, n, t, name, bs, _) ->
       let t = fold_arrow (List.map (fun b -> b.typ) bs) t in
-      assert (n_cg = 0);
-      if n = 0 then
-        Some (DExternal (cc, flags, 0, 0, name, t, List.map (fun x -> x.node.name) bs))
+      if n = 0 || !Options.allow_tapps then
+        Some (DExternal (cc, flags, n_cgs, n, name, t, List.map (fun x -> x.node.name) bs))
       else
         None
-  | DGlobal (flags, name, n, t, body) when not (List.mem Common.Macro flags) ->
+  | DGlobal (flags, name, n, t, body) ->
       let open PrintAst.Ops in
       (* So it's pretty frustrating to have to pattern-match on expressions that we know will be
          simplified later. But sadly, -library'ing must happen very early on, as successful bundling
@@ -435,7 +434,12 @@ let is_model name =
       "C_Compat_String";
       "FStar_String";
       "Steel_SpinLock"
-    ]
+    ] || (
+      Options.rust () &&
+      List.mem name [
+        "Pulse_Lib_Slice"
+      ]
+    )
 
 (* We have several different treatments. *)
 let prepare files =

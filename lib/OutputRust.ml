@@ -3,15 +3,15 @@
 open PPrint
 
 (* It is understood that many of these need to go once the code-gen is improved. *)
-let directives = String.trim {|
+let directives = ref (String.trim {|
 #![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(unused_assignments)]
-#![allow(unused_mut)]
 #![allow(unreachable_patterns)]
-#![allow(const_item_mutation)]
-|}
+|})
+
+let use_aligned = ref false
 
 let rust_name f = f ^ ".rs"
 
@@ -26,7 +26,8 @@ let write_file file =
     let filename = Driver.((^^)) dirs (rust_name filename) in
     Utils.with_open_out_bin filename (fun oc ->
       let doc =
-        string directives ^^ hardline ^^ hardline ^^
+        string !directives ^^ hardline ^^ hardline ^^
+        (if !use_aligned then string "use aligned::*;" ^^ hardline ^^ hardline else empty) ^^
         PrintMiniRust.print_decls prefix decls
       in
       PPrint.ToChannel.pretty 0.95 100 oc doc

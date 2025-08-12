@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_Int8_H
-#define __FStar_Int8_H
+#ifndef FStar_Int8_H
+#define FStar_Int8_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -19,6 +19,8 @@ extern bool FStar_Int8_uu___is_Mk(int8_t projectee);
 extern krml_checked_int_t FStar_Int8___proj__Mk__item__v(int8_t projectee);
 
 extern krml_checked_int_t FStar_Int8_v(int8_t x);
+
+typedef void *FStar_Int8_fits;
 
 extern int8_t FStar_Int8_int_to_t(krml_checked_int_t x);
 
@@ -50,6 +52,8 @@ extern int8_t FStar_Int8_shift_left(int8_t a, uint32_t s);
 
 extern bool FStar_Int8_eq(int8_t a, int8_t b);
 
+extern bool FStar_Int8_ne(int8_t a, int8_t b);
+
 extern bool FStar_Int8_gt(int8_t a, int8_t b);
 
 extern bool FStar_Int8_gte(int8_t a, int8_t b);
@@ -65,5 +69,5 @@ extern Prims_string FStar_Int8_to_string(int8_t uu___);
 extern int8_t FStar_Int8_of_string(Prims_string uu___);
 
 
-#define __FStar_Int8_H_DEFINED
-#endif
+#define FStar_Int8_H_DEFINED
+#endif /* FStar_Int8_H */

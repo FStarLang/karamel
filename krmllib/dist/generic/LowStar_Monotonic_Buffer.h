@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __LowStar_Monotonic_Buffer_H
-#define __LowStar_Monotonic_Buffer_H
+#ifndef LowStar_Monotonic_Buffer_H
+#define LowStar_Monotonic_Buffer_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -15,5 +15,5 @@
 typedef void *LowStar_Monotonic_Buffer_loc_disjoint;
 
 
-#define __LowStar_Monotonic_Buffer_H_DEFINED
-#endif
+#define LowStar_Monotonic_Buffer_H_DEFINED
+#endif /* LowStar_Monotonic_Buffer_H */

@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** Going from CStar to CFlat *)
 
@@ -174,7 +174,7 @@ let rec runtime_type (env: env) (t: typ): runtime_type =
           Unknown
       | LEnum -> Int A32
       | LBuiltin (_, s) -> Int s
-      | _ -> Layout (GlobalNames.to_c_name env.names lid)
+      | _ -> Layout (GlobalNames.to_c_name env.names (lid, Type))
       end
   | TAnonymous (Union branches) ->
       Union (List.map (fun (_, t) -> runtime_type env t) branches)
@@ -353,9 +353,12 @@ let populate env files =
     List.fold_left (fun env decl ->
       match decl with
       | DType (_, _, _, _, Enum idents) ->
-          KList.fold_lefti (fun i env ident ->
-            assert (i < 256);
-            { env with enums = LidMap.add ident i env.enums }
+          if List.exists (fun (_, v) -> v <> None) idents then
+            assert (List.for_all (fun (_, v) -> v <> None) idents);
+          KList.fold_lefti (fun i env (ident, v) ->
+            let i = Option.value ~default:(Z.of_int i) v in
+            assert (Z.lt i (Z.of_int 256));
+            { env with enums = LidMap.add ident (Z.to_int i) env.enums }
           ) env idents
       | _ ->
           env
@@ -379,7 +382,7 @@ let populate env files =
           with e ->
             KPrint.beprintf "[AstToC♭] can't compute the layout of %a:\n%s\n%s"
               PrintAst.plid lid (Printexc.to_string e)
-              (if Options.debug "backtraces" then Printexc.get_backtrace () ^ "\n" else "");
+              (if !Options.backtrace then Printexc.get_backtrace () ^ "\n" else "");
             env
           end
       | _ ->
@@ -545,11 +548,11 @@ let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
         ) fields
     | EString s ->
         write_le dst ofs Helpers.uint32 (Z.of_int (Hashtbl.hash s));
-        let name = GlobalNames.to_c_name env.names lid in
+        let name = GlobalNames.to_c_name env.names (lid, Other) in
         [ CF.BufWrite (CF.GetGlobal name, ofs, CF.StringLiteral s, A32) ]
     | EQualified lid' ->
-        let name = GlobalNames.to_c_name env.names lid in
-        let name' = GlobalNames.to_c_name env.names lid' in
+        let name = GlobalNames.to_c_name env.names (lid, Other) in
+        let name' = GlobalNames.to_c_name env.names (lid', Other) in
         (* This is to disable constant string initializers sharing -- we write a
          * dummy value. *)
         write_le dst ofs Helpers.uint32 (Z.of_int (Hashtbl.hash name'));
@@ -658,7 +661,7 @@ and mk_addr env e =
       | TBuf _ -> ()
       | TQualified lid -> assert (is_lflat (LidMap.find lid env.layouts))
       | _ -> () end;
-      let name = GlobalNames.to_c_name env.names lid in
+      let name = GlobalNames.to_c_name env.names (lid, Other) in
       CF.GetGlobal name
   | EAbort _ ->
       mk_expr_no_locals env e
@@ -706,9 +709,8 @@ and mk_expr_or_bail (env: env) (locals: locals) (e: expr): locals * CF.expr =
         Hashtbl.replace errors !current_lid (s :: Hashtbl.find errors !current_lid)
       else
         Hashtbl.add errors !current_lid [ s ];
-      let bt = if Options.debug "backtraces" then Printexc.get_backtrace () ^ "\n" else "" in
-      let msg = KPrint.bsprintf "%a: compilation error turned to runtime failure\n%s%s"
-        plid !current_lid s bt
+      let msg = KPrint.bsprintf "%a: compilation error turned to runtime failure\n%s"
+        plid !current_lid s
       in
       mk_expr env locals (Helpers.with_unit (EAbort (None, Some msg)))
 
@@ -723,14 +725,14 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EOpen _ ->
       invalid_arg "mk_expr (EOpen)"
 
-  | EApp ({ node = ETApp ({ node = EQualified (["LowStar"; "Ignore"],"ignore"); _ }, cgs, _); _ }, [ e ]) ->
+  | EApp ({ node = ETApp ({ node = EQualified (["LowStar"; "Ignore"],"ignore"); _ }, cgs, _, _); _ }, [ e ]) ->
       assert (cgs = []);
       let locals, e = mk_expr env locals e in
       (* This is slightly ill-typed since everywhere else the result of
          intermediary sequence bits is units, but that's fine *)
       locals, CF.Sequence [ e; cflat_unit ]
 
-  | EApp ({ node = ETApp ({ node = EQualified (["Lib"; "Memzero0"],"memzero"); _ }, cgs, _); _ }, [ dst; len ]) ->
+  | EApp ({ node = ETApp ({ node = EQualified (["Lib"; "Memzero0"],"memzero"); _ }, cgs, _, _); _ }, [ dst; len ]) ->
       assert (cgs = []);
       (* TODO: now that the C backend is generic for type applications, do the
          same here and have generic support for ETApp. Idea: reuse the JSON
@@ -755,7 +757,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
   | EApp ({ node = EQualified ident; _ }, es) ->
       let locals, es = fold (mk_expr env) locals es in
-      locals, CF.CallFunc (GlobalNames.to_c_name env.names ident, es)
+      locals, CF.CallFunc (GlobalNames.to_c_name env.names (ident, Other), es)
 
   | EApp _ ->
       failwith "unsupported application"
@@ -767,7 +769,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       locals, CF.Constant (K.UInt32, string_of_int (LidMap.find v env.enums))
 
   | EQualified v ->
-      locals, CF.GetGlobal (GlobalNames.to_c_name env.names v)
+      locals, CF.GetGlobal (GlobalNames.to_c_name env.names (v, Other))
 
   | EBufCreate (l, e_init, e_len) ->
       if not (e_init.node = EAny) then
@@ -892,9 +894,6 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
   | ETuple _ | EMatch _ | ECons _ ->
       invalid_arg "should've been desugared before"
-
-  | EComment (_, e, _) ->
-      mk_expr env locals e
 
   | ESequence es ->
       let locals, es = fold (mk_expr env) locals es in
@@ -1037,7 +1036,7 @@ let mk_decl env (d: decl): env * CF.decl list =
       ) ([], env) args in
       let locals = List.rev_append scratch_locals locals in
       current_lid := name;
-      let name = GlobalNames.to_c_name env.names name in
+      let name = GlobalNames.to_c_name env.names (name, Other) in
 
       (* Interlude: generate a wrapper, possibly *)
       let wrapper () = mk_wrapper name (List.length args) locals in
@@ -1073,13 +1072,13 @@ let mk_decl env (d: decl): env * CF.decl list =
         env, []
       end else
         let env, body, post_init = mk_global env name body in
-        let name = GlobalNames.to_c_name env.names name in
+        let name = GlobalNames.to_c_name env.names (name, Other) in
         env, [
           CF.Global (name, size, body, post_init, public)
         ]
 
   | DExternal (_, _, _, _, lid, t, _) ->
-      let name = GlobalNames.to_c_name env.names lid in
+      let name = GlobalNames.to_c_name env.names (lid, Other) in
       match t with
       | TArrow _ ->
           let ret, args = Helpers.flatten_arrow t in
@@ -1125,14 +1124,14 @@ let mk_module env decls =
       flush stderr;
       KPrint.beprintf "[AstToC♭] skipping %s%a%s:\n%s\n%s"
         Ansi.underline PrintAst.plid (lid_of_decl d) Ansi.reset (Printexc.to_string e)
-        (if Options.debug "backtraces" then Printexc.get_backtrace () ^ "\n" else "");
+        (if !Options.backtrace then Printexc.get_backtrace () ^ "\n" else "");
       env, decls
   ) (env, []) decls in
   env, List.rev decls
 
 let mk_layouts env =
   `Assoc (LidMap.fold (fun lid layout acc ->
-    (GlobalNames.to_c_name env.names lid, layout_to_yojson layout) :: acc
+    (GlobalNames.to_c_name env.names (lid, Type), layout_to_yojson layout) :: acc
   ) env.layouts [])
 
 let report_failures () =

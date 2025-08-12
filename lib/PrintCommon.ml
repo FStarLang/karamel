@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 open PPrint
 open Constant
@@ -33,6 +33,8 @@ let width_to_string = function
   | Bool -> "bool"
   | SizeT -> if !Options.linux_ints then "size_t" else "size"
   | PtrdiffT -> if !Options.linux_ints then "ptrdiff_t" else "ptrdiff"
+  | Float32 -> "float32"
+  | Float64 -> "float64"
 
 let print_width w =
   string (width_to_string w) ^^

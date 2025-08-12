@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __WasmSupport_H
-#define __WasmSupport_H
+#ifndef WasmSupport_H
+#define WasmSupport_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -29,5 +29,5 @@ uint64_t WasmSupport_betole64(uint64_t x);
 void WasmSupport_memzero(uint8_t *x, uint32_t len, uint32_t sz);
 
 
-#define __WasmSupport_H_DEFINED
-#endif
+#define WasmSupport_H_DEFINED
+#endif /* WasmSupport_H */

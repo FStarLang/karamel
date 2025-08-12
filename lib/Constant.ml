@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** Machine integers. Don't repeat the same thing everywhere. *)
 
@@ -11,6 +11,7 @@ and width =
   | Bool
   | CInt (** Checked signed integers. *)
   | SizeT | PtrdiffT
+  | Float32 | Float64 (** Floating point numbers. *)
 
 let bytes_of_width (w: width) =
   match w with
@@ -41,17 +42,37 @@ type op =
   | Neg
   [@@deriving yojson,show]
 
+(* Determines is this is a comparison operator *)
+let is_comp_op = function
+  | Eq | Neq | Lt | Lte | Gt | Gte -> true
+  | _ -> false
+
+let is_float = function
+  | Float32 | Float64 -> true
+  | _ -> false
+
+(* Negates the comparison operator *)
+let comp_neg = function
+  | Eq -> Neq
+  | Neq -> Eq
+  | Lt -> Gte
+  | Lte -> Gt
+  | Gt -> Lte
+  | Gte -> Lt
+  | _ -> failwith "not a comparison operator"
+
 let unsigned_of_signed = function
   | Int8 -> UInt8
   | Int16 -> UInt16
   | Int32 -> UInt32
   | Int64 -> UInt64
-  | CInt | UInt8 | UInt16 | UInt32 | UInt64 | SizeT | PtrdiffT | Bool -> raise (Invalid_argument "unsigned_of_signed")
+  | CInt | UInt8 | UInt16 | UInt32 | UInt64 | SizeT | PtrdiffT | Bool
+  | Float32 | Float64 -> raise (Invalid_argument "unsigned_of_signed")
 
 let is_signed = function
   | Int8 | Int16 | Int32 | Int64 | CInt | PtrdiffT -> true
   | UInt8 | UInt16 | UInt32 | UInt64 | SizeT -> false
-  | Bool -> raise (Invalid_argument "is_signed")
+  | Bool | Float32 | Float64 -> raise (Invalid_argument "is_signed")
 
 let is_unsigned w = not (is_signed w)
 

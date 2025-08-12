@@ -1,24 +1,29 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** Decorate each file with a little bit of boilerplate, then print it *)
 
 open Utils
 open PPrint
 
+type which = H | InternalH | C
+
 let mk_includes =
   separate_map hardline (fun x -> string "#include " ^^ string x)
 
-let filter_includes ~is_c file (includes: (Options.include_ * string) list) =
+let filter_includes which file (includes: (Options.include_ * string) list) =
   (* KPrint.bprintf "-- filter_includes for %s (%d)\n" file (List.length includes); *)
   KList.filter_some (List.rev_map (function
-    | Options.HeaderOnly file', h when file = file' && not is_c ->
+    | Options.HeaderOnly file', h when file = file' && which = H ->
         (* KPrint.bprintf "--- H Match %s: include %s\n" file h; *)
         Some h
-    | COnly file', h when file = file' && is_c ->
+    | InternalOnly file', h when file = file' && which = InternalH ->
+        (* KPrint.bprintf "--- H Match %s: include %s\n" file h; *)
+        Some h
+    | COnly file', h when file = file' && which = C->
         (* KPrint.bprintf "--- C Match %s: include %s\n" file h; *)
         Some h
-    | All, h when not is_c ->
+    | All, h when which = H || which = InternalH ->
         (* KPrint.bprintf "--- All Match %s: include %s\n" file h; *)
         Some h
     | _i, _h ->
@@ -37,8 +42,8 @@ let krmllib_include () =
  * - #include X for X in the dependencies of the file, followed by
  * - #include Y for each -add-include Y passed on the command-line
  *)
-let includes_for ~is_c file files =
-  let extra_includes = filter_includes ~is_c file !Options.add_include in
+let includes_for which file files =
+  let extra_includes = filter_includes which file !Options.add_include in
   let includes = List.rev_map (Printf.sprintf "\"%s.h\"") files in
   let includes = includes @ extra_includes in
   if includes = [] then
@@ -46,12 +51,19 @@ let includes_for ~is_c file files =
   else
     mk_includes includes ^^ hardline ^^ hardline
 
-let early_includes_for ~is_c file =
-  let includes = filter_includes ~is_c file !Options.add_early_include in
+let early_includes_for which file =
+  let includes = filter_includes which file !Options.add_early_include in
   if includes = [] then
     empty
   else
     mk_includes includes ^^ hardline ^^ hardline
+
+let very_early_includes_for which file =
+  let includes = filter_includes which file !Options.add_very_early_include in
+  if includes = [] then
+    empty
+  else
+    hardline ^^ mk_includes includes ^^ hardline ^^ hardline
 
 let invocation (): string =
   KPrint.bsprintf
@@ -85,30 +97,34 @@ let header (): string =
  * and a footer, containing:
  * - the #endif
  *)
-let prefix_suffix original_name name =
+let prefix_suffix which original_name name =
   Driver.detect_fstar_if ();
   Driver.detect_karamel_if ();
   let if_cpp doc =
-    string "#if defined(__cplusplus)" ^^ hardline ^^
-    doc ^^ hardline ^^
-    string "#endif" ^^ hardline
+    if !Options.cxx17_compat then
+      empty
+    else
+      string "#if defined(__cplusplus)" ^^ hardline ^^
+      doc ^^ hardline ^^
+      string "#endif" ^^ hardline
   in
   let macro_name = String.map (function '/' -> '_' | c -> c) name in
   (* KPrint.bprintf "- add_early_includes: %s\n" original_name; *)
   let prefix =
     string (header ()) ^^ hardline ^^ hardline ^^
-    string (Printf.sprintf "#ifndef __%s_H" macro_name) ^^ hardline ^^
-    string (Printf.sprintf "#define __%s_H" macro_name) ^^ hardline ^^
+    string (Printf.sprintf "#ifndef %s_H" macro_name) ^^ hardline ^^
+    string (Printf.sprintf "#define %s_H" macro_name) ^^ hardline ^^
+    very_early_includes_for which original_name ^^
     (if !Options.extern_c then hardline ^^ if_cpp (string "extern \"C\" {") else empty) ^^
     hardline ^^
-    early_includes_for ~is_c:false original_name ^^
+    early_includes_for which original_name ^^
     krmllib_include ()
   in
   let suffix =
     hardline ^^
     (if !Options.extern_c then if_cpp (string "}") else empty) ^^ hardline ^^
-    string (Printf.sprintf "#define __%s_H_DEFINED" macro_name) ^^ hardline ^^
-    string "#endif"
+    string (Printf.sprintf "#define %s_H_DEFINED" macro_name) ^^ hardline ^^
+    string (Printf.sprintf "#endif /* %s_H */" macro_name)
   in
   prefix, suffix
 
@@ -140,15 +156,16 @@ let maybe_create_internal_dir h =
   if List.exists (function (_, C11.Internal _) -> true | _ -> false) h then
     create_subdir "internal"
 
-let write_c files internal_headers deps =
+let write_c files internal_headers (deps: Bundles.all_deps Bundles.StringMap.t) =
   Driver.detect_fstar_if ();
   Driver.detect_karamel_if ();
   List.map (fun file ->
     let name, program = file in
-    let deps = Bundles.StringMap.find name deps in
-    let deps = List.of_seq (Bundles.StringSet.to_seq deps.Bundles.internal) in
-    let deps = List.map (fun f -> "internal/" ^ f) deps in
-    let includes = includes_for ~is_c:true name deps in
+    let all_deps = Bundles.StringMap.find name deps in
+    let internal_deps = List.of_seq (Bundles.StringSet.to_seq all_deps.Bundles.c.Bundles.internal) in
+    let public_deps = List.of_seq (Bundles.StringSet.to_seq all_deps.Bundles.c.Bundles.public) in
+    let deps = List.map (fun f -> "internal/" ^ f) internal_deps @ public_deps in
+    let includes = includes_for C name deps in
     let header = string (header ()) ^^ hardline ^^ hardline in
     let internal = if Bundles.StringSet.mem name internal_headers then "internal/" else "" in
     (* If there is an internal header, we include that rather than the public
@@ -156,7 +173,7 @@ let write_c files internal_headers deps =
     let my_h = string (Printf.sprintf "#include \"%s%s.h\"" internal name) in
     let prefix =
       header ^^
-      early_includes_for ~is_c:true name ^^
+      early_includes_for C name ^^
       (if !Options.add_include_tmh then
         string "#ifdef WPP_CONTROL_GUIDS" ^^ hardline ^^
         string (Printf.sprintf "#include <%s.tmh>" name) ^^ hardline ^^
@@ -170,14 +187,18 @@ let write_c files internal_headers deps =
     name
   ) files
 
-let write_h files public_headers deps =
+let write_h files public_headers (deps: Bundles.all_deps Bundles.StringMap.t) =
   List.map (fun file ->
     let name, program = file in
-    let { Bundles.public; internal } = Bundles.StringMap.find name deps in
+    let all_deps = Bundles.StringMap.find name deps in
+    let { Bundles.public; internal } = match program with
+      | C11.Internal _ -> all_deps.Bundles.internal_h
+      | C11.Public _ -> all_deps.Bundles.h
+    in
     let public = List.of_seq (Bundles.StringSet.to_seq public) in
     let internal = List.of_seq (Bundles.StringSet.to_seq internal) in
     let original_name = name in
-    let name, program, deps =
+    let name, program, deps, which =
       match program with
       | C11.Internal h ->
           (* Internal header depends on public header + other internal headers.
@@ -187,17 +208,17 @@ let write_h files public_headers deps =
           let internal_headers = List.map (fun f -> "internal/" ^ f) internal in
           let headers =
             if Bundles.StringSet.mem name public_headers then
-              ("../" ^ name) :: internal_headers
+              ("../" ^ name) :: public @ internal_headers
             else
               public @ internal_headers
           in
-          "internal/" ^ name, h, headers
+          "internal/" ^ name, h, headers, InternalH
       | C11.Public h ->
-          name, h, public
+          name, h, public, H
     in
     (* KPrint.bprintf "- write_h: %s\n" name; *)
-    let includes = includes_for ~is_c:false original_name deps in
-    let prefix, suffix = prefix_suffix original_name name in
+    let includes = includes_for which original_name deps in
+    let prefix, suffix = prefix_suffix which original_name name in
     write_one (name ^ ".h") (prefix ^^ includes) program suffix;
     name
   ) files
@@ -224,7 +245,7 @@ let write_def m c_files =
       List.iter (function
         | Ast.DFunction (_, flags, _, _, _, name, _, _)
           when not (List.mem Common.Private flags) ->
-            let name = GlobalNames.to_c_name m name in
+            let name = GlobalNames.to_c_name m (name, Other) in
             KPrint.bfprintf oc "  %s\n" name
         | _ -> ()
       ) decls
@@ -235,7 +256,9 @@ let write_renamings (m: GlobalNames.mapping) =
   create_subdir "clients";
   let dst = in_tmp_dir "clients/krmlrenamings.h" in
   with_open_out_bin dst (fun oc ->
-    Hashtbl.iter (fun original_name (new_name, non_modular_renaming) ->
+    (* Another imprecision here: this strategy won't work if two names live in `Type` and `Other`
+       namespaces, *and* share the same name, *and* are both subject to non-modular renamings. *)
+    Hashtbl.iter (fun (original_name, _) (new_name, non_modular_renaming) ->
       (* Note: there is a slight imprecision here. If the original name WOULD
          HAVE BEEN renamed because of a name collision, then this renaming map
          will be incorrect. We would to track two maps in GlobalNames, the

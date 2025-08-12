@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_VConfig_H
-#define __FStar_VConfig_H
+#ifndef KRML_HEADER_FStar_VConfig_H
+#define KRML_HEADER_FStar_VConfig_H
 
 #include "FStar_String.h"
 #include "FStar_Bytes.h"
@@ -48,5 +48,5 @@ typedef struct FStar_VConfig_vconfig_s
 FStar_VConfig_vconfig;
 
 
-#define __FStar_VConfig_H_DEFINED
-#endif
+#define KRML_HEADER_FStar_VConfig_H_DEFINED
+#endif /* KRML_HEADER_FStar_VConfig_H */

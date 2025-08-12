@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_Bytes_H
-#define __FStar_Bytes_H
+#ifndef FStar_Bytes_H
+#define FStar_Bytes_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -146,5 +146,5 @@ extern FStar_Bytes_bytes FStar_Bytes_of_buffer(uint32_t l, uint8_t *buf);
 extern void FStar_Bytes_store_bytes(FStar_Bytes_bytes src, uint8_t *dst);
 
 
-#define __FStar_Bytes_H_DEFINED
-#endif
+#define FStar_Bytes_H_DEFINED
+#endif /* FStar_Bytes_H */

@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** Make sure all structures are passed by reference  **************************)
 
@@ -48,7 +48,7 @@ let mk_is_struct files =
 
 let will_be_lvalue e =
   match e.node with
-  | EBound _ | EOpen _ | EBufRead _ ->
+  | EField _ | EBound _ | EOpen _ | EBufRead _ ->
       true
   | _ ->
       false
@@ -76,6 +76,27 @@ let analyze_function_type policy t =
   | t ->
       Warn.fatal_error "analyze_function_type: %a is not a function type" ptyp t
 
+let collect_externals files =
+  List.fold_left (fun acc (_, decls) ->
+    List.fold_left (fun acc decl ->
+      match decl with
+      | DExternal _ as d -> Idents.LidSet.add (lid_of_decl d) acc
+      | _ -> acc
+    ) acc decls
+  ) Idents.LidSet.empty files
+
+(* TODO: determine whether the criterion "this is an external function that is
+   used in a type-polymorphic way" is more general than just a hardcoded
+   blocklist
+   TODO: determine whether the criterion above would help with the
+   LowStar.Ignore special-case, below *)
+let is_poly_external _externals e =
+  match e.node with
+  | ETApp ({ node = EQualified lid; _ }, _, _, _ :: _) ->
+      lid = (["Eurydice"], "slice_index")
+  | _ ->
+      false
+
 (* A comment about the insertion of const pointers. Declaring variables with a
  * const qualifier exposes us to some risk of undefined behavior if someone
  * casts the const qualifier away. See comments in LowStar.ConstBuffer.
@@ -86,12 +107,12 @@ let analyze_function_type policy t =
 
 (* Rewrite functions and expressions to take and possibly return struct
  * pointers. This transformation is entirely type-based. *)
-let pass_by_ref (should_rewrite: _ -> policy) = object (self)
+let pass_by_ref (externals: Idents.LidSet.t) (should_rewrite: _ -> policy) = object (self)
 
   (* We open all the parameters of a function; then, we pass down as the
    * environment the list of atoms that correspond to by-ref parameters. These
    * will have to be "starred". *)
-  inherit [_] map
+  inherit [_] map as super
 
   (* Rewrite a function type to take and possibly return struct pointers. *)
   method private rewrite_function_type (ret_policy, args_policies) t =
@@ -112,6 +133,11 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     in
     Helpers.fold_arrow args ret
 
+  (* Because this is a type-rewriting phase, we need to *both* abort the
+     expression rewriting, THEN disable the type-rewriting in visit_TArrow *)
+  method! visit_expr_w env e =
+    if is_poly_external externals e then e else super#visit_expr_w env e
+
   (* This method rewrites an application node [e args] into [let x = args in e &args]. It
    * exhibits three behaviors.
    * - If the function is not struct-returning, then no further transformations
@@ -123,6 +149,9 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
    *   function returns [let x = e in f &x &dst], which has type [unit], and it is
    *   up to the caller to wrap this in a way that preserves the type. *)
   method private rewrite_app to_be_starred e args dest =
+    if is_poly_external externals e then
+      raise NotLowStar;
+
     let t, _ = Helpers.flatten_arrow e.typ in
 
     (* Determine using our computed table which of the arguments and the
@@ -141,8 +170,8 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
 
     (* TODO: this is not general *)
     let e = match e.node, t_rewritten with
-      | ETApp ({ node = EQualified (["LowStar"; "Ignore"], "ignore"); _ } as e_ignore, [], _), TArrow (t, _) ->
-          with_type t_rewritten (ETApp (e_ignore, [], [ t ]))
+      | ETApp ({ node = EQualified (["LowStar"; "Ignore"], "ignore"); _ } as e_ignore, [], [], _), TArrow (t, _) ->
+          with_type t_rewritten (ETApp (e_ignore, [], [], [ t ]))
       | _ ->
           e
     in
@@ -229,45 +258,55 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
         None
     ) (List.combine binders (args_are_structs @ (if ret_is_struct then [ false ] else []))) in
 
-    let body = self#visit_expr_w to_be_starred body in
-
-    (* Step 4: if the function now takes an extra argument for the output struct. *)
     let body =
-      if ret_is_struct then
-        let assign_into_ret e =
-          match e.node with
-          | EAbort _ ->
-              e
-          | _ ->
-              if ret_is_array then
-                with_type TUnit (EAssign (Option.get ret_atom, e))
-              else
-                with_type TUnit (EBufWrite (Option.get ret_atom, Helpers.zerou32, e))
-        in
-        (* Step 4.1: early-returns `return e` become `dst := e; return` *)
-        let body = (object
-          inherit [_] map
-          method! visit_EReturn _ e =
-            ESequence [
-              assign_into_ret e;
-              with_type e.typ (EReturn Helpers.eunit)
-            ]
-        end)#visit_expr_w () body in
-        (* Step 4.2: the overall value computed by the function is also assigned into the
-           destination. This relies on the invariant that functions are either in the style of 4.1
-           where returns in terminal position have been removed earlier (eurydice), or in
-           expression-style. *)
-        Helpers.nest_in_return_pos TUnit (fun _ e ->
-          match e.node with
-          | EWhile _ -> e
-            (* ret is a struct type, not unit -- therefore, it must be the case that this is an
-               unreachable loop -- bail *)
-          | EReturn _ -> e
-            (* handled above *)
-          | _ -> assign_into_ret e
-        ) body
-      else
-        body
+      match body.node with
+      | EApp (e, es) when ret_is_struct ->
+          (* Fast-path: the body is a single application node, meaning that the we can optimize and
+             directly pass our own destination parameter to the callee, rather than generating a
+             temporary that ends up memcpy'd into our own destination parameter. *)
+          let es = List.map (self#visit_expr_w to_be_starred) es in
+          self#rewrite_app to_be_starred e es ret_atom
+
+      | _ ->
+          (* General case: recursively visit *)
+          let body = self#visit_expr_w to_be_starred body in
+
+          (* Step 4: if the function now takes an extra argument for the output struct. *)
+          if ret_is_struct then
+            let assign_into_ret e =
+              match e.node with
+              | EAbort _ ->
+                  e
+              | _ ->
+                  if ret_is_array then
+                    with_type TUnit (EAssign (Option.get ret_atom, e))
+                  else
+                    with_type TUnit (EBufWrite (Option.get ret_atom, Helpers.zerou32, e))
+            in
+            (* Step 4.1: early-returns `return e` become `dst := e; return` *)
+            let body = (object
+              inherit [_] map
+              method! visit_EReturn _ e =
+                ESequence [
+                  assign_into_ret e;
+                  with_type e.typ (EReturn Helpers.eunit)
+                ]
+            end)#visit_expr_w () body in
+            (* Step 4.2: the overall value computed by the function is also assigned into the
+               destination. This relies on the invariant that functions are either in the style of 4.1
+               where returns in terminal position have been removed earlier (eurydice), or in
+               expression-style. *)
+            Helpers.nest_in_return_pos TUnit (fun _ e ->
+              match e.node with
+              | EWhile _ -> e
+                (* ret is a struct type, not unit -- therefore, it must be the case that this is an
+                   unreachable loop -- bail *)
+              | EReturn _ -> e
+                (* handled above *)
+              | _ -> assign_into_ret e
+            ) body
+          else
+            body
     in
     let body = DeBruijn.close_binders binders body in
     DFunction (cc, flags, n_cg, n, ret, lid, binders, body)
@@ -305,7 +344,7 @@ let pass_by_ref (should_rewrite: _ -> policy) = object (self)
     | EApp (e, args) when fst (analyze_function_type should_rewrite e.typ) <> Never ->
         begin try
           let args = List.map (self#visit_expr_w to_be_starred) args in
-          let t = Helpers.assert_tbuf e1.typ in
+          let t = Helpers.assert_tbuf_or_tarray e1.typ in
           let dest = with_type t (EBufRead (e1, e2)) in
           (self#rewrite_app to_be_starred e args (Some dest)).node
         with Not_found | NotLowStar ->
@@ -409,6 +448,7 @@ let check_for_illegal_copies files =
 
 let pass_by_ref files =
   let is_struct = mk_is_struct files in
+  let externals = collect_externals files in
   let should_rewrite_base = function
     (* The Steel SpinLock type is a type that violates the value semantics of
        Low*. Its low-level implementation, using pthread, relies on the address
@@ -419,6 +459,7 @@ let pass_by_ref files =
        single place in memory. *)
     (* | TQualified (["Test"], "t") *)
     | TApp ((["Steel"; "SpinLock"], "lock"), _)
+    | TQualified (["Steel"; "SpinLock"], "s_lock") 
     | TQualified (["Steel"; "SpinLock"], "lock__()") ->
         NoCopies
     | t ->
@@ -471,7 +512,7 @@ let pass_by_ref files =
         r
   in
   should_rewrite_ := should_rewrite;
-  let files = (pass_by_ref should_rewrite)#visit_files [] files in
+  let files = (pass_by_ref externals should_rewrite)#visit_files [] files in
   files
 
 let hidden_visibility =
@@ -591,10 +632,10 @@ let to_addr is_struct =
         not_struct ();
         w (EIgnore (to_addr false e))
 
-    | ETApp (e, cgs, ts) ->
-        assert (cgs = []);
+    | ETApp (e, cgs, cgs', ts) ->
+        assert (cgs @ cgs' = []);
         not_struct ();
-        w (ETApp (to_addr false e, [], ts))
+        w (ETApp (to_addr false e, [], [], ts))
 
     | EApp (e, es) ->
         not_struct ();
@@ -731,9 +772,6 @@ let to_addr is_struct =
     | ECast (e, t) ->
         w (ECast (to_addr false e, t))
 
-    | EComment (s, e, s') ->
-        w (EComment (s, to_addr false e, s'))
-
     | ESequence _
     | ETuple _
     | EMatch _
@@ -750,7 +788,7 @@ let to_addr is_struct =
 
 
 (* For C89 *)
-class remove_literals = object (self)
+class remove_literals tbl = object (self)
   inherit [_] map as super
 
   method private mk_path (e: expr) (fields: (ident * typ) list) =
@@ -759,9 +797,13 @@ class remove_literals = object (self)
   method private explode (acc: expr list) (path: (ident * typ) list) (e: expr) (dst: expr): expr list =
     match e.node with
     | EFlat fields ->
-        List.fold_left (fun acc (f, e) ->
+        List.fold_left (fun acc (f, e1) ->
           let f = Option.get f in
-          self#explode acc ((f, e.typ) :: path) e dst
+          let t_f =
+            try Hashtbl.find tbl (Helpers.assert_tlid e.typ, f)
+            with _ -> KPrint.bprintf "NOT FOUND %a.%s\n" ptyp e.typ f; e1.typ
+          in
+          self#explode acc ((f, t_f) :: path) e1 dst
         ) acc fields
     | _ ->
         let e = self#visit_expr_w () e in
@@ -788,8 +830,19 @@ class remove_literals = object (self)
     List.map (fun (f, (t, _)) -> f, (self#visit_typ () t, true)) fields
 end
 
+let build_remove_literals_map files =
+  Helpers.build_map files (fun tbl decl ->
+    match decl with
+    | DType (name, _, _, _, Flat fields) ->
+        List.iter (function
+          | Some f, (t, _) -> Hashtbl.add tbl (name, f) t
+          | _ -> ()
+        ) fields
+    | _ -> ()
+  )
+
 let remove_literals files =
-  (new remove_literals)#visit_files () files
+  (new remove_literals (build_remove_literals_map files))#visit_files () files
 
 (* Debug any intermediary AST as follows: *)
 (* PPrint.(Print.(print (PrintAst.print_files files ^^ hardline))); *)

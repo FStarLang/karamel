@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_UInt_8_16_32_64_H
-#define __FStar_UInt_8_16_32_64_H
+#ifndef FStar_UInt_8_16_32_64_H
+#define FStar_UInt_8_16_32_64_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -20,11 +20,15 @@ extern krml_checked_int_t FStar_UInt64___proj__Mk__item__v(uint64_t projectee);
 
 extern krml_checked_int_t FStar_UInt64_v(uint64_t x);
 
+typedef void *FStar_UInt64_fits;
+
 extern uint64_t FStar_UInt64_uint_to_t(krml_checked_int_t x);
 
 extern uint64_t FStar_UInt64_zero;
 
 extern uint64_t FStar_UInt64_one;
+
+extern bool FStar_UInt64_ne(uint64_t a, uint64_t b);
 
 extern uint64_t FStar_UInt64_minus(uint64_t a);
 
@@ -68,11 +72,15 @@ extern krml_checked_int_t FStar_UInt32___proj__Mk__item__v(uint32_t projectee);
 
 extern krml_checked_int_t FStar_UInt32_v(uint32_t x);
 
+typedef void *FStar_UInt32_fits;
+
 extern uint32_t FStar_UInt32_uint_to_t(krml_checked_int_t x);
 
 extern uint32_t FStar_UInt32_zero;
 
 extern uint32_t FStar_UInt32_one;
+
+extern bool FStar_UInt32_ne(uint32_t a, uint32_t b);
 
 extern uint32_t FStar_UInt32_minus(uint32_t a);
 
@@ -116,11 +124,15 @@ extern krml_checked_int_t FStar_UInt16___proj__Mk__item__v(uint16_t projectee);
 
 extern krml_checked_int_t FStar_UInt16_v(uint16_t x);
 
+typedef void *FStar_UInt16_fits;
+
 extern uint16_t FStar_UInt16_uint_to_t(krml_checked_int_t x);
 
 extern uint16_t FStar_UInt16_zero;
 
 extern uint16_t FStar_UInt16_one;
+
+extern bool FStar_UInt16_ne(uint16_t a, uint16_t b);
 
 extern uint16_t FStar_UInt16_minus(uint16_t a);
 
@@ -164,11 +176,15 @@ extern krml_checked_int_t FStar_UInt8___proj__Mk__item__v(uint8_t projectee);
 
 extern krml_checked_int_t FStar_UInt8_v(uint8_t x);
 
+typedef void *FStar_UInt8_fits;
+
 extern uint8_t FStar_UInt8_uint_to_t(krml_checked_int_t x);
 
 extern uint8_t FStar_UInt8_zero;
 
 extern uint8_t FStar_UInt8_one;
+
+extern bool FStar_UInt8_ne(uint8_t a, uint8_t b);
 
 extern uint8_t FStar_UInt8_minus(uint8_t a);
 
@@ -207,5 +223,5 @@ extern uint8_t FStar_UInt8_of_string(Prims_string uu___);
 typedef uint8_t FStar_UInt8_byte;
 
 
-#define __FStar_UInt_8_16_32_64_H_DEFINED
-#endif
+#define FStar_UInt_8_16_32_64_H_DEFINED
+#endif /* FStar_UInt_8_16_32_64_H */

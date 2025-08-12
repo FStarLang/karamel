@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_Issue_H
-#define __FStar_Issue_H
+#ifndef FStar_Issue_H
+#define FStar_Issue_H
 
 #include "FStar_String.h"
 #include "FStar_Bytes.h"
@@ -41,10 +41,12 @@ FStar_Pervasives_Native_option__krml_checked_int_t;
 extern FStar_Pervasives_Native_option__krml_checked_int_t
 FStar_Issue_number_of_issue(FStar_Issue_issue i);
 
-extern FStar_Pervasives_Native_option__FStar_Range_range
+extern FStar_Pervasives_Native_option__FStar_Sealed_sealed_FStar_Range___range
 FStar_Issue_range_of_issue(FStar_Issue_issue i);
 
 extern Prims_list__Prims_string *FStar_Issue_context_of_issue(FStar_Issue_issue i);
+
+extern FStar_Pprint_document FStar_Issue_issue_to_doc(FStar_Issue_issue i);
 
 extern Prims_string FStar_Issue_render_issue(FStar_Issue_issue i);
 
@@ -52,11 +54,11 @@ extern FStar_Issue_issue
 FStar_Issue_mk_issue_doc(
   Prims_string i,
   Prims_list__FStar_Pprint_document *msg,
-  FStar_Pervasives_Native_option__FStar_Range_range range,
+  FStar_Pervasives_Native_option__FStar_Sealed_sealed_FStar_Range___range range,
   FStar_Pervasives_Native_option__krml_checked_int_t number,
   Prims_list__Prims_string *ctx
 );
 
 
-#define __FStar_Issue_H_DEFINED
-#endif
+#define FStar_Issue_H_DEFINED
+#endif /* FStar_Issue_H */

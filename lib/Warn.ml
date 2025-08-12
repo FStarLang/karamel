@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** Unified warning handling *)
 
@@ -45,7 +45,7 @@ let failwith fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 28 CError;;
+let flags = Array.make 29 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -108,6 +108,8 @@ let errno_of_error = function
       26
   | LibraryPointerAmbiguity _ ->
       27
+  | UnrecognizedCCompiler _ ->
+      28
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -216,6 +218,8 @@ let rec perr buf (loc, raw_error) =
       -library; and its definition is too ambiguous to tell whether it's an \
       array or a pointer. Disabling this warning is unsound. Definition \
       below:\n%a" plid lid pexpr e
+  | UnrecognizedCCompiler cc ->
+      p "Unrecognized C compiler: %s" cc
 
 let maybe_fatal_error error =
   flush stdout;
@@ -225,6 +229,8 @@ let maybe_fatal_error error =
   | CError ->
       KPrint.beprintf "%a" perr error;
       KPrint.beprintf "Warning %d is fatal, exiting.\n" errno;
+      if !Options.backtrace then
+        KPrint.beprintf "Stack trace:\n%s\n" (Printexc.get_backtrace ());
       exit 255
   | CWarning ->
       if not (S.mem error !emitted_warnings) then begin

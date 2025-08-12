@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_Int_Cast_H
-#define __FStar_Int_Cast_H
+#ifndef FStar_Int_Cast_H
+#define FStar_Int_Cast_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -157,5 +157,5 @@ extern uint16_t FStar_Int_Cast_int64_to_uint16(int64_t x);
 extern uint8_t FStar_Int_Cast_int64_to_uint8(int64_t x);
 
 
-#define __FStar_Int_Cast_H_DEFINED
-#endif
+#define FStar_Int_Cast_H_DEFINED
+#endif /* FStar_Int_Cast_H */

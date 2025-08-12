@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_Math_Lib_H
-#define __FStar_Math_Lib_H
+#ifndef FStar_Math_Lib_H
+#define FStar_Math_Lib_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -40,5 +40,5 @@ extern krml_checked_int_t
 FStar_Math_Lib_op_Plus_Percent(krml_checked_int_t a, krml_checked_int_t p);
 
 
-#define __FStar_Math_Lib_H_DEFINED
-#endif
+#define FStar_Math_Lib_H_DEFINED
+#endif /* FStar_Math_Lib_H */

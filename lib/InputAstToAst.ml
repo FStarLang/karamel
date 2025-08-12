@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** The translation from the input AST to the internal one. *)
 
@@ -9,7 +9,7 @@ open Common
 module I = InputAst
 
 let mk (type a) (node: a): a with_type =
-  { node; typ = TAny }
+  { node; typ = TAny; meta = [] }
 
 let rec binders_of_pat p =
   let open I in
@@ -62,8 +62,9 @@ let rec mk_decl = function
 and mk_binders bs =
   List.map mk_binder bs
 
-and mk_binder { I.name; typ; mut } =
-  Helpers.fresh_binder ~mut name (mk_typ typ)
+and mk_binder { I.name; typ; mut; meta } =
+  let attempt_inline = List.mem Inline meta in
+  Helpers.fresh_binder ~mut ~attempt_inline name (mk_typ typ)
 
 and mk_tfields fields =
   List.map (fun (name, (field, mut)) -> name, (mk_typ field, mut)) fields
@@ -146,13 +147,16 @@ and mk_expr = function
   | I.EApp (I.ETApp (I.EQualified ([ "Steel"; "Reference" ], "null"), [ t ]), [ I.EUnit ])
   | I.EApp (I.ETApp (I.EQualified ([ "C"; "Nullity" ], "null"), [ t ]), [ I.EUnit ])
   | I.EBufNull t ->
-      { node = EBufNull; typ = TBuf (mk_typ t, false) }
+      { node = EBufNull; typ = TBuf (mk_typ t, false); meta = [] }
 
   | I.EApp (I.ETApp (I.EQualified ( [ "LowStar"; "Monotonic"; "Buffer" ], "is_null"), [ t; _; _ ]), [ e ])
   | I.EApp (I.ETApp (I.EQualified ( [ "Steel"; "Reference" ], "is_null"), [ t ]), [ e ]) ->
       mk (EApp (mk (EPolyComp (K.PEq, TBuf (mk_typ t, false))), [
         mk_expr e;
-        { node = EBufNull; typ = TBuf (mk_typ t, false) }]))
+        { node = EBufNull; typ = TBuf (mk_typ t, false); meta = [] }]))
+
+  | I.EApp (I.ETApp (I.EQualified ([ "FStar"; "Pervasives" ], "false_elim"), [ t ]), [ I.EUnit ]) ->
+      mk (EAbort (Some (mk_typ t), Some "provably unreachable code: did an unverified caller violate a precondition?"))
 
   | I.EApp (e, es) ->
       mk (EApp (mk_expr e, List.map mk_expr es))
@@ -160,7 +164,7 @@ and mk_expr = function
       let c = match op with K.Eq -> K.PEq | K.Neq -> K.PNeq | _ -> assert false in
       mk (EPolyComp (c, mk_typ t))
   | I.ETApp (e, es) ->
-      mk (ETApp (mk_expr e, [], List.map mk_typ es))
+      mk (ETApp (mk_expr e, [], [], List.map mk_typ es))
   | I.ELet (b, e1, e2) ->
       mk (ELet (mk_binder b, mk_expr e1, mk_expr e2))
   | I.EIfThenElse (e1, e2, e3) ->
@@ -210,22 +214,22 @@ and mk_expr = function
   | I.EAbortS s ->
       mk (EAbort (None, Some s))
   | I.EAbortT (s, t) ->
-      { node = EAbort (Some (mk_typ t), Some s); typ = mk_typ t }
+      { node = EAbort (Some (mk_typ t), Some s); typ = mk_typ t; meta = [] }
   | I.EReturn e ->
       mk (EReturn (mk_expr e))
   | I.EFlat (tname, fields) ->
-      { node = EFlat (mk_fields fields); typ = mk_typ tname }
+      { node = EFlat (mk_fields fields); typ = mk_typ tname; meta = [] }
   | I.EField (tname, e, field) ->
       let e = { (mk_expr e) with typ = mk_typ tname } in
       mk (EField (e, field))
   | I.ETuple es ->
       mk (ETuple (List.map mk_expr es))
   | I.ECons (lid, id, es) ->
-      { node = ECons (id, List.map mk_expr es); typ = mk_typ lid }
+      { node = ECons (id, List.map mk_expr es); typ = mk_typ lid; meta = [] }
   | I.EFun (bs, e, t) ->
       mk (EFun (mk_binders bs, mk_expr e, mk_typ t))
   | I.EComment (before, e, after) ->
-      mk (EComment (before, mk_expr e, after))
+      { (mk_expr e) with meta = [ CommentBefore before; CommentAfter after ] }
   | I.EStandaloneComment s ->
       mk (EStandaloneComment s)
   | I.EAddrOf e ->

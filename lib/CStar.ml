@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** Definition of C* *)
 
@@ -113,13 +113,13 @@ and typ =
   | Pointer of typ
   | Void
   | Qualified of lident
-  | Array of typ * expr
+  | Array of typ * expr option
   | Function of calling_convention option * typ * typ list
       (** Return type, arguments *)
   | Bool
   | Struct of (ident option * typ) list
       (** In support of anonymous unions. *)
-  | Enum of lident list
+  | Enum of (lident * Ast.z option) list
   | Union of (ident * typ) list
   | Const of typ
       (* note: when we have restrict, or MinLength, extend this to be a

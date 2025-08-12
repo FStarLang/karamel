@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 module K = Constant
 open Common
@@ -14,7 +14,7 @@ type type_spec =
       (** Note: the option allows for zero-sized structs (GCC's C, C++) but as
        * of 2017/05/14 we never generate these. *)
   | Union of ident option * declaration list option
-  | Enum of ident option * ident list
+  | Enum of ident option * (ident * Ast.z option) list
     (** not encoding all the invariants here *)
   [@@deriving show]
 
@@ -40,7 +40,7 @@ and declarator_and_inits =
 and declarator =
   | Ident of ident
   | Pointer of qualifier list * declarator
-  | Array of qualifier list * declarator * expr
+  | Array of qualifier list * declarator * expr option
   | Function of calling_convention option * declarator * params
 
 and expr =
@@ -63,10 +63,14 @@ and expr =
   | CompoundLiteral of type_name * init list
   | MemberAccess of expr * ident
   | MemberAccessPointer of expr * ident
+  (* The three cases below are NOT in the C grammar *)
   | InlineComment of string * expr * string
   | Type of type_name
   | Stmt of stmt list
-    (** note: last three in the C grammar *)
+  (* Not in the C grammar either; encode a C++ initializer list that appears in expression position
+     so as to rely on an implicit constructor *)
+  | CxxInitializerList of init
+    
 
 (** this is a WILD approximation of the notion of "type name" in C _and_ a hack
  * because there's the invariant that the ident found at the bottom of the
@@ -85,9 +89,12 @@ and param =
 and inline_stance =
   | Inline
   | NoInline
+  | MustInline
+  
 
 and extra = {
-  maybe_unused: bool
+    maybe_unused: bool;
+    target: string option
 }
   (* some extra information that doesn't really pertain to the C standard *)
 

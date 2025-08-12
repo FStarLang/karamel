@@ -1,10 +1,12 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
 #include "FStar_Order.h"
+
+#include "Prims.h"
 
 bool FStar_Order_uu___is_Lt(FStar_Order_order projectee)
 {

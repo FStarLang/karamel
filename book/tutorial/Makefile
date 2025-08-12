@@ -32,8 +32,6 @@ include Makefile.include
 # Definition of F* flags
 # ----------------------
 
-FSTAR_HINTS ?= --use_hints --use_hint_hashes --record_hints
-
 # This flag controls what gets extracted to OCaml. Generally, we don't extract
 # the FStar namespace since it's already extracted and packaged as the ocamlfind
 # package fstar.lib. Here, unlike in -bundle, +Spec matches both Spec and
@@ -48,25 +46,12 @@ FSTAR_EXTRACT = --extract 'OCaml:-* +Spec'
 # But also:
 # - --cmi, for cross-module inlining, a must-have for anyone who relies on
 #   inline_for_extraction in the presence of interfaces
-# - --cache_checked_modules to rely on a pre-built ulib and krmllib
-# - --cache_dir, to avoid polluting our generated build artifacts outside o
+# - --cache_dir, to place checked files there
 
-# Where is F* ?
-ifndef FSTAR_HOME
-  FSTAR_EXE=$(shell which fstar.exe)
-  ifneq ($(FSTAR_EXE),)
-    # Assuming that fstar.exe is in some ..../bin directory
-    FSTAR_HOME=$(dir $(FSTAR_EXE))/..
-  else
-    $(error "fstar.exe not found, please install FStar")
-  endif
-endif
-export FSTAR_HOME
-
-FSTAR_NO_FLAGS = $(FSTAR_HOME)/bin/fstar.exe $(FSTAR_HINTS) \
-  --odir obj --cache_checked_modules $(FSTAR_INCLUDES) --cmi \
+FSTAR_NO_FLAGS = $(FSTAR_EXE) --ext optimize_let_vc \
+  --odir obj $(FSTAR_INCLUDES) --cmi \
   --already_cached 'Prims FStar LowStar C Spec.Loops TestLib WasmSupport' --warn_error '+241@247+285' \
-  --cache_dir obj --hint_dir hints
+  --cache_dir obj
 
 # Initial dependency analysis
 # ---------------------------
@@ -86,7 +71,7 @@ FSTAR_ROOTS = $(wildcard $(addsuffix /*.fsti,$(SOURCE_DIRS))) \
 # mtime of the moved files.
 ifndef MAKE_RESTARTS
 .depend: .FORCE
-	$(FSTAR_NO_FLAGS) --dep full $(notdir $(FSTAR_ROOTS)) $(FSTAR_EXTRACT) --output_deps_to $@
+	$(FSTAR_NO_FLAGS) --dep full $(notdir $(FSTAR_ROOTS)) $(FSTAR_EXTRACT) -o $@
 
 .PHONY: .FORCE
 .FORCE:
@@ -104,9 +89,6 @@ FSTAR = $(FSTAR_NO_FLAGS) $(OTHERFLAGS)
 
 # Creating these directories via a make rule, rather than rely on F* creating
 # them, as two calls to F* might race.
-hints:
-	mkdir $@
-
 obj:
 	mkdir $@
 
@@ -131,33 +113,23 @@ obj:
 # Note: F* will not change the mtime of a checked file if it is
 # up-to-date (checksum matches, file unchanged), but this will confuse
 # make and result in endless rebuilds. So, we touch that file.
-%.checked: | hints obj
-	$(FSTAR) $< $(FSTAR_FLAGS) && touch -c $@
+%.checked: | obj
+	$(FSTAR) $(FSTAR_FLAGS) -c $< -o $@ && touch -c $@
 
 # Extraction
 # ----------
 
-# A few mismatches here between the dependencies present in the .depend and the
-# expected F* invocation. In .depend:
-#
-# obj/Bignum_Impl.ml: obj/Bignum.Impl.fst.checked ... more dependencies ...
-#
-# But F* wants (remember that F* searches for source files anywhere on the
-# include path):
-#
-# fstar Bignum.Impl.fst --extract_module BigNum.Impl
-#
-# We use basename because we may also extract krml files from .fsti.checked
-# files (not true for OCaml, we don't extract mlis from fstis).
 .PRECIOUS: obj/%.ml
 obj/%.ml:
-	$(FSTAR) $(notdir $(subst .checked,,$<)) --codegen OCaml \
-	--extract_module $(basename $(notdir $(subst .checked,,$<)))
+	$(FSTAR) --codegen OCaml $< -o $@
 
+# By default, krml extraction in F* will extract every module into a
+# single out.krml file. Make sure to extract the single module we want.
 .PRECIOUS: obj/%.krml
 obj/%.krml:
-	$(FSTAR) $(notdir $(subst .checked,,$<)) --codegen krml \
-	--extract_module $(basename $(notdir $(subst .checked,,$<)))
+	$(FSTAR) $< --codegen krml \
+	--extract_module $(basename $(notdir $(subst .checked,,$<))) \
+	-o $@
 
 obj/Specs_Driver.ml: specs/ml/Specs_Driver.ml
 	# This ensures that all the source directories are not polluted with
@@ -234,9 +206,9 @@ dist/libbignum.a: dist/Makefile.basic
 # First complication... no comment.
 # NOTE: if F* was installed via opam, then this is redundant
 ifeq ($(OS),Windows_NT)
-  export OCAMLPATH := $(FSTAR_HOME)/lib;$(OCAMLPATH)
+  export OCAMLPATH := $(shell $(FSTAR_EXE) --locate_ocaml);$(OCAMLPATH)
 else
-  export OCAMLPATH := $(FSTAR_HOME)/lib:$(OCAMLPATH)
+  export OCAMLPATH := $(shell $(FSTAR_EXE) --locate_ocaml):$(OCAMLPATH)
 endif
 
 # Second complication: F* generates a list of ML files in the reverse linking
@@ -270,6 +242,6 @@ obj/specs-test.exe: $(ALL_CMX_FILES) obj/Specs_Driver.cmx
 
 CFLAGS += -I dist -I $(KRML_HOME)/include
 
-tests/c-tests.exe: dist/libbignum.a tests/c-tests.o
+tests/c-tests.exe: tests/c-tests.o dist/libbignum.a
 	$(CC) $^ -o $@
 

@@ -1,6 +1,5 @@
 module LinkedList1
 
-module B = FStar.Buffer
 module HS = FStar.HyperStack
 module G = FStar.Ghost
 module L = FStar.List.Tot

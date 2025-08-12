@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (* A set of transformations for the sole purpose of bringing us closer to C89
  * compatibility. *)
@@ -19,7 +19,7 @@ let hoist_lets = object (self)
     (* We skip through actual let-bindings (which will generate declarations at
      * the beginning of a scope), then start hoisting. *)
     match e.node with
-    | ELet (b, e1, e2) when b.node.meta <> Some MetaSequence ->
+    | ELet (b, e1, e2) when not (List.mem MetaSequence b.node.meta) ->
         (* No ELet's in e1 so nothing to hoist *)
         with_type t (ELet (b, e1, self#scope_start t e2))
     | _ ->
@@ -39,7 +39,7 @@ let hoist_lets = object (self)
     EIfThenElse (e1, self#scope_start t e2, self#scope_start t e3)
 
   method! visit_EFor (env, _) b e1 e2 e3 e4 =
-    if b.node.meta = Some MetaSequence then
+    if List.mem MetaSequence b.node.meta then
       EFor (b, e1, e2, e3, self#scope_start TUnit e4)
     else
       let b, subst = DeBruijn.opening_binder b in
@@ -58,7 +58,7 @@ let hoist_lets = object (self)
     | EPushFrame ->
         ELet (b, e1, self#scope_start t e2)
 
-    | _ when b.node.meta = Some MetaSequence ->
+    | _ when List.mem MetaSequence b.node.meta ->
         let e2 = self#visit_expr_w env e2 in
         ELet (b, e1, e2)
 

@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_UInt_H
-#define __FStar_UInt_H
+#ifndef FStar_UInt_H
+#define FStar_UInt_H
 
 #include "FStar_BitVector.h"
 #include <inttypes.h>
@@ -89,6 +89,8 @@ FStar_UInt_mod(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b)
 
 extern bool FStar_UInt_eq(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
+extern bool FStar_UInt_ne(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
+
 extern bool FStar_UInt_gt(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
 extern bool FStar_UInt_gte(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
@@ -135,5 +137,5 @@ extern krml_checked_int_t FStar_UInt_zero_extend(krml_checked_int_t n, krml_chec
 extern krml_checked_int_t FStar_UInt_one_extend(krml_checked_int_t n, krml_checked_int_t a);
 
 
-#define __FStar_UInt_H_DEFINED
-#endif
+#define FStar_UInt_H_DEFINED
+#endif /* FStar_UInt_H */

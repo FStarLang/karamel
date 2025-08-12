@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (** KaRaMeL, a tool to translate from a minimal ML-like language to C. *)
 
@@ -65,7 +65,6 @@ let _ =
   let js_files = ref [] in
   let fst_files = ref [] in
   let filenames = ref [] in
-  let p k = String.concat " " (Array.to_list (List.assoc k (Options.default_options ()))) in
   let usage = Printf.sprintf
 {|KaRaMeL: from a ML-like subset to C
 
@@ -136,16 +135,12 @@ The default arguments are: %s
 All include directories and paths supports special prefixes:
   - if a path starts with FSTAR_LIB, this will expand to wherever F*'s ulib
     directory is
-  - if a path starts with FSTAR_HOME, this will expand to wherever the source
-    checkout of F* is (this does not always exist, e.g. in the case of an OPAM
-    setup)
 
-The compiler switches turn on the following options.
-  [-cc gcc] (default) adds [%s]
-  [-cc clang] adds [%s]
-  [-cc g++] adds [%s]
-  [-cc msvc] adds [%s]
-  [-cc compcert] adds [%s]
+Karamel will also enable some default options according to the the flavor of C
+compiler being used.
+%s
+If the compiler flavor cannot be detected (and you ignore this error) no flags
+will be added. You can force a flavor with the -ccflavor option.
 
 The [-fc89] option triggers [-fnoanonymous-unions], [-fnocompound-literals] and
 [-fc89-scope]. It also changes the invocations above to use [-std=c89]. Note
@@ -165,11 +160,13 @@ Supported options:|}
     ) !Options.bundle @ List.concat_map (fun p ->
       [ "-drop"; Bundle.string_of_pattern p ]
     ) !Options.drop))
-    (p "gcc")
-    (p "clang")
-    (p "g++")
-    (p "msvc")
-    (p "compcert")
+    (
+      let open Options in
+      let flavors = [GCC; Clang; Compcert; MSVC] in
+      let p k = String.concat " " (Array.to_list (Options.default_options k)) in
+      String.concat "\n" (
+      List.map (fun k -> KPrint.bsprintf "  For %s adds [%s]" (Options.string_of_compiler_flavor k) (p k)) flavors)
+    )
   in
   let found_file = ref false in
   let used_drop = ref false in
@@ -182,7 +179,12 @@ Supported options:|}
         | Some h ->
             COnly h, i
         | None ->
-            HeaderOnly h, i
+            begin match Filename.chop_suffix_opt ~suffix:".h" h with
+            | Some h ->
+                InternalOnly h, i
+            | None ->
+                HeaderOnly h, i
+            end
         end
     | [ i ] -> All, i
     | _ -> failwith ("Invalid -add-[early-|]include argument: " ^ s)
@@ -192,8 +194,14 @@ Supported options:|}
   in
   let spec = [
     (* KaRaMeL as a driver *)
-    "-cc", Arg.Set_string Options.cc, " compiler to use; one of gcc (default), \
-      compcert, g++, clang, msvc";
+    "-fstar", Arg.Set_string Options.fstar, " fstar.exe to use; defaults to \
+      'fstar.exe'";
+    "-cc", Arg.Set_string Options.cc, " compiler to use; default is 'cc', \
+      you can also set the CC environment variable";
+    "-ccflavor", Arg.String (fun s ->
+        let flav = Options.compiler_flavor_of_string s in
+        Options.cc_flavor := Some flav), " C compiler flavor; normally autodetected, \
+        can be set to 'gcc', 'clang', 'compcert', 'msvc' or 'generic'";
     "-m32", Arg.Set Options.m32, " turn on 32-bit cross-compiling";
     "-fsopt", Arg.String (prepend Options.fsopts), " option to pass to F* (use \
       -fsopts to pass a comma-separated list of values)";
@@ -236,7 +244,7 @@ Supported options:|}
       "  prepend #include the-argument to every generated file, before krmllib.h";
     "-add-include", Arg.String (fun s ->
       prepend Options.add_include (parse_include s)), " prepend #include \
-      the-argument to every generated file, after the #define __FOO_H";
+      the-argument to every generated file, after the #define FOO_H";
     "-add-include-tmh", Arg.Set Options.add_include_tmh, "  append #include \
       <FILE.tmh>, where FILE is the current basename";
     "-minimal", Arg.Set Options.minimal, "  do not prepend #include \"krmllib.h\"; do \
@@ -248,7 +256,12 @@ Supported options:|}
       " don't prepend the module name to declarations from module matching this \
       pattern";
     "-bundle", Arg.String (fun s -> prepend Options.bundle (Parsers.bundle s)), " \
-      group modules into a single C translation unit (see above)";
+      group F* modules into a single C translation unit or Rust file (see above)";
+    "-crate", Arg.String (fun s -> prepend Options.crates (Parsers.bundle s)), " \
+      adopt a Cargo workspace and group Rust files into a single sub-crate of \
+      that workspace (see above) -- no empty left-hand side allowed, and note \
+      that the right-hand side matches Rust file names (which may be the product \
+      of bundling), NOT F* module sources";
     "-drop", Arg.String (fun s ->
       used_drop := true;
       List.iter (prepend Options.drop) (Parsers.drop s)),
@@ -282,6 +295,10 @@ Supported options:|}
     "", Arg.Unit (fun _ -> ()), " ";
     "-by-ref", Arg.String (fun s -> prepend Options.by_ref (Parsers.lid s)), " \
       pass the given struct type by reference, always";
+    "-fno-box", Arg.Set Options.no_box, "  don't generate Box (Rust only)";
+    "-fcontained-type", Arg.String (fun s -> Options.contained := s :: !Options.contained), "  \
+      type passed by reference with a different lifetime";
+    "-fkeep-tuples", Arg.Set Options.keep_tuples, "  do not monomorphize tuples";
     "-fbuiltin-uint128", Arg.Set Options.builtin_uint128, "  target compiler \
       supports arithmetic operators for uint128 -- this is NON PORTABLE, \
       works only with GCC/Clang";
@@ -323,6 +340,10 @@ Supported options:|}
         aggressive always merges";
     "-fc89-scope", Arg.Set Options.c89_scope, "  use C89 scoping rules";
     "-fcast-allocations", Arg.Set Options.cast_allocations, "  cast allocations (for C89, or for C++)";
+    "-fc++-compat", Arg.Set Options.cxx_compat, "  make the \
+      generated code compile both as C11 and C++20";
+    "-fc++17-compat", Arg.Set Options.cxx17_compat, "  makes the code compile as C++17, but *NOT* as C \
+      code";
     "-fc89", Arg.Set arg_c89, "  generate C89-compatible code (meta-option, see \
       above) + also disable variadic-length KRML_HOST_EPRINTF + cast allocations";
     "-flinux-ints", Arg.Set Options.linux_ints, " use Linux kernel int types";
@@ -334,6 +355,8 @@ Supported options:|}
       for private (static) functions that are not exposed in headers; this ensures \
       robust collision-avoidance in case your private function names collide with \
       one of the included system headers";
+    "-faggressive-inlining", Arg.Set Options.aggressive_inlining, " attempt to inline \
+      every variable for more compact code-generation";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
@@ -351,6 +374,9 @@ Supported options:|}
       struct transformations";
     "-dc", Arg.Set arg_print_c, " pretty-print the output C";
     "-dwasm", Arg.Set arg_print_wasm, " pretty-print the output Wasm";
+    "-dbacktrace", Arg.Unit (fun () ->
+       Printexc.record_backtrace true;
+       Options.backtrace := true), " print a stack trace on errors";
     "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific \
       comma-separated list of values; currently supported: \
       inline,bundle,reachability,c-calls,c-names,wasm-calls,wasm-memory,wasm,force-c,cflat";
@@ -475,14 +501,6 @@ Supported options:|}
     Options.ccopts := Driver.Dash.d "KRML_VERIFIED_UINT128" :: !Options.ccopts
   end;
 
-  (* Then, bring in the "default options" for each compiler. *)
-  let ccopts = !Options.ccopts in
-  Options.ccopts := [];
-  Arg.parse_argv ~current:(ref 0)
-    (Array.append [| Sys.argv.(0) |] (List.assoc !Options.cc (Options.default_options ())))
-    spec anon_fun usage;
-  Options.ccopts := ccopts @ !Options.ccopts;
-
   (* Then refine that based on the user's preferences. *)
   if !arg_warn_error <> "" then
     Warn.parse_warn_error !arg_warn_error;
@@ -551,6 +569,9 @@ Supported options:|}
   let files = Builtin.make_libraries files in
   let files = if Options.wasm () then SimplifyWasm.intrinsics#visit_files () files else files in
   let files = Bundles.topological_sort files in
+  if Options.debug "topological" then
+    KPrint.bprintf "file order after first topological sort: %s\n"
+      (String.concat " " (List.map fst files));
 
   (* 1. We create bundles, and monomorphize functions first. This creates more
    * applications of parameterized types, which we make sure are in the AST by
@@ -653,7 +674,7 @@ Supported options:|}
       let files = Simplify.sequence_to_let#visit_files () files in
       let files = Simplify.optimize_lets files in
       let files = SimplifyWasm.simplify1 files in
-      let files = Simplify.hoist#visit_files [] files in
+      let files = (new Simplify.hoist)#visit_files [] files in
       let files = Structs.in_memory files in
       (* This one near the end because [in_memory] generates new EBufCreate's that
        * need to be desugared into EBufCreate Any + EBufWrite. See e2ceb92e. *)
@@ -679,7 +700,7 @@ Supported options:|}
   let ifdefs = AstToCStar.mk_ifdefs_set files in
   let macros = AstToCStar.mk_macros_set files in
 
-  let files = if Options.rust () then SimplifyRust.simplify files else files in
+  let files = if Options.rust () then SimplifyRust.simplify_ast files else files in
   let files = Simplify.simplify2 ifdefs files in
   let files = Inlining.mark_possibly_unused ifdefs files in
   let files = if Options.(!merge_variables <> No) then SimplifyMerge.simplify files else files in
@@ -748,6 +769,9 @@ Supported options:|}
     if Options.debug "rs" then
       print PrintAst.print_files files;
     let files = AstToMiniRust.translate_files files in
+    let files = OptimizeMiniRust.cleanup_minirust files in
+    let files = OptimizeMiniRust.infer_mut_borrows files in
+    let files = OptimizeMiniRust.simplify_minirust files in
     OutputRust.write_all files
 
   else
@@ -810,6 +834,20 @@ Supported options:|}
 
     if !arg_skip_compilation then
       exit 0;
+
+    let cc_flavor_callback (k : Options.compiler_flavor) : unit =
+      (* With the compiler flavor detected, add the default options for the compiler.
+         We just call the option parser again to process the default_options. *)
+      let ccopts = !Options.ccopts in
+      Options.ccopts := [];
+      Arg.parse_argv ~current:(ref 0)
+        (Array.append [| Sys.argv.(0) |] (Options.default_options k))
+        spec anon_fun usage;
+      Options.ccopts := ccopts @ !Options.ccopts;
+    in
+
+    Driver.cc_flavor_callback := cc_flavor_callback;
+
     let remaining_c_files = Driver.compile (List.map fst files) !c_files in
 
     if !arg_skip_linking then

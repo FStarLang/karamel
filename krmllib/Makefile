@@ -1,3 +1,5 @@
+include ../Makefile.common
+
 # This file is only to verify KaRaMeL as a library, i.e. to place all
 # *.checked files in this directory instead of a cache. This
 # is to allow users to directly pick from these .checked files instead
@@ -13,13 +15,7 @@ all: verify-all compile-all
 # Verification & extraction                                                    #
 ################################################################################
 
-ifdef FSTAR_HOME
-  # Assume there is a F* source tree
-  FSTAR_EXE=$(FSTAR_HOME)/bin/fstar.exe
-else
-  # Assume F* in the PATH
-  FSTAR_EXE=fstar.exe
-endif
+FSTAR_EXE ?= fstar.exe
 
 EXTRACT_DIR = .extract
 
@@ -28,7 +24,7 @@ UINT128_DIR = dist/uint128
 MINI_DIR = dist/minimal
 
 #332 is turning abstract keyword usage into a fatal error
-FSTAR_OPTIONS += --record_hints --use_hints --odir $(EXTRACT_DIR) \
+FSTAR_OPTIONS += --ext optimize_let_vc --odir $(EXTRACT_DIR) \
   --warn_error @332
   # --use_extracted_interfaces
 
@@ -42,8 +38,7 @@ ifneq ($(RESOURCEMONITOR),)
   RUNLIM = runlim -p -o $@.runlim
 endif
 
-FSTAR = $(RUNLIM) $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules --cache_dir obj \
-  --hint_dir hints \
+FSTAR = $(RUNLIM) $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_dir obj \
   $(addprefix --include , $(INCLUDE_PATHS)) --cmi \
   --already_cached 'Prims FStar -FStar.Krml.Endianness LowStar -LowStar.Lib'
 
@@ -51,7 +46,7 @@ FSTAR = $(RUNLIM) $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_checked_modules --cache_
 # location of ulib.
 ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
   FStar.UInt128.fst FStar.Date.fsti \
-    FStar.HyperStack.IO.fst FStar.IO.fst FStar.Int.Cast.Full.fst \
+    FStar.HyperStack.IO.fst FStar.IO.fsti FStar.Int.Cast.Full.fst \
     FStar.Bytes.fsti FStar.Dyn.fsti LowStar.Printf.fst LowStar.Endianness.fst
 
 .PHONY: clean clean-c
@@ -71,7 +66,7 @@ FSTAR_EXTRACT+=-FStar.Stubs # This namespace is for interfaces into the compiler
 ifndef NODEPEND
 ifndef MAKE_RESTARTS
 .depend: .FORCE obj
-	$(FSTAR) $(OTHERFLAGS) --extract '$(FSTAR_EXTRACT)' --dep full $(ROOTS) --output_deps_to $@
+	$(FSTAR) $(OTHERFLAGS) --extract '$(FSTAR_EXTRACT)' --dep full $(ROOTS) -o $@
 
 .PHONY: .FORCE
 .FORCE:
@@ -84,21 +79,20 @@ obj:
 	mkdir $@
 
 %.checked: | obj
-	$(FSTAR) $(OTHERFLAGS) $< && \
-	touch $@
+	$(call run-with-log,$(FSTAR) $(OTHERFLAGS) -c $< -o $@ && touch $@,[VERIFY] $(basename $*),$*)
 
 verify-all: $(ALL_CHECKED_FILES)
 
 $(EXTRACT_DIR)/%.krml: | .depend
-	$(FSTAR) $(OTHERFLAGS) --codegen krml \
+	$(call run-with-log,$(FSTAR) $(OTHERFLAGS) $< --codegen krml \
 	  --extract_module $(basename $(notdir $(subst .checked,,$<))) \
-	  $(notdir $(subst .checked,,$<)) && \
-	touch -c $@
+	  -o $@ && touch -c $@\
+	  ,[EXTRACT-KRML] $*,$(EXTRACT_DIR)/$*)
 
 # We don't extract LowStar.Lib as everything is generic data structures that
 # need to be specialized based on their usage from client code.
 KRML_ARGS += -fparentheses -fcurly-braces -fno-shadow -header copyright-header.txt \
-  -minimal -skip-compilation -extract-uints \
+  -fstar $(FSTAR_EXE) -minimal -skip-compilation -extract-uints \
   -bundle 'LowStar.Lib.\*'
 
 MACHINE_INTS = \
@@ -114,9 +108,14 @@ $(MINI_DIR):
 $(GENERIC_DIR):
 	mkdir -p $@
 
+local_krml_home := $(realpath $(CURDIR)/..)
+ifeq ($(OS),Windows_NT)
+  local_krml_home := $(shell cygpath -m "$(local_krml_home)")
+endif
+
 # Everything in the universe
 $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) ../_build/default/src/Karamel.exe
-	KRML_HOME=$(shell pwd)/.. \
+	KRML_HOME="$(local_krml_home)" \
 	../krml $(KRML_ARGS) -tmpdir $(GENERIC_DIR) \
 	  -warn-error +9+11 \
 	  $(MACHINE_INTS) \
@@ -133,7 +132,7 @@ $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c
 # Minimalistic build (just machine integers and endianness)
 $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar_uint128*.h) ../_build/default/src/Karamel.exe
 	mkdir -p $(dir $@)
-	KRML_HOME=$(shell pwd)/.. \
+	KRML_HOME="$(local_krml_home)" \
 	../krml $(KRML_ARGS) -tmpdir $(MINI_DIR) \
 	  $(MACHINE_INTS) \
 	  $(addprefix -add-include , \
@@ -153,7 +152,7 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar
 # FStar.UInt64 shares the same bundle name, meaning that
 # FStar_UInt128_Verified.h can be dropped in any of the two krmllibs above.
 $(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) ../_build/default/src/Karamel.exe
-	KRML_HOME=$(shell pwd)/.. \
+	KRML_HOME="$(local_krml_home)" \
 	../krml $(KRML_ARGS) -tmpdir $(UINT128_DIR) \
 	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"krml/internal/types.h"' '"krml/internal/target.h"') \
 	  -bundle FStar.UInt64[rename=FStar_UInt_8_16_32_64] \
@@ -178,5 +177,5 @@ compile-all: compile-dist-generic $(MINI_DIR)/Makefile.include $(UINT128_DIR)/Ma
 
 .PHONY: compile-dist-%
 compile-dist-%: dist/%/Makefile.include
-	KRML_HOME=$(shell pwd)/.. \
+	KRML_HOME="$(local_krml_home)" \
 	$(MAKE) -C dist/$* -f Makefile.basic

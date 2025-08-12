@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_Int_H
-#define __FStar_Int_H
+#ifndef FStar_Int_H
+#define FStar_Int_H
 
 #include "FStar_BitVector.h"
 #include <inttypes.h>
@@ -90,6 +90,8 @@ FStar_Int_mod(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
 extern bool FStar_Int_eq(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
+extern bool FStar_Int_ne(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
+
 extern bool FStar_Int_gt(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
 
 extern bool FStar_Int_gte(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t b);
@@ -137,5 +139,5 @@ FStar_Int_shift_arithmetic_right(
 );
 
 
-#define __FStar_Int_H_DEFINED
-#endif
+#define FStar_Int_H_DEFINED
+#endif /* FStar_Int_H */

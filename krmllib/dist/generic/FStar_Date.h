@@ -1,11 +1,11 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_Date_H
-#define __FStar_Date_H
+#ifndef FStar_Date_H
+#define FStar_Date_H
 
 #include <inttypes.h>
 #include "krmllib.h"
@@ -30,5 +30,5 @@ FStar_Date_addTimeSpan(FStar_Date_dateTime uu___, FStar_Date_timeSpan uu___1);
 extern bool FStar_Date_greaterDateTime(FStar_Date_dateTime uu___, FStar_Date_dateTime uu___1);
 
 
-#define __FStar_Date_H_DEFINED
-#endif
+#define FStar_Date_H_DEFINED
+#endif /* FStar_Date_H */

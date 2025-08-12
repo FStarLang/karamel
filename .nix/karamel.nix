@@ -4,6 +4,7 @@
   removeReferencesTo,
   stdenv,
   symlinks,
+  time,
   version,
   which,
   z3,
@@ -24,7 +25,7 @@
     visitors
     uucp
   ];
-  nativeBuildInputs = [fstar removeReferencesTo symlinks which z3] ++ (with ocamlPackages; [ocaml dune_3 findlib menhir]);
+  nativeBuildInputs = [fstar removeReferencesTo symlinks time which z3] ++ (with ocamlPackages; [ocaml dune_3 findlib menhir]);
 in
   stdenv.mkDerivation {
     inherit version pname propagatedBuildInputs nativeBuildInputs;
@@ -33,7 +34,6 @@ in
 
     outputs = ["out" "home"];
 
-    FSTAR_HOME = fstar;
     GIT_REV = version;
 
     configurePhase = "export KRML_HOME=$(pwd)";
@@ -58,9 +58,6 @@ in
     passthru = {
       lib = ocamlPackages.buildDunePackage {
         GIT_REV = version;
-        # the Makefile expects `FSTAR_HOME` to be or `fstar.exe` to be
-        # in PATH, but this is not useful for buulding the library
-        FSTAR_HOME = "dummy";
         inherit version propagatedBuildInputs;
         nativeBuildInputs = with ocamlPackages; [menhir];
         pname = "krml";

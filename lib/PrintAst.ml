@@ -1,5 +1,5 @@
 (* Copyright (c) INRIA and Microsoft Corporation. All rights reserved. *)
-(* Licensed under the Apache 2.0 License. *)
+(* Licensed under the Apache 2.0 and MIT Licenses. *)
 
 (* A pretty-printer for ASTs *)
 open PPrint
@@ -12,6 +12,8 @@ open Common
 
 let arrow = string "->"
 let lambda = fancystring "λ" 1
+
+let z x = string (Z.to_string x)
 
 let print_app_ empty f head g arguments =
   group (
@@ -26,6 +28,14 @@ let print_app_ empty f head g arguments =
 let print_app x = print_app_ "😱" x
 let print_cg_app x = print_app_ "□" x
 
+type env = string list
+let push env x = x.node.name :: env
+let push_n = List.fold_left push
+let lookup env n =
+  (* Need to print open terms for debug *)
+  Option.value ~default:"" (List.nth_opt env n)
+let empty_env = []
+
 let rec print_decl = function
   | DFunction (cc, flags, n_cg, n, typ, name, binders, body) ->
       let cc = match cc with Some cc -> print_cc cc ^^ break1 | None -> empty in
@@ -36,7 +46,7 @@ let rec print_decl = function
       parens_with_nesting (
         separate_map (comma ^^ break 1) print_binder binders
       ) ^^ colon ^/^ print_typ typ) ^/^ braces_with_nesting (
-        print_expr body
+        print_expr (push_n empty_env binders) body
       )
 
   | DExternal (cc, flags, n_cg, n, name, typ, _) ->
@@ -49,7 +59,9 @@ let rec print_decl = function
 
   | DGlobal (flags, name, n, typ, expr) ->
       print_comment flags ^^
-      print_flags flags ^^ langle ^^ int n ^^ rangle ^^ print_typ typ ^^ space ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2 (print_expr expr)
+      print_flags flags ^^ langle ^^ int n ^^ rangle ^^ print_typ typ ^^ space
+      ^^ string (string_of_lident name) ^^ space ^^ equals ^/^ nest 2
+      (print_expr empty_env expr)
 
   | DType (name, flags, n_cg, n, def) ->
       let args = List.init n (fun i -> string ("t" ^ string_of_int i)) in
@@ -79,8 +91,10 @@ and print_type_def = function
 
   | Enum tags ->
       string "enum" ^/^
-        braces_with_nesting (separate_map (comma ^^ break1) (fun lid ->
-          string (string_of_lident lid)
+        braces_with_nesting (separate_map (comma ^^ break1) (fun (lid, value) ->
+          string (string_of_lident lid) ^^ match value with
+          | None -> empty
+          | Some value -> space ^^ equals ^^ break1 ^^ z value
         ) tags)
 
   | Union fields ->
@@ -149,22 +163,31 @@ and print_flag = function
       string "auto_generated"
   | NoInline ->
       string "no_inline"
+  | MustInline ->
+      string "must_inline"
   | MaybeUnused ->
       string "__attribute__((unused))"
+  | Target s ->
+      string ("__attribute__((target = "^s^"))")
+  | Workspace ->
+      string "workspace"
 
-and print_binder { typ; node = { name; mut; meta; mark; _ }} =
+and print_binder { typ; node = { name; mut; meta; mark; _ }; meta = node_meta } =
+  print_node_meta node_meta @@
   let o, u = !mark in
   (if mut then string "mutable" ^^ break 1 else empty) ^^
   group (group (string name ^^ lparen ^^ string (Mark.show_occurrence o) ^^ comma ^^
-  string (Mark.show_usage u) ^^ comma ^^ space ^^ print_meta meta ^^
+  (match u with AtMost u -> if u = max_int then utf8string "∞" else int u) ^^ comma ^^ space ^^ separate_map comma print_meta meta ^^
   rparen ^^ colon) ^/^
   nest 2 (print_typ typ))
 
 and print_meta = function
-  | Some MetaSequence ->
+  | MetaSequence ->
       semi
-  | None ->
-      empty
+  | Align i ->
+      string "aligned" ^^ parens (int i)
+  | AttemptInline ->
+      string "inline"
 
 and print_typ_paren = function
   | TArrow _ as t ->
@@ -173,14 +196,14 @@ and print_typ_paren = function
       print_typ t
 
 and print_cg = function
-  | CgVar i -> int i
-  | CgConst c -> print_constant c
+  | CgVar i -> dollar ^^ int i
+  | CgConst c -> dollar ^^ print_constant c
 
 and print_typ = function
   | TInt w -> print_width w
   | TBuf (t, bool) -> (if bool then string "const" else empty) ^/^ print_typ t ^^ star
   | TArray (t, k) -> print_typ t ^^ lbracket ^^ print_constant k ^^ rbracket
-  | TCgArray (t, v) -> print_typ t ^^ lbracket ^^ int v ^^ rbracket
+  | TCgArray (t, v) -> print_typ t ^^ lbracket ^^ dollar ^^ int v ^^ rbracket
   | TCgApp (t, cg) -> print_typ t ^^ brackets (brackets (print_cg cg))
   | TUnit -> string "()"
   | TQualified name -> string (string_of_lident name)
@@ -191,24 +214,35 @@ and print_typ = function
   | TApp (lid, args) ->
       string (string_of_lident lid) ^/^ separate_map space print_typ args
   | TTuple ts ->
-      separate_map (space ^^ star ^^ space) print_typ ts
+      parens (separate_map (space ^^ star ^^ space) print_typ ts)
   | TAnonymous t ->
       print_type_def t
+  | TPoly ({ n; n_cgs }, t) ->
+      group @@
+      angles (string "N:" ^^ int n ^^ comma ^^ break1 ^^ string "CGS:" ^^ int
+        n_cgs) ^^ break1 ^^ print_typ t
 
 and print_lifetime = function
   | Stack -> string "stack"
   | Eternal -> string "eternal"
   | Heap -> string "heap"
 
-and print_let_binding (binder, e1) =
+and print_let_binding env (binder, e1) =
   group (group (string "let" ^/^ print_binder binder ^/^ equals) ^^
-  jump (print_expr e1))
+  jump (print_expr env e1))
 
-and print_expr { node; typ } =
-  (* print_typ typ ^^ colon ^^ space ^^ *)
+and print_node_meta meta = 
+  begin match List.filter_map (function CommentBefore s -> Some s | _ -> None) meta,
+    List.filter_map (function CommentAfter s -> Some s | _ -> None) meta
+  with
+  | [], [] -> fun doc -> doc
+  | s, s' -> fun doc -> surround 2 1 (string (String.concat "\n ++" s)) doc (string (String.concat "\n ++" s'))
+  end
+
+and print_expr env { node; typ; meta } =
+  (* print_typ typ ^^ colon ^^ space ^^ parens @@ *)
+  print_node_meta meta @@
   match node with
-  | EComment (s, e, s') ->
-      surround 2 1 (string s) (print_expr e) (string s')
   | EStandaloneComment s ->
       surround 2 1 (string "/*") (string s) (string "*/")
   | EAny ->
@@ -218,9 +252,9 @@ and print_expr { node; typ } =
       string "$abort<" ^^ t ^^ string ">" ^^
       (match s with None -> empty | Some s -> string " (" ^^ string s ^^ string ")")
   | EIgnore e ->
-      print_app string "ignore" print_expr [ e ]
+      print_app string "ignore" (print_expr env) [ e ]
   | EBound v ->
-      at ^^ int v
+      string (lookup env v) ^^ at ^^ int v
   | EOpen (name, _) ->
       bang ^^ string name
   | EQualified lident ->
@@ -232,48 +266,49 @@ and print_expr { node; typ } =
   | EString s ->
       dquote ^^ string s ^^ dquote
   | EApp (e, es) ->
-      print_app print_expr e print_expr es
-  | ETApp (e, es, ts) ->
+      print_app (print_expr env) e (print_expr env) es
+  | ETApp (e, es, es', ts) ->
       print_cg_app (fun (e, ts) ->
-        print_app print_expr e (fun t -> group (langle ^/^ print_typ t ^/^ rangle)) ts
-      ) (e, ts) (fun e -> brackets (brackets (print_expr e))) es
+        print_app (print_expr env) e (fun t -> group (langle ^/^ print_typ t ^/^ rangle)) ts
+      ) (e, ts) (fun e -> brackets (brackets (print_expr env e))) (es @ es')
   | ELet (binder, e1, e2) ->
-      group (print_let_binding (binder, e1) ^/^ string "in") ^^ hardline ^^
-      group (print_expr e2)
+      print_node_meta binder.meta @@
+      group (print_let_binding env (binder, e1) ^/^ string "in") ^^ hardline ^^
+      group (print_expr (push env binder)  e2)
   | EIfThenElse (e1, e2, e3) ->
-      string "if" ^/^ print_expr e1 ^/^ string "then" ^^
-      jump (print_expr e2) ^/^ string "else" ^^
-      jump (print_expr e3)
+      string "if" ^/^ print_expr env e1 ^/^ string "then" ^^
+      jump (print_expr env e2) ^/^ string "else" ^^
+      jump (print_expr env e3)
   | ESequence es ->
-      separate_map (semi ^^ hardline) (fun e -> group (print_expr e)) es
+      separate_map (semi ^^ hardline) (fun e -> group (print_expr env e)) es
   | EAssign (e1, e2) ->
-      group (print_expr e1 ^/^ string ":=") ^^ (jump (print_expr e2))
+      group (print_expr env e1 ^/^ string ":=") ^^ (jump (print_expr env e2))
   | EBufCreate (l, e1, e2) ->
       print_lifetime l ^^ space ^^
-      print_app string "newbuf" print_expr [e1; e2]
+      print_app string "newbuf" (print_expr env) [e1; e2]
   | EBufRead (e1, e2) ->
-      parens (print_expr e1 ^^ colon ^^ print_typ e1.typ) ^^ lbracket ^^ print_expr e2 ^^ rbracket
+      parens (print_expr env e1 ^^ colon ^^ print_typ e1.typ) ^^ lbracket ^^ print_expr env e2 ^^ rbracket
   | EBufWrite (e1, e2, e3) ->
-      print_expr e1 ^^ (*colon ^^ print_typ e1.typ ^^*) lbracket ^^ print_expr e2 ^^ rbracket ^/^
-      string "<-" ^/^ print_expr e3
+      print_expr env e1 ^^ (*colon ^^ print_typ e1.typ ^^*) lbracket ^^ print_expr env e2 ^^ rbracket ^/^
+      string "<-" ^/^ print_expr env e3
   | EBufSub (e1, e2) ->
-      print_app string "subbuf" print_expr [e1; e2]
+      print_app string "subbuf" (print_expr env) [e1; e2]
   | EBufDiff (e1, e2) ->
-      print_app string "diffbuf" print_expr [e1; e2]
+      print_app string "diffbuf" (print_expr env) [e1; e2]
   | EBufBlit (e1, e2, e3, e4, e5) ->
-      print_app string "blitbuf" print_expr [e1; e2; e3; e4; e5]
+      print_app string "blitbuf" (print_expr env) [e1; e2; e3; e4; e5]
   | EBufFill (e1, e2, e3) ->
-      print_app string "fillbuf" print_expr [e1; e2; e3 ]
+      print_app string "fillbuf" (print_expr env) [e1; e2; e3 ]
   | EBufFree e ->
-      print_app string "freebuf" print_expr [ e ]
+      print_app string "freebuf" (print_expr env) [ e ]
   | EMatch (c, e, branches) ->
       let c = if c = Unchecked then string "UNCHECKED " else empty in
-      group (c ^^ string "match" ^/^ print_expr e ^/^ string "with") ^^
-      jump ~indent:0 (print_branches branches)
+      group (c ^^ string "match" ^/^ print_expr env e ^/^ string "with") ^^
+      jump ~indent:0 (print_branches env branches)
   | EOp (o, w) ->
       string "(" ^^ print_op o ^^ string "," ^^ print_width w ^^ string ")"
   | ECast (e, t) ->
-      parens_with_nesting (print_expr e ^^ langle ^^ colon ^/^ print_typ t)
+      parens_with_nesting (print_expr env e ^^ langle ^^ colon ^/^ print_typ t)
   | EPopFrame ->
       string "pop_frame"
   | EPushFrame ->
@@ -283,50 +318,51 @@ and print_expr { node; typ } =
   | EBreak ->
       string "break"
   | EReturn e ->
-      string "return" ^/^ (nest 2 (print_expr e))
+      string "return" ^/^ (nest 2 (print_expr env e))
   | EFlat fields ->
       braces_with_nesting (separate_map break1 (fun (name, expr) ->
         let name = match name with Some name -> string name | None -> empty in
-        group (name ^/^ equals ^/^ print_expr expr ^^ semi)
+        group (name ^/^ equals ^/^ print_expr env expr ^^ semi)
       ) fields) ^^ colon ^/^ group (print_typ typ)
   | EField (expr, field) ->
-      parens_with_nesting (print_expr expr) ^^ dot ^^ string field
+      parens_with_nesting (print_expr env expr) ^^ dot ^^ string field
   | EWhile (e1, e2) ->
-      string "while" ^^ langle ^^ print_typ typ ^^ rangle ^/^ parens_with_nesting (print_expr e1) ^/^
-      braces_with_nesting (print_expr e2)
+      string "while" ^^ langle ^^ print_typ typ ^^ rangle ^/^ parens_with_nesting (print_expr env e1) ^/^
+      braces_with_nesting (print_expr env e2)
   | EFor (binder, e1, e2, e3, e4) ->
+      let env1 = push env binder in
       string "for" ^/^ parens_with_nesting (
-        print_let_binding (binder, e1) ^^
+        print_let_binding env (binder, e1) ^^
         semi ^/^
-        separate_map (semi ^^ break1) print_expr [ e2; e3 ]) ^/^
-      braces_with_nesting (print_expr e4)
+        separate_map (semi ^^ break1) (print_expr env1) [ e2; e3 ]) ^/^
+      braces_with_nesting (print_expr env1 e4)
   | EBufCreateL (l, es) ->
       print_lifetime l ^/^
-      string "newbuf" ^/^ braces_with_nesting (flow (comma ^^ break1) (List.map print_expr es))
+      string "newbuf" ^/^ braces_with_nesting (flow (comma ^^ break1) (List.map (print_expr env)es))
   | ECons (ident, es) ->
       string ident ^/^
       if List.length es > 0 then
-        parens_with_nesting (separate_map (comma ^^ break1) print_expr es) ^^ colon ^/^ print_typ typ
+        parens_with_nesting (separate_map (comma ^^ break1) (print_expr env) es) ^^ colon ^/^ print_typ typ
       else
         empty ^^ colon ^/^ print_typ typ
   | ETuple es ->
-      parens_with_nesting (separate_map (comma ^^ break1) print_expr es)
+      parens_with_nesting (separate_map (comma ^^ break1) (print_expr env) es)
   | EEnum lid ->
       string (string_of_lident lid)
   | ESwitch (e, branches) ->
-      string "switch" ^^ space ^^ print_expr e ^/^ braces_with_nesting (
+      string "switch" ^^ space ^^ print_expr env e ^/^ braces_with_nesting (
         separate_map hardline (fun (lid, e) ->
           string "case" ^^ space ^^ print_case lid ^^ colon ^^
-          nest 2 (hardline ^^ print_expr e)
+          nest 2 (hardline ^^ print_expr env e)
         ) branches)
   | EFun (binders, body, t) ->
       string "fun" ^/^ parens_with_nesting (
         separate_map (comma ^^ break 1) print_binder binders
       ) ^/^ colon ^^ group (print_typ t) ^/^ braces_with_nesting (
-        print_expr body
+        print_expr (push_n env binders) body
       )
   | EAddrOf e ->
-      ampersand ^^ parens_with_nesting (print_expr e)
+      ampersand ^^ parens_with_nesting (print_expr env e)
   | EPolyComp (c, t) ->
       parens_with_nesting (print_poly_comp c ^^ comma ^^ space ^^ print_typ t)
   | EBufNull ->
@@ -347,16 +383,16 @@ and print_case = function
       underscore
 
 
-and print_branches branches =
-  separate_map (break 1) (fun b -> group (print_branch b)) branches
+and print_branches env branches =
+  separate_map (break 1) (fun b -> group (print_branch env b)) branches
 
-and print_branch (binders, pat, expr) =
+and print_branch env (binders, pat, expr) =
   group (bar ^^ space ^^
     lambda ^/^
     group (separate_map (comma ^^ break 1) print_binder binders) ^^
     dot ^^ space ^/^
     group (print_pat pat ^^ space ^^ arrow)
-  ) ^/^ jump ~indent:4 (print_expr expr)
+  ) ^/^ jump ~indent:4 (print_expr (push_n env binders) expr)
 
 and print_pat p =
   (* print_typ p.typ ^^ colon ^^ space ^^ *)
@@ -389,8 +425,9 @@ and print_pat p =
 let print_files = print_files print_decl
 
 module Ops = struct
+  let print_cgs = separate_map (comma ^^ space) print_cg
   let print_typs = separate_map (comma ^^ space) print_typ
-  let print_exprs = separate_map (comma ^^ space) print_expr
+  let print_exprs = separate_map (comma ^^ space) (print_expr empty_env)
   let print_lidents = separate_map (comma  ^^ space) print_lident
 
   let ploc = printf_of_pprint Loc.print_location
@@ -398,11 +435,13 @@ module Ops = struct
   let pcase = printf_of_pprint print_case
   let ptyp = printf_of_pprint print_typ
   let ptyps = printf_of_pprint print_typs
+  let pcg = printf_of_pprint print_cg
+  let pcgs = printf_of_pprint print_cgs
   let pptyp = printf_of_pprint_pretty print_typ
-  let pexpr = printf_of_pprint print_expr
+  let pexpr = printf_of_pprint (print_expr empty_env)
   let pbind = printf_of_pprint print_binder
   let pexprs = printf_of_pprint print_exprs
-  let ppexpr = printf_of_pprint_pretty print_expr
+  let ppexpr = printf_of_pprint_pretty (print_expr empty_env)
   let plid = printf_of_pprint print_lident
   let plids = printf_of_pprint print_lidents
   let pplid = printf_of_pprint_pretty print_lident
@@ -414,10 +453,11 @@ module Ops = struct
   let ppop = printf_of_pprint_pretty print_op
   let ppat = printf_of_pprint print_pat
   let pppat = printf_of_pprint_pretty print_pat
-  let plb = printf_of_pprint print_let_binding
-  let pplb = printf_of_pprint_pretty print_let_binding
+  let plb = printf_of_pprint (print_let_binding empty_env)
+  let pplb = printf_of_pprint_pretty (print_let_binding empty_env)
   let plbs buf lbs = List.iter (fun lb -> plb buf lb; Buffer.add_string buf " ") lbs
   let pplbs buf lbs = List.iter (fun lb -> pplb buf lb; Buffer.add_string buf "\n") lbs
+  let pconst = printf_of_pprint print_constant
 end
 
 include Ops

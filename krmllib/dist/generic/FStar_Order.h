@@ -1,13 +1,12 @@
 /*
   Copyright (c) INRIA and Microsoft Corporation. All rights reserved.
-  Licensed under the Apache 2.0 License.
+  Licensed under the Apache 2.0 and MIT Licenses.
 */
 
 
-#ifndef __FStar_Order_H
-#define __FStar_Order_H
+#ifndef FStar_Order_H
+#define FStar_Order_H
 
-#include "Prims.h"
 #include <inttypes.h>
 #include "krmllib.h"
 #include "krml/internal/compat.h"
@@ -46,5 +45,5 @@ krml_checked_int_t FStar_Order_int_of_order(FStar_Order_order uu___);
 FStar_Order_order FStar_Order_compare_int(krml_checked_int_t i, krml_checked_int_t j);
 
 
-#define __FStar_Order_H_DEFINED
-#endif
+#define FStar_Order_H_DEFINED
+#endif /* FStar_Order_H */
