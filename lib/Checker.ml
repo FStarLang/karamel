@@ -369,7 +369,8 @@ and check' env t e =
         Warn.(maybe_fatal_error (loc, Vla e))
       end;
       let t, _ = assert_buffer env t in
-      if t = TAny then
+      let t' = check_or_infer env t e1 in
+      if t' = TAny then
         checker_error env buf_any_msg ppexpr e;
       check env t e1;
       check_array_index env e2;
