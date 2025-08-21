@@ -71,6 +71,7 @@ and expr =
      so as to rely on an implicit constructor *)
   | CxxInitializerList of init
   | Ternary of expr * expr * expr
+  | ESkip (* only valid in the arguments of a For loop, e.g. to support for(;;) *)
 
 (** this is a WILD approximation of the notion of "type name" in C _and_ a hack
  * because there's the invariant that the ident found at the bottom of the
@@ -157,7 +158,6 @@ and declaration_or_function =
 and declaration_or_expr = [
   | `Decl of declaration
   | `Expr of expr
-  | `Skip
 ]
 [@@deriving show]
 
