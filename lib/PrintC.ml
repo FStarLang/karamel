@@ -354,6 +354,7 @@ and p_expr' curr = function
       let e = p_expr' 13 e in
       paren_if curr mine @@
       group c ^^ space ^^ align (qmark ^^ space ^^ group t ^/^ colon ^^ space ^^ group e)
+  | ESkip -> empty (* is this right? *)
 
 (* statement-level comment *)
 and p_comment s =
@@ -442,7 +443,6 @@ and p_stmt (s: stmt) =
       let init = match decl with
         | `Decl decl -> p_declaration decl
         | `Expr expr -> p_expr expr
-        | `Skip -> empty
       in
       group (string "for" ^/^ lparen ^^ nest 2 (
         init ^^ semi ^^ break1 ^^
