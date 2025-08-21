@@ -1426,6 +1426,26 @@ and hoist_expr tbl loc pos e =
         let b = { b with node = { b.node with meta = MetaSequence :: b.node.meta }} in
         lhs1 @ [ b, mk (EFor (binder, e1, s (nest lhs2 e2.typ e2), s (nest lhs3 e3.typ e3), s e4)) ], mk EUnit
 
+  | EGFor (e1, e2, e3, e4) ->
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
+      let lhs2, e2 = hoist_expr loc Unspecified e2 in
+      let lhs3, e3 = hoist_expr loc UnderStmtLet e3 in
+      (* Note: this should always be a fatal error when going to C, but only for
+         the for-loop (since there is no workaround like for the if-then-else
+         case. *)
+      if lhs2 <> [] || lhs3 <> [] then
+        Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc loc,
+          GeneratesLetBindings ("this for-loop's condition or iteration", e, (lhs2 @ lhs3))));
+      let e4 = hoist_stmt loc e4 in
+      (* If we get here let-bindings are ok for the chosen backend, likely wasm
+         or rust *)
+      if pos = UnderStmtLet then
+        lhs1, mk (EGFor (e1, (nest lhs2 e2.typ e2), (nest lhs3 e3.typ e3), e4))
+      else
+        let b = fresh_binder "_" TUnit in
+        let b = { b with node = { b.node with meta = MetaSequence :: b.node.meta }} in
+        lhs1 @ [ b, mk (EGFor (e1, (nest lhs2 e2.typ e2), (nest lhs3 e3.typ e3), e4)) ], mk EUnit
+
   | EFun (binders, expr, t) ->
       let binders, expr = open_binders binders expr in
       let expr = hoist_stmt loc expr in
@@ -1613,6 +1633,26 @@ class hoist = object
     DFunction (cc, flags, n_cgs, n, ret, name, binders, expr)
 end
 
+class auto_for = object (self)
+  inherit [_] map as super
+
+  val field_types = Hashtbl.create 42
+
+  method! visit_file () file =
+    super#visit_file () file
+
+  method! visit_DFunction () cc flags n_cgs n ret name binders expr =
+    let expr = self#visit_expr_w () expr in
+    DFunction (cc, flags, n_cgs, n, ret, name, binders, expr)
+
+  method! visit_EWhile (_, _t) cond body =
+    (* if true then
+      let body, incr = decons body in
+      EGFor (with_type TUnit EUnit, self#visit_expr_w () cond, self#visit_expr_w () incr, self#visit_expr_w () body)
+    else *)
+      EWhile (self#visit_expr_w () cond, self#visit_expr_w () body)
+
+end
 
 (* Relax the criterion a little bit for terminal positions ********************)
 
@@ -2284,6 +2324,7 @@ let simplify2 ifdefs (files: file list): file list =
   let files = optimize_lets ~ifdefs files in
   let files = if Options.wasm () then files else fixup_while_tests#visit_files () files in
   let files = (new hoist)#visit_files [] files in
+  let files = if !Options.auto_for_loops then (new auto_for)#visit_files () files else files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
   let files = if Options.wasm () then files else fixup_hoist#visit_files () files in
   (* Disabled in Rust because this results in uninitialized variables *)

@@ -171,6 +171,8 @@ and mk_expr = function
       mk (EIfThenElse (mk_expr e1, mk_expr e2, mk_expr e3))
   | I.EWhile (e1, e2) ->
       mk (EWhile (mk_expr e1, mk_expr e2))
+  | I.EGFor (i, c, s, b) ->
+      mk (EGFor (mk_expr i, mk_expr c, mk_expr s, mk_expr b))
   | I.ESequence es ->
       mk (ESequence (List.map mk_expr es))
   | I.EAssign (e1, e2) ->

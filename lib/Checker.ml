@@ -329,6 +329,7 @@ and check' env t e =
   | EString _
   | EFun _
   | EFor _
+  | EGFor _
   | EIgnore _
   | EStandaloneComment _
   | EApp _ ->
@@ -868,6 +869,13 @@ and infer' env e =
       let t = check_or_infer (locate env (In binder.node.name)) binder.typ e1 in
       binder.typ <- t;
       let env = push env binder in
+      check (locate env ForCond) TBool e2;
+      check (locate env ForIter) TUnit e3;
+      check (locate env For) TUnit e4;
+      TUnit
+
+  | EGFor (e1, e2, e3, e4) ->
+      check env TUnit e1;
       check (locate env ForCond) TBool e2;
       check (locate env ForIter) TUnit e3;
       check (locate env For) TUnit e4;

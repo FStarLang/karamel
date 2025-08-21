@@ -336,6 +336,12 @@ and print_expr env { node; typ; meta } =
         semi ^/^
         separate_map (semi ^^ break1) (print_expr env1) [ e2; e3 ]) ^/^
       braces_with_nesting (print_expr env1 e4)
+  | EGFor (e1, e2, e3, e4) ->
+      string "for" ^/^ parens_with_nesting (
+        print_expr env e1 ^^
+        semi ^/^
+        separate_map (semi ^^ break1) (print_expr env) [ e2; e3 ]) ^/^
+      braces_with_nesting (print_expr env e4)
   | EBufCreateL (l, es) ->
       print_lifetime l ^/^
       string "newbuf" ^/^ braces_with_nesting (flow (comma ^^ break1) (List.map (print_expr env)es))

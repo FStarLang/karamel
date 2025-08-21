@@ -105,6 +105,7 @@ and vars_of_block m stmts =
   KList.reduce S.union (List.map (vars_of_stmt m) stmts)
 
 and vars_of_stmt m = function
+  | Skip
   | CStar.Abort _
   | Return _
   | Break
@@ -133,12 +134,6 @@ and vars_of_stmt m = function
               vars_of_block m b
             ]
           )
-      | `Skip ->
-          KList.reduce S.union [
-            vars_of m e;
-            vars_of_stmt m s;
-            vars_of_block m b
-          ]
       | `Stmt s' ->
           KList.reduce S.union [
             vars_of m e;
@@ -621,6 +616,7 @@ and to_initializer m = function
 
 and mk_stmt m (stmt: stmt): C.stmt list =
   match stmt with
+  | Skip -> []
   | Comment s ->
       [ Comment s ]
 
@@ -880,8 +876,31 @@ and mk_stmt m (stmt: stmt): C.stmt list =
   | BufFree (t, e) ->
       [ Expr (mk_free t (mk_expr m e)) ]
 
-  | While (e1, e2) ->
-      [ While (mk_expr m e1, mk_compound_if (mk_stmts m e2) false) ]
+  | While (e1, e2) -> (
+    let decons (blk : C11.stmt list) : (C11.stmt list * C11.expr) option =
+      if not !Options.auto_for_loops then
+        None
+      else
+      match KList.split_at_last blk with
+      | init, Expr e ->
+        (* let vs = vars_of m e in *)
+        (* This here can cause things to not compile since the last
+        statement in the loop might refer to variables defined within
+        the body. I'm just keeping this temporarilly to get nicer code.
+        We avoid this issue in all of our kuiper programs, for now. *)
+        if true || List.for_all (fun (x : C11.stmt) ->
+                         match x with C.Decl _ -> false | _ -> true) init
+        then Some (init, e)
+        else None
+      | _ -> None
+    in
+    let e2 = mk_stmts m e2 in
+    match decons e2 with
+    | None ->
+      [ While (mk_expr m e1, mk_compound_if e2 false) ]
+    | Some (body, incr) ->
+      [ For (`Expr ESkip, mk_expr m e1, incr, mk_compound_if body false) ]
+  )
 
   | Switch (e, branches, default) ->
       [ Switch (
@@ -921,18 +940,17 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       let name = match decl with Ident name -> name | _ -> failwith "not an ident" in
       let init = match struct_as_initializer m e1 with InitExpr init -> init | _ -> failwith "not an initexpr" in
       let e2 = mk_expr m e2 in
-      let e3 = match mk_stmt m e3 with [ Expr e3 ] -> e3 | _ -> assert false in
+      let e3 = match mk_stmt m e3 with [ Expr e3 ] -> e3 | [] -> ESkip | _ -> assert false in
       let b = mk_compound_if (mk_stmts m b) false in
       [ mk_for_loop name qs spec init e2 e3 b ]
 
   | For (e1, e2, e3, b) ->
       let e1 = match e1 with
-        | `Skip -> `Skip
-        | `Stmt e1 -> `Expr (match mk_stmt m e1 with [ Expr e1 ] -> e1 | _ -> assert false)
+        | `Stmt e1 -> `Expr (match mk_stmt m e1 with [ Expr e1 ] -> e1 | [] -> ESkip | _ -> assert false)
         | _ -> assert false
       in
       let e2 = mk_expr m e2 in
-      let e3 = match mk_stmt m e3 with [ Expr e3 ] -> e3 | _ -> assert false in
+      let e3 = match mk_stmt m e3 with [ Expr e3 ] -> e3 | [] -> ESkip | _ -> assert false in
       let b = mk_compound_if (mk_stmts m b) false in
       [ For (e1, e2, e3, b) ]
 

@@ -630,6 +630,10 @@ let to_addr is_struct =
         not_struct ();
         w (EFor (b, to_addr false e1, to_addr false e2, to_addr false e3, to_addr false e4))
 
+    | EGFor (e1, e2, e3, e4) ->
+        not_struct ();
+        w (EGFor (to_addr false e1, to_addr false e2, to_addr false e3, to_addr false e4))
+
     | EIgnore e ->
         not_struct ();
         w (EIgnore (to_addr false e))

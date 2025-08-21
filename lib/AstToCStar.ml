@@ -584,16 +584,33 @@ and mk_stmts env e ret_type =
         let e' =
           if is_solo_assignment then
             let e1 = match mk_block env Not e1 with
-              | [ e1 ] -> `Stmt e1
-              | [] -> `Skip
+              | [ e1 ] -> e1
+              | [] -> Skip
               | _ -> assert false
             in
-            CStar.For (e1, e2, e3, e4)
+            CStar.For (`Stmt e1, e2, e3, e4)
           else
             let e1 = mk_expr env false false e1 in
             CStar.For (`Decl (binder, e1), e2, e3, e4)
         in
         env', maybe_return (e' :: comment e.meta @ acc)
+
+    | EGFor (e1, e2, e3, e4) ->
+        (* let e1 = mk_expr env false false e1 in *)
+        let e2 = mk_expr env false false e2 in
+            let e3 = match mk_block env Not e3 with
+              | [ e3 ] -> e3
+              | [] -> Skip
+              | _ -> assert false
+            in
+        let e4 = mk_block env Not e4 in
+            let e1 = match mk_block env Not e1 with
+              | [ e1 ] -> e1
+              | [] -> Skip
+              | _ -> assert false
+            in
+        let e' = CStar.For (`Stmt e1, e2, e3, e4) in
+        env, maybe_return (e' :: comment e.meta @ acc)
 
     | EIfThenElse (e1, e2, e3) ->
         begin try

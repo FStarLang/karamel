@@ -106,6 +106,8 @@ and expr =
   | EBufNull of typ
   | EBufDiff of (expr * expr)
     (** e1 - e2 *)
+  | EGFor of (expr * expr * expr * expr)
+    (** generic for; init, condition, increment, body *)
 
 and branches =
   branch list

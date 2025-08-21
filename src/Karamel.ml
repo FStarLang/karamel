@@ -358,6 +358,7 @@ Supported options:|}
       one of the included system headers";
     "-faggressive-inlining", Arg.Set Options.aggressive_inlining, " attempt to inline \
       every variable for more compact code-generation";
+    "-fauto-for-loops", Arg.Set Options.auto_for_loops, " attempt to convert loops to for-loops";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
