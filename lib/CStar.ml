@@ -21,6 +21,7 @@ and decl =
     (** String list for pretty-printing the names of the arguments. *)
 
 and stmt =
+  | Skip
   | Abort of string
   | Return of expr option
   | Break
@@ -32,7 +33,7 @@ and stmt =
     (** The boolean indicates whether this is intended to be compiled as an
      * ifdef. *)
   | While of expr * block
-  | For of [ `Decl of binder * expr | `Stmt of stmt | `Skip ] * expr * stmt * block
+  | For of [ `Decl of binder * expr | `Stmt of stmt ] * expr * stmt * block
     (** There is a slight mismatch; C has an iteration *expression* but C*'s
      * expressions are pure; therefore, we must use a statement in lieu of the
      * iteration expression. *)

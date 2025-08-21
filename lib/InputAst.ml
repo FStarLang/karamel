@@ -109,6 +109,8 @@ and expr =
   | ESizeof of typ
   | EZeroForDeref of K.width
     (** Zero with an explicit width; requests dereference syntax when used as a buffer index. *)
+  | EGFor of (expr * expr * expr * expr)
+    (** generic for; init, condition, increment, body *)
 
 and branches =
   branch list
