@@ -307,6 +307,13 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
       let s = closing_binder binder in
       KList.reduce S.inter [ d1; d2; d3; d4 ], u, w (EFor (b, e1, s e2, s e3, s e4))
 
+  | EGFor (e1, e2, e3, e4) ->
+      let d4, u, e4 = merge env u e4 in
+      let d3, u, e3 = merge env u e3 in
+      let d2, u, e2 = merge env u e2 in
+      let d1, u, e1 = merge env u e1 in
+      KList.reduce S.inter [ d1; d2; d3; d4 ], u, w (EGFor (e1, e2, e3, e4))
+
   | EAddrOf e ->
       let d, u, e = merge env u e in
       d, u, w (EAddrOf e)

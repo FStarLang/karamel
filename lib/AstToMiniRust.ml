@@ -1323,6 +1323,9 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
       let env, e_end = translate_expr env fn_t_ret e_end in
       let _, e_body = translate_expr (push env binding) fn_t_ret e_body in
       env0, For (binding, Range (Some e_start, Some e_end, inclusive), e_body)
+  | EGFor _ ->
+    failwith "TODO Rust EGFor"
+
   | ECast (e, t) ->
       begin match t with
       | TInt _ | TBool ->
