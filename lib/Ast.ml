@@ -296,6 +296,8 @@ type expr' =
      *   }
      * ]}
      * The scope of the binder is the second, third and fourth expressions. *)
+  | EGFor of expr * expr * expr * expr
+    (** Generic C-style for loop; initializer; condition; increment; body *)
   | ECast of expr * typ_wo
   | EStandaloneComment of string
   | EAddrOf of expr
@@ -537,6 +539,13 @@ class ['self] map = object (self: 'self)
     let e4 = self#visit_expr env e4 in
     EFor (b, e1, e2, e3, e4)
 
+  method! visit_EGFor env e1 e2 e3 e4 =
+    let e1 = self#visit_expr env e1 in
+    let e2 = self#visit_expr env e2 in
+    let e3 = self#visit_expr env e3 in
+    let e4 = self#visit_expr env e4 in
+    EGFor (e1, e2, e3, e4)
+
   method! visit_EFun env bs e t =
     let bs = self#visit_binders env bs in
     let env = self#extend_many_wo env bs in
@@ -599,6 +608,12 @@ class ['self] iter = object (self: 'self)
     self#visit_binder env b;
     self#visit_expr env e1;
     let env = self#extend_wo env b in
+    self#visit_expr env e2;
+    self#visit_expr env e3;
+    self#visit_expr env e4
+
+  method! visit_EGFor env e1 e2 e3 e4 =
+    self#visit_expr env e1;
     self#visit_expr env e2;
     self#visit_expr env e3;
     self#visit_expr env e4

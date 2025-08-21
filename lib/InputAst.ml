@@ -113,6 +113,8 @@ and expr =
     (** Exit the innermost loop, even if inside EMatch. *)
   | EContinue
     (** Continue the innermost loop. *)
+  | EGFor of (expr * expr * expr * expr)
+    (** generic for; init, condition, increment, body *)
 
 and branches =
   branch list
