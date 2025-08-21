@@ -111,6 +111,7 @@ let short_names = ref true
 let cxx_compat = ref false
 let cxx17_compat = ref false
 let aggressive_inlining = ref false
+let auto_for_loops = ref false
 
 let extract_uints = ref false
 let builtin_uint128 = ref false
