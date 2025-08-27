@@ -1166,7 +1166,7 @@ and mk_compound_literal m name fields =
       ])
   | _ ->
       (* TODO really properly specify C's type_name! *)
-      CompoundLiteral (([], Named name, Ident ""), fields_as_initializer_list m fields)
+      CompoundLiteral (([], Named name, Ident ""), List.map trim_trailing_zeros (fields_as_initializer_list m fields))
 
 and struct_as_initializer m = function
   | Struct (_, fields) ->
