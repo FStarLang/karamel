@@ -239,6 +239,7 @@ let rec is_zero = function
 let rec trim_trailing_zeros l =
   match l with
   | Initializer [] -> Initializer []
+  | InitExpr (CompoundLiteral (_, l)) -> Initializer (List.map trim_trailing_zeros (chop_zeros l))
   | InitExpr e -> InitExpr e
   | Designated (d, init) -> Designated (d, trim_trailing_zeros init)
   | Initializer l -> Initializer (List.map trim_trailing_zeros (chop_zeros l))
