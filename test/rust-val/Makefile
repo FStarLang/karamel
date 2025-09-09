@@ -63,9 +63,9 @@ $(CACHE_DIR)/%.checked: | .depend
 
 .PRECIOUS: %.rs
 %.rs: $(ALL_KRML_FILES) $(KRML_BIN)
-	$(KRML) -minimal -bundle AuxA+AuxB=[rename=Aux,rename-prefix] -bundle $(notdir $(subst rust,Rust,$*))=\* \
+	$(KRML) -minimal -bundle AuxA+AuxB=[rename=Auxiliary,rename-prefix] -bundle $(notdir $(subst rust,Rust,$*))=\* \
 	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)
-	$(SED) -i 's/\(patterns..\)/\1\nmod aux; mod lowstar { pub mod ignore { pub fn ignore<T>(_x: T) {}}}\n/' $@
+	$(SED) -i 's/\(patterns..\)/\1\nmod auxiliary; mod lowstar { pub mod ignore { pub fn ignore<T>(_x: T) {}}}\n/' $@
 	echo 'fn main () { let r = main_ (); if r != 0 { println!("main_ returned: {}\\n", r); panic!() } }' >> $@
 
 %.rust-test: %.rs
