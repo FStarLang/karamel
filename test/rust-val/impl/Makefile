@@ -22,7 +22,7 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --cmi --warn_error -274
 SED=$(shell which gsed >/dev/null 2>&1 && echo gsed || echo sed)
 
-all: aux.rust-test
+all: auxiliary.rust-test
 
 FSTAR_FILES=$(wildcard *.fst *.fsti)
 
@@ -57,7 +57,7 @@ $(CACHE_DIR)/%.checked: | .depend
 
 .PRECIOUS: %.rs
 %.rs: $(ALL_KRML_FILES) $(KRML_BIN)
-	$(KRML) -minimal -bundle AuxA+AuxB=\*[rename=Aux,rename-prefix] \
+	$(KRML) -minimal -bundle AuxA+AuxB=\*[rename=Auxiliary,rename-prefix] \
 	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)
 
 %.rust-test: %.rs
