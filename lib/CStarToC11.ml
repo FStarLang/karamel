@@ -1188,7 +1188,11 @@ and mk_expr m (e: expr): C.expr =
       else
         (* Floats: no known suffix. Cast.
            size_t, ptrdiff_t: still no suffix. Cast. *)
-        Cast (([], Int w, Ident ""), Constant (w, c))
+        if !Options.cuda then
+          (* Avoid cast on constants *)
+          Constant (w, c)
+        else
+          Cast (([], Int w, Ident ""), Constant (w, c))
 
   | BufCreate _ | BufCreateL _ ->
       failwith "[mk_expr m]: Buffer.create and Buffer.createl may only appear as let ... = Buffer.create"
