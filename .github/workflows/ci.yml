@@ -33,7 +33,7 @@ jobs:
       - name: Setup ocaml
         uses: ocaml/setup-ocaml@v3
         with:
-           ocaml-compiler: 4.14.2
+           ocaml-compiler: 5.3.0
 
       - uses: actions/checkout@master
         with:
