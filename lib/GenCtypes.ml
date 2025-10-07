@@ -44,6 +44,9 @@ let mk_ident name = Lident name |> mk_sym_ident
 
 let exp_ident n = Exp.ident (mk_ident n)
 
+let exp_module_pack id =
+  Exp.pack { pmod_desc = Pmod_ident id; pmod_loc = no_location; pmod_attributes = [] ;}
+
 let warn_drop_declaration loc lid_decl lid_type =
   if not (KString.starts_with (snd lid_decl) "__proj__") &&
      not (KString.starts_with (snd lid_decl) "uu___")
@@ -538,7 +541,7 @@ let mk_gen_decls ~public:public_headers ~internal:internal_headers module_name =
       (exp_ident ("Cstubs.write_" ^ typ))
       [ (Nolabel, exp_ident "Format.std_formatter")
       ; (Labelled "prefix", mk_const "")
-      ; (Nolabel, mk_app (exp_ident "module") [exp_ident (n ^ "_bindings.Bindings")]) ]
+      ; (Nolabel, exp_module_pack (mk_ident (n ^ "_bindings.Bindings"))) ]
   in
   let mk_printf s = mk_app (exp_ident "Format.printf") [mk_const s] in
   let internal_include =
