@@ -125,6 +125,60 @@ let string_of_dependency (d1, f1, d2, f2) =
   KPrint.bsprintf "%a (found in file %s) mentions %a (found in file %s)"
     PrintAst.plid d1 f1 PrintAst.plid d2 f2
 
+let explain_loop files (edges: (lident * string * lident * string) list) =
+  let edges = List.rev edges in
+  let _, _, _, last_file = KList.last edges in
+  let rec discard_prefix = function
+    | ((_, file_from, _, _) :: _) as edges when file_from = last_file ->
+        edges
+    | _ :: edges ->
+        discard_prefix edges
+    | [] ->
+        assert false
+  in
+  let edges = discard_prefix edges in
+  let map = Helpers.build_map files (fun tbl decl ->
+    Hashtbl.add tbl (lid_of_decl decl) decl
+  ) in
+  let b = Buffer.create 256 in
+  let pclid buf (m, n) =
+    Printf.bprintf buf "[ ";
+    List.iter (fun m ->
+      Printf.bprintf buf "%s; " m
+    ) m;
+    Printf.bprintf buf "%s ]" n
+  in
+  Printf.bprintf b "There is a dependency loop in %d steps\n\n" (List.length edges);
+  List.iteri (fun i (decl_from, file_from, decl_to, file_to) ->
+    Printf.bprintf b "STEP %d: file `%s` depends on file `%s`, because\n" i file_from file_to;
+    let flavor = function
+      | DType _ -> "type"
+      | DFunction _ -> "function"
+      | DGlobal _ -> "global"
+      | DExternal _ -> "external"
+    in
+    let decl_from_def = Hashtbl.find map decl_from in
+    let flavor_from = flavor decl_from_def in
+    let decl_to_def = Hashtbl.find map decl_to in
+    let flavor_to = flavor decl_to_def in
+    let shrink = function
+      | DFunction (cc, flags, n_cgs, n, typ, name, binders, _) ->
+          DFunction (cc, flags, n_cgs, n, typ, name, binders, with_type TAny (EQualified ([], "// omitted")))
+      | d -> d
+    in
+    let decl_from_def = shrink decl_from_def in
+    let decl_to_def = shrink decl_to_def in
+    let open PPrint in
+    let open PrintAst in
+    let open PrintCommon in
+    let p = printf_of_pprint_pretty (fun d -> nest 4 (break1 ^^ group (print_decl d) ^^ hardline)) in
+    Printf.bprintf b "The %s declaration below, known in config syntax as %a\n%a\n\
+      depends on the %s declaration below, known in config syntax as %a\n%a\n\n"
+      flavor_from pclid decl_from p decl_from_def
+      flavor_to pclid decl_to p decl_to_def
+  ) edges;
+  Buffer.contents b
+
 let direct_dependencies file_of file =
   let deps = Hashtbl.create 41 in
   let current_decl = ref None in
@@ -172,7 +226,7 @@ let topological_sort files =
         ()
     | Gray ->
         Warn.fatal_error "Bundling creates a dependency cycle:\n%s"
-          (String.concat "\n" (List.map string_of_dependency debug))
+          (explain_loop files debug)
     | White ->
         r := Gray;
         Hashtbl.iter (fun f dep -> dfs (dep :: debug) f) deps;
