@@ -1090,10 +1090,10 @@ and assert_cons_of env t id: fields_t =
       checker_error env "the annotated type %a is not a variant type" ptyp (TAnonymous t)
 
 and subtype env t1 t2 =
-  let normalize t =
+  let rec normalize t =
     match MonomorphizationState.resolve_deep (expand_abbrev env t) with
     | TBuf (TApp ((["Eurydice"], "derefed_slice"), [ t ]), _) ->
-        TApp ((["Eurydice"], "slice"), [t])
+        normalize (TApp ((["Eurydice"], "dst_ref"), [t; Helpers.usize]))
     | t ->
         t
   in
