@@ -123,7 +123,7 @@ let populate_env files =
           in
           { env with types = M.add lid typ env.types }
       | DGlobal (_, lid, n, t, _) ->
-          assert (n = 0);
+          let t = if n > 0 then TPoly ({ n; n_cgs = 0 }, t) else t in
           { env with globals = M.add lid t env.globals }
       | DFunction (_, _, n_cgs, n, ret, lid, binders, _) ->
           if not !Options.allow_tapps && n <> 0 then
@@ -212,7 +212,7 @@ and check_decl env d =
       let env = { env with n_cgs } in
       check env t body
   | DGlobal (_, name, n, t, body) ->
-      assert (n = 0);
+      assert (!Options.allow_tapps || n = 0);
       let env = locate env (InTop name) in
       check env t body
   | DExternal _
@@ -1090,10 +1090,10 @@ and assert_cons_of env t id: fields_t =
       checker_error env "the annotated type %a is not a variant type" ptyp (TAnonymous t)
 
 and subtype env t1 t2 =
-  let normalize t =
+  let rec normalize t =
     match MonomorphizationState.resolve_deep (expand_abbrev env t) with
     | TBuf (TApp ((["Eurydice"], "derefed_slice"), [ t ]), _) ->
-        TApp ((["Eurydice"], "slice"), [t])
+        normalize (TApp ((["Eurydice"], "dst_ref"), [t; Helpers.usize]))
     | t ->
         t
   in
