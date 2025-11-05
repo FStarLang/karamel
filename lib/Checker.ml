@@ -524,9 +524,9 @@ and args_of_branch env t ident =
       checker_error env "Type annotation is not an lid but %a" ptyp t
 
 and infer env e =
-  if Options.debug "checker" then KPrint.bprintf "[infer] %a\n" pexpr e;
+  if Options.debug "checker" then KPrint.bprintf "[infer] %a: %a\n" pexpr e ptyp e.typ;
   let t = infer' env e in
-  if Options.debug "checker" then KPrint.bprintf "[infer, got] %a\n" ptyp t;
+  if Options.debug "checker" then KPrint.bprintf "[infer, got] %a: %a\n" pexpr e ptyp t;
   check_subtype env t e.typ;
   (* This is all because of external that retain their polymorphic
      signatures. TODO: does this alleviate the need for those crappy checks in
