@@ -33,6 +33,15 @@ let resolve t: typ =
 let resolve_deep = (object(self)
   inherit [_] map
 
+  method! visit_TBuf () t c =
+    match t with
+    | TApp ((["Eurydice"], "derefed_slice"), [ t ]) ->
+        (* TBuf (TApp ...) ~~> TApp *)
+        let t = self#visit_typ () t in
+        resolve (TApp ((["Eurydice"], "dst_ref"), [t; Helpers.usize]))
+    | _ ->
+        TBuf (self#visit_typ () t, c)
+
   method! visit_TApp () t ts =
     let ts = List.map (self#visit_typ ()) ts in
     resolve (TApp (t, ts))
