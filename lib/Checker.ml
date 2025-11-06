@@ -1092,8 +1092,10 @@ and assert_cons_of env t id: fields_t =
 and subtype env t1 t2 =
   let rec normalize t =
     match MonomorphizationState.resolve_deep (expand_abbrev env t) with
-    | TBuf (TApp ((["Eurydice"], "derefed_slice"), [ t ]), _) ->
-        normalize (TApp ((["Eurydice"], "dst_ref"), [t; Helpers.usize]))
+    | TBuf (TApp ((["Eurydice"], "derefed_slice"), [ t ]), true) ->
+        normalize (TApp ((["Eurydice"], "dst_ref_shared"), [t; Helpers.usize]))
+    | TBuf (TApp ((["Eurydice"], "derefed_slice"), [ t ]), false) ->
+        normalize (TApp ((["Eurydice"], "dst_ref_mut"), [t; Helpers.usize]))
     | t ->
         t
   in
