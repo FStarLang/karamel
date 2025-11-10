@@ -12,6 +12,8 @@ type mapping = (Ast.lident * kind, Ast.ident * bool) Hashtbl.t
 (** Allocate a new (mutable) table for a given C scope of top-level declarations. *)
 val create: unit -> t
 
+val mangle_enum: Ast.lident -> Ast.typ -> Ast.lident
+
 (** Given:
   - a global mapping, meaning names that are externally-visible (to a given krml run)
   - a local mapping, for names that are local to this file only,

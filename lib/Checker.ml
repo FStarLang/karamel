@@ -325,7 +325,6 @@ and check' env t e =
   | EContinue
   | EBool _
   | EWhile _
-  | EEnum _
   | EField _
   | EString _
   | EFun _
@@ -425,6 +424,16 @@ and check' env t e =
       if List.length ts <> List.length es then
         checker_error env "Tuple length mismatch";
       List.iter2 (check env) ts es
+
+  | EEnum tag ->
+      (* See infer case for comments *)
+      begin match expand_abbrev env (if t = TAny then e.typ else t) with
+      | TQualified lid
+      | TApp (lid, _) ->
+          assert (List.mem tag (List.map fst (assert_enum env (lookup_type env lid))))
+      | _ ->
+          c (TQualified (M.find tag env.enums))
+      end
 
   | ECons (ident, exprs) ->
       (** The typing rules of matches and constructors are always nominal;
@@ -778,6 +787,7 @@ and infer' env e =
       TTuple (List.map (infer env) es)
 
   | ECons (ident, args) ->
+      (* XXX should check the type of the fields, no? *)
       begin match expand_abbrev env e.typ with
       | TQualified lid
       | TApp (lid, _) ->
@@ -818,7 +828,16 @@ and infer' env e =
        * gives rise to a structural or nominal type and the destructor works
        * with either a nominal or a structural type. *)
       begin try
-        TQualified (M.find tag env.enums)
+        (* Same trick as ECons, rely on the provided type annotation, if any, to
+           disambiguate *)
+        begin match expand_abbrev env e.typ with
+        | TQualified lid
+        | TApp (lid, _) ->
+            assert (List.mem tag (List.map fst (assert_enum env (lookup_type env lid))));
+            e.typ
+        | _ ->
+            TQualified (M.find tag env.enums)
+        end
       with Not_found ->
         (* TODO: figure out how this happens? *)
         TAnonymous (Enum [ tag, None ])
@@ -1033,6 +1052,13 @@ and assert_tuple env t =
   | _ ->
       checker_error env "%a is not a tuple type" ptyp t
 
+and assert_enum env t =
+  match t with
+  | Enum def ->
+      def
+  | _ ->
+      checker_error env "%a, this is not a variant definition: %a" ploc env.location pdef t
+
 and assert_variant env t =
   match t with
   | Variant def ->
@@ -1091,15 +1117,9 @@ and assert_cons_of env t id: fields_t =
       checker_error env "the annotated type %a is not a variant type" ptyp (TAnonymous t)
 
 and subtype env t1 t2 =
-  let rec normalize t =
-    match MonomorphizationState.resolve_deep (expand_abbrev env t) with
-    | TBuf (TApp ((["Eurydice"], "derefed_slice"), [ t ]), true) ->
-        normalize (TApp ((["Eurydice"], "dst_ref_shared"), [t; Helpers.usize]))
-    | TBuf (TApp ((["Eurydice"], "derefed_slice"), [ t ]), false) ->
-        normalize (TApp ((["Eurydice"], "dst_ref_mut"), [t; Helpers.usize]))
-    | t ->
-        t
-  in
+  if Options.debug "checker" then
+    KPrint.bprintf "%a <=? %a\n" ptyp t1 ptyp t2;
+  let rec normalize t = MonomorphizationState.resolve_deep (expand_abbrev env t) in
   let t1 = normalize t1 in
   let t2 = normalize t2 in
   if Options.debug "checker" then
