@@ -237,7 +237,8 @@ and smallest t1 t2 =
   | _, TAny ->
       t1
   | TBuf (t1, b1), TBuf (t2, b2) ->
-      TBuf (smallest t1 t2, b1 && b2)
+      assert (b1 <= b2);
+      TBuf (smallest t1 t2, b2)
   | _ ->
       t1
 
