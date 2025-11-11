@@ -499,8 +499,7 @@ and check' env t e =
       ) branches;
 
   | EAddrOf e ->
-      let t = infer env e in
-      c (TBuf (t, false))
+      check env (assert_tbuf t) e
 
 
 and check_case env c t =
