@@ -474,6 +474,11 @@ and check' env t e =
           end
 
       | lid, ts, cgs when kind env lid = Some Record ->
+          begin match flatten_tapp e.typ with
+          | lid', _, _ when lid' <> lid ->
+              checker_error env "Type mismatch: %a vs %a" plid lid plid lid'
+          | _ -> ()
+          end;
           let fieldtyps = assert_flat env (lookup_type env lid) in
           let fieldtyps = List.map (fun (field, (typ, m)) ->
             field, (DeBruijn.subst_tn ts (DeBruijn.subst_ctn' cgs typ), m)
