@@ -240,7 +240,7 @@ and print_node_meta meta =
   end
 
 and print_expr env { node; typ; meta } =
-  print_typ typ ^^ colon ^^ space ^^ parens @@
+  (* print_typ typ ^^ colon ^^ space ^^ parens @@ *)
   print_node_meta meta @@
   match node with
   | EStandaloneComment s ->

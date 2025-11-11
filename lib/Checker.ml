@@ -551,6 +551,9 @@ and prefer_nominal t1 t2 =
       t1
   | _, (TQualified _ | TApp _) ->
       t2
+  | TBuf (t1, b1), TBuf (t2, b2) ->
+      assert (b1 <= b2);
+      TBuf (smallest t1 t2, b2)
   | _, _ ->
       t1
 
