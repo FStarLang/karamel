@@ -118,6 +118,8 @@ module NameGen = struct
     in
     Common.Comment (KPrint.bsprintf "%a" PrintCommon.pdoc comment)
 
+  let distinguished: (MonomorphizationState.node * lident) list ref = ref []
+
   let gen_lid lid ts (extra: extra) =
     if !short_names then
       if lid = tuple_lid && List.for_all ((=) (List.hd ts)) ts then
@@ -272,7 +274,7 @@ let monomorphize_data_types map = object(self)
     pending <- d :: pending
 
   (* Clear all the pending declarations. *)
-  method clear () =
+  method private clear () =
     let r = List.rev pending in
     pending <- [];
     r
@@ -318,6 +320,8 @@ let monomorphize_data_types map = object(self)
     let lid, ts, cgs = n in
     if ts = [] && cgs = [] then
       lid, []
+    else if List.mem_assoc n !NameGen.distinguished then
+      List.assoc n !NameGen.distinguished, []
     else if fst3 best_hint = n then
       snd3 best_hint, []
     else
@@ -341,7 +345,7 @@ let monomorphize_data_types map = object(self)
   (* Visit a given node in the graph, modifying [pending] to append in reverse
    * order declarations as they are needed, including that of the node we are
    * visiting. *)
-  method visit_node (under_ref: bool) (n: node) =
+  method private visit_node (under_ref: bool) (n: node) =
     let lid, args, cgs = n in
     (* White, gray or black? *)
     match Hashtbl.find state n with
