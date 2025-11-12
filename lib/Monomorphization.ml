@@ -272,7 +272,7 @@ let monomorphize_data_types map = object(self)
     pending <- d :: pending
 
   (* Clear all the pending declarations. *)
-  method private clear () =
+  method clear () =
     let r = List.rev pending in
     pending <- [];
     r
@@ -341,7 +341,7 @@ let monomorphize_data_types map = object(self)
   (* Visit a given node in the graph, modifying [pending] to append in reverse
    * order declarations as they are needed, including that of the node we are
    * visiting. *)
-  method private visit_node (under_ref: bool) (n: node) =
+  method visit_node (under_ref: bool) (n: node) =
     let lid, args, cgs = n in
     (* White, gray or black? *)
     match Hashtbl.find state n with
