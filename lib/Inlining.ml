@@ -450,7 +450,6 @@ let cross_call_analysis files =
           (* This needs to be kept in sync with include/eurydice_glue.h *)
           let external_call_needs_return_type =
             match lid with
-            | ["Eurydice"], "slice_to_array2"
             | ["Eurydice"], "into_iter"
             | ["LowStar"], "ignore" -> false
             | _ -> true

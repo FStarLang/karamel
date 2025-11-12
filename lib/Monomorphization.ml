@@ -118,6 +118,8 @@ module NameGen = struct
     in
     Common.Comment (KPrint.bsprintf "%a" PrintCommon.pdoc comment)
 
+  let distinguished: (MonomorphizationState.node * lident) list ref = ref []
+
   let gen_lid lid ts (extra: extra) =
     if !short_names then
       if lid = tuple_lid && List.for_all ((=) (List.hd ts)) ts then
@@ -318,6 +320,8 @@ let monomorphize_data_types map = object(self)
     let lid, ts, cgs = n in
     if ts = [] && cgs = [] then
       lid, []
+    else if List.mem_assoc n !NameGen.distinguished then
+      List.assoc n !NameGen.distinguished, []
     else if fst3 best_hint = n then
       snd3 best_hint, []
     else
