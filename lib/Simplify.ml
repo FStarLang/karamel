@@ -75,7 +75,7 @@ class ['self] safe_use lvalue = object (self: 'self)
   method! visit_EAssign ((j, _) as env) e1 e2 = 
     ignore (lvalue, j);
     match e1.node with 
-    (* | EBound i when i = j && not lvalue -> Unsafe *)
+    | EBound i when i = j && not lvalue -> Unsafe
     | _ -> self#unordered env [ e1; e2 ]
   method! visit_EApp env e es =
     match e.node with
