@@ -141,8 +141,8 @@ let use_mark_to_inline_temporaries = object (self)
         Structs.should_rewrite b.typ = NoCopies
        ) &&
         (v = AtMost 1 && (
-          is_readonly_c_expression e1 &&
           let lvalue = Structs.will_be_lvalue e1 in
+          is_readonly_c_expression e1 &&
           safe_readonly_use lvalue e2 ||
           safe_pure_use lvalue e2
         ) ||
