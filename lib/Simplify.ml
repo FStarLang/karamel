@@ -72,7 +72,10 @@ class ['self] safe_use = object (self: 'self)
   method! visit_EBufFill env e1 e2 e3 = self#unordered env [ e1; e2; e3 ]
   method! visit_EBufBlit env e1 e2 e3 e4 e5 = self#unordered env [ e1; e2; e3; e4; e5 ]
   method! visit_EBufFree env e = self#sequential env e None
-  method! visit_EAssign env e1 e2 = self#unordered env [ e1; e2 ]
+  method! visit_EAssign ((j, _) as env) e1 e2 = 
+    match e1.node with 
+    |EBound i when i = j -> Unsafe
+    |_ -> self#unordered env [ e1; e2 ]
   method! visit_EApp env e es =
     match e.node with
     | EOp _ -> super#visit_EApp env e es
