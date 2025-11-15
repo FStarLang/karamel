@@ -17,7 +17,7 @@ open Helpers
  * The notion of "safe" can be customized; here, we let EBufRead be a safe node,
  * so by default, safe means read-only. *)
 type use = Safe | SafeUse | Unsafe
-class ['self] safe_use = object (self: 'self)
+class ['self] safe_use lvalue = object (self: 'self)
   inherit [_] reduce as super
 
   (* By default, everything is safe. We override several cases below. *)
@@ -72,7 +72,11 @@ class ['self] safe_use = object (self: 'self)
   method! visit_EBufFill env e1 e2 e3 = self#unordered env [ e1; e2; e3 ]
   method! visit_EBufBlit env e1 e2 e3 e4 e5 = self#unordered env [ e1; e2; e3; e4; e5 ]
   method! visit_EBufFree env e = self#sequential env e None
-  method! visit_EAssign env e1 e2 = self#unordered env [ e1; e2 ]
+  method! visit_EAssign ((j, _) as env) e1 e2 = 
+    ignore (lvalue, j);
+    match e1.node with 
+    | EBound i when i = j && not lvalue -> Unsafe
+    | _ -> self#unordered env [ e1; e2 ]
   method! visit_EApp env e es =
     match e.node with
     | EOp _ -> super#visit_EApp env e es
@@ -91,15 +95,15 @@ class ['self] safe_use = object (self: 'self)
   method! visit_ESequence env es = self#sequential env (List.hd es) None
 end
 
-let safe_readonly_use e =
-  match (new safe_use)#visit_expr_w 0 e with
+let safe_readonly_use lvalue e =
+  match (new safe_use lvalue)#visit_expr_w 0 e with
   | SafeUse -> true
   | Unsafe -> false
   | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
 
-class ['self] safe_pure_use = object (self: 'self)
+class ['self] safe_pure_use lvalue = object (self: 'self)
   inherit [_] reduce as super
-  inherit [_] safe_use
+  inherit [_] safe_use lvalue
   method! visit_EBufRead env e1 e2 = self#unordered env [ e1; e2 ]
   method! visit_EApp env e es =
     match e.node with
@@ -107,8 +111,8 @@ class ['self] safe_pure_use = object (self: 'self)
     | _ -> self#unordered env (e :: es)
 end
 
-let safe_pure_use e =
-  match (new safe_pure_use)#visit_expr_w 0 e with
+let safe_pure_use lvalue e =
+  match (new safe_pure_use lvalue)#visit_expr_w 0 e with
   | SafeUse -> true
   | Unsafe -> false
   | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
@@ -137,9 +141,10 @@ let use_mark_to_inline_temporaries = object (self)
         Structs.should_rewrite b.typ = NoCopies
        ) &&
         (v = AtMost 1 && (
+          let lvalue = Structs.will_be_lvalue e1 in
           is_readonly_c_expression e1 &&
-          safe_readonly_use e2 ||
-          safe_pure_use e2
+          safe_readonly_use lvalue e2 ||
+          safe_pure_use lvalue e2
         ) ||
         is_readonly_and_variable_free_c_expression e1 && not b.node.mut)
     (* b.node.mut is an approximation of "the address of this variable is taken"
