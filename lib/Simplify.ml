@@ -415,6 +415,52 @@ let wrapping_arithmetic = object (self)
         EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
 end
 
+exception Nope
+
+let d_add (e : expr) : expr * expr =
+  match e.node with
+  | EApp ({ node = EOp (K.Add, _w); _ }, [ e1; e2 ]) -> e1, e2
+  | _ -> raise Nope
+
+let d_mul (e : expr) : expr * expr =
+  match e.node with
+  | EApp ({ node = EOp (K.Mult, _w); _ }, [ e1; e2 ]) -> e1, e2
+  | _ -> raise Nope
+
+let d_div (e : expr) : expr * expr =
+  match e.node with
+  | EApp ({ node = EOp (K.Div, _w); _ }, [ e1; e2 ]) -> e1, e2
+  | _ -> raise Nope
+
+let d_mod (e : expr) : expr * expr =
+  match e.node with
+  | EApp ({ node = EOp (K.Mod, _w); _ }, [ e1; e2 ]) -> e1, e2
+  | _ -> raise Nope
+
+let euclid_simpl = object (self)
+
+  inherit [_] map
+
+  method! visit_EApp env e es =
+    match e.node, es with
+    (* Matching (a/b)* c + d % e *)
+    | EOp (K.Add, _w), [e1; e2] -> (
+      try
+        let ab, c = d_mul e1 in
+        let a, b = d_div ab in
+        let d, e = d_mod e2 in
+        (* Reduce (a / n) * n + a % n ~> a *)
+        if b = c && c = e && d = a then
+          a.node
+        else
+          EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
+      with Nope ->
+        EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
+    )
+    | _ ->
+        EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
+end
+
 let constant_fold = object (self)
   (* Below, we do some optimizations like 0*x ~> 0. But those are only valid
      if x is side-effect free, hence the `is_readonly_c_expression` guards. See
@@ -2251,6 +2297,7 @@ let simplify2 ifdefs (files: file list): file list =
   let files = functional_updates#visit_files false files in
   let files = functional_updates#visit_files true files in
   let files = let_to_sequence#visit_files () files in
+  let files = euclid_simpl#visit_files () files in
   let files = constant_fold#visit_files () files in
   files
 
