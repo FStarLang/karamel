@@ -415,6 +415,98 @@ let wrapping_arithmetic = object (self)
         EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
 end
 
+let constant_fold = object (self)
+
+  inherit [_] map
+
+  method! visit_EApp env e es =
+    let fit (w:width) (x:Z.t) : Z.t =
+      (* Fit an integer into the allowed values for a width.
+         This only needs to handle widths for which there are
+         *wrapping* (i.e. possibly overflowing yet well-defined)
+         operators. Currently that is only the unsigned integers,
+         not including SizeT. Skipping this fitting would mean
+         possibly generating constants that are too large for their
+         type. C compilers usually truncate them correctly, but warn. *)
+      let two = Z.of_int 2 in
+      match w with
+      | K.UInt8  -> Z.rem x (Z.pow two 8)
+      | K.UInt16 -> Z.rem x (Z.pow two 16)
+      | K.UInt32 -> Z.rem x (Z.pow two 32)
+      | K.UInt64 -> Z.rem x (Z.pow two 64)
+      | _ -> x
+    in
+
+    let op_on_strings f w s1 s2 =
+      Z.to_string (fit w (f (Z.of_string s1) (Z.of_string s2)))
+    in
+
+    match e.node, es with
+    | EOp (K.Add, w), [ e1; e2 ] -> (
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
+        let is_int w =
+          match w with
+          | K.UInt8 | K.UInt16 | K.UInt32 | K.UInt64 | K.Int8 | K.Int16 | K.Int32 | K.Int64 | K.SizeT -> true
+          | _ -> false
+        in
+        match e1.node, e2.node with
+        (* Sum literals *)
+        | EConstant (w1, s1), EConstant (w2, s2) when is_int w && w = w1 && w1 = w2 ->
+          EConstant (w1, op_on_strings Z.add w s1 s2)
+        (* 0+x, x+0 ~> x *)
+        | EConstant (w1, "0"), e2 when w = w1 -> e2
+        | e1, EConstant (w2, "0") when w = w2 -> e1
+        | _ -> EApp (e, [ e1; e2 ])
+    )
+
+    | EOp (K.Mult, w), [ e1; e2 ] -> (
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
+        match e1.node, e2.node with
+        (* Multiply literals *)
+        | EConstant (w1, s1), EConstant (w2, s2) when w = w1 && w1 = w2 ->
+          EConstant (w1, op_on_strings Z.mul w s1 s2)
+        (* 0*x, x*0 ~> 0 *)
+        | EConstant (w1, "0"), _ when w = w1 -> EConstant(w1, "0");
+        | _, EConstant (w2, "0") when w = w2 -> EConstant(w2, "0");
+        (* 1*x, x*1 ~> x *)
+        | EConstant (w1, "1"), e2 when w = w1 -> e2
+        | e1, EConstant (w2, "1") when w = w2 -> e1
+        | _ -> EApp (e, [ e1; e2 ])
+    )
+
+    | EOp (K.Div, w), [ e1; e2 ] -> (
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
+        match e1.node, e2.node with
+        (* Division of literals. Note, ZArith div/rem coincides with C semantics. *)
+        | EConstant (w1, s1), EConstant (w2, s2) when w = w1 && w1 = w2 ->
+          EConstant (w1, op_on_strings Z.div w s1 s2)
+        (* 0/x ~> x *)
+        | EConstant (w2, "0"), _ when w = w2 -> EConstant(w2, "0")
+        (* x/1 ~> x *)
+        | _, EConstant (w2, "1") when w = w2 -> e1.node
+        | _ -> EApp (e, [ e1; e2 ])
+    )
+
+    | EOp (K.Mod, w), [ e1; e2 ] -> (
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
+        match e1.node, e2.node with
+        (* Mod of literals. Note, ZArith div/rem coincides with C semantics. *)
+        | EConstant (w1, s1), EConstant (w2, s2) when w = w1 && w1 = w2 ->
+          EConstant (w1, op_on_strings Z.rem w s1 s2)
+        (* 0 % x ~> 0 *)
+        | EConstant (w2, "0"), _ when w = w2 -> EConstant(w2, "0")
+        (* x % 1 ~> 0 *)
+        | _, EConstant (w2, "1") when w = w2 -> EConstant(w2, "0")
+        | _ -> EApp (e, [ e1; e2 ])
+    )
+
+    | _ ->
+        EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
+end
 
 let remove_ignore_unit = object
 
@@ -2140,6 +2232,7 @@ let simplify2 ifdefs (files: file list): file list =
   let files = functional_updates#visit_files false files in
   let files = functional_updates#visit_files true files in
   let files = let_to_sequence#visit_files () files in
+  let files = constant_fold#visit_files () files in
   files
 
 let debug env =
