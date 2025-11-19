@@ -375,7 +375,7 @@ and mk_expr env in_stmt under_initializer_list e =
   | EBound var ->
       CStar.Var (find env var)
   | EEnum lident ->
-      CStar.Qualified lident
+      CStar.Qualified (GlobalNames.mangle_enum lident e.typ)
   | EQualified lident ->
       if LidSet.mem lident env.ifdefs then
         Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, IfDef lident));
@@ -964,12 +964,12 @@ and mk_declaration m env d: (CStar.decl * _) option =
       Some (CStar.TypeForward (name, flags, k), [ GlobalNames.to_c_name m (name, Type) ])
 
   | DType (name, flags, 0, 0, def) ->
-      Some (CStar.Type (name, mk_type_def env def, flags), [ GlobalNames.to_c_name m (name, Type) ] )
+      Some (CStar.Type (name, mk_type_def env ~name def, flags), [ GlobalNames.to_c_name m (name, Type) ] )
 
   | DType _ ->
       None
 
-and mk_type_def env d: CStar.typ =
+and mk_type_def env ?name d: CStar.typ =
   match d with
   | Flat fields ->
       (* Not naming the structs or enums here, because they're going to be
@@ -985,7 +985,9 @@ and mk_type_def env d: CStar.typ =
       failwith "Variant should've been desugared at this stage"
 
   | Enum tags ->
-      CStar.Enum tags
+      CStar.Enum (List.map (fun (lid, n) ->
+        GlobalNames.mangle_enum lid (TQualified (Option.get name)), n
+      ) tags)
 
   | Union fields ->
       CStar.Union (List.map (fun (f, t) ->

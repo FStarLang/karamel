@@ -38,7 +38,8 @@ let resolve_deep = (object(self)
     | TApp ((["Eurydice"], "derefed_slice"), [ t ]) ->
         (* TBuf (TApp ...) ~~> TApp *)
         let t = self#visit_typ () t in
-        resolve (TApp ((["Eurydice"], "dst_ref"), [t; Helpers.usize]))
+        let lid = ["Eurydice"], if c then "dst_ref_shared" else "dst_ref_mut" in
+        resolve (TApp (lid, [t; Helpers.usize]))
     | _ ->
         TBuf (self#visit_typ () t, c)
 

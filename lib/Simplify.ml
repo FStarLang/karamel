@@ -17,7 +17,7 @@ open Helpers
  * The notion of "safe" can be customized; here, we let EBufRead be a safe node,
  * so by default, safe means read-only. *)
 type use = Safe | SafeUse | Unsafe
-class ['self] safe_use = object (self: 'self)
+class ['self] safe_use lvalue = object (self: 'self)
   inherit [_] reduce as super
 
   (* By default, everything is safe. We override several cases below. *)
@@ -72,7 +72,11 @@ class ['self] safe_use = object (self: 'self)
   method! visit_EBufFill env e1 e2 e3 = self#unordered env [ e1; e2; e3 ]
   method! visit_EBufBlit env e1 e2 e3 e4 e5 = self#unordered env [ e1; e2; e3; e4; e5 ]
   method! visit_EBufFree env e = self#sequential env e None
-  method! visit_EAssign env e1 e2 = self#unordered env [ e1; e2 ]
+  method! visit_EAssign ((j, _) as env) e1 e2 = 
+    ignore (lvalue, j);
+    match e1.node with 
+    | EBound i when i = j && not lvalue -> Unsafe
+    | _ -> self#unordered env [ e1; e2 ]
   method! visit_EApp env e es =
     match e.node with
     | EOp _ -> super#visit_EApp env e es
@@ -91,15 +95,15 @@ class ['self] safe_use = object (self: 'self)
   method! visit_ESequence env es = self#sequential env (List.hd es) None
 end
 
-let safe_readonly_use e =
-  match (new safe_use)#visit_expr_w 0 e with
+let safe_readonly_use lvalue e =
+  match (new safe_use lvalue)#visit_expr_w 0 e with
   | SafeUse -> true
   | Unsafe -> false
   | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
 
-class ['self] safe_pure_use = object (self: 'self)
+class ['self] safe_pure_use lvalue = object (self: 'self)
   inherit [_] reduce as super
-  inherit [_] safe_use
+  inherit [_] safe_use lvalue
   method! visit_EBufRead env e1 e2 = self#unordered env [ e1; e2 ]
   method! visit_EApp env e es =
     match e.node with
@@ -107,8 +111,8 @@ class ['self] safe_pure_use = object (self: 'self)
     | _ -> self#unordered env (e :: es)
 end
 
-let safe_pure_use e =
-  match (new safe_pure_use)#visit_expr_w 0 e with
+let safe_pure_use lvalue e =
+  match (new safe_pure_use lvalue)#visit_expr_w 0 e with
   | SafeUse -> true
   | Unsafe -> false
   | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
@@ -137,9 +141,10 @@ let use_mark_to_inline_temporaries = object (self)
         Structs.should_rewrite b.typ = NoCopies
        ) &&
         (v = AtMost 1 && (
+          let lvalue = Structs.will_be_lvalue e1 in
           is_readonly_c_expression e1 &&
-          safe_readonly_use e2 ||
-          safe_pure_use e2
+          safe_readonly_use lvalue e2 ||
+          safe_pure_use lvalue e2
         ) ||
         is_readonly_and_variable_free_c_expression e1 && not b.node.mut)
     (* b.node.mut is an approximation of "the address of this variable is taken"
@@ -410,6 +415,98 @@ let wrapping_arithmetic = object (self)
         EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
 end
 
+let constant_fold = object (self)
+
+  inherit [_] map
+
+  method! visit_EApp env e es =
+    let fit (w:width) (x:Z.t) : Z.t =
+      (* Fit an integer into the allowed values for a width.
+         This only needs to handle widths for which there are
+         *wrapping* (i.e. possibly overflowing yet well-defined)
+         operators. Currently that is only the unsigned integers,
+         not including SizeT. Skipping this fitting would mean
+         possibly generating constants that are too large for their
+         type. C compilers usually truncate them correctly, but warn. *)
+      let two = Z.of_int 2 in
+      match w with
+      | K.UInt8  -> Z.rem x (Z.pow two 8)
+      | K.UInt16 -> Z.rem x (Z.pow two 16)
+      | K.UInt32 -> Z.rem x (Z.pow two 32)
+      | K.UInt64 -> Z.rem x (Z.pow two 64)
+      | _ -> x
+    in
+
+    let op_on_strings f w s1 s2 =
+      Z.to_string (fit w (f (Z.of_string s1) (Z.of_string s2)))
+    in
+
+    match e.node, es with
+    | EOp (K.Add, w), [ e1; e2 ] -> (
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
+        let is_int w =
+          match w with
+          | K.UInt8 | K.UInt16 | K.UInt32 | K.UInt64 | K.Int8 | K.Int16 | K.Int32 | K.Int64 | K.SizeT -> true
+          | _ -> false
+        in
+        match e1.node, e2.node with
+        (* Sum literals *)
+        | EConstant (w1, s1), EConstant (w2, s2) when is_int w && w = w1 && w1 = w2 ->
+          EConstant (w1, op_on_strings Z.add w s1 s2)
+        (* 0+x, x+0 ~> x *)
+        | EConstant (w1, "0"), e2 when w = w1 -> e2
+        | e1, EConstant (w2, "0") when w = w2 -> e1
+        | _ -> EApp (e, [ e1; e2 ])
+    )
+
+    | EOp (K.Mult, w), [ e1; e2 ] -> (
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
+        match e1.node, e2.node with
+        (* Multiply literals *)
+        | EConstant (w1, s1), EConstant (w2, s2) when w = w1 && w1 = w2 ->
+          EConstant (w1, op_on_strings Z.mul w s1 s2)
+        (* 0*x, x*0 ~> 0 *)
+        | EConstant (w1, "0"), _ when w = w1 -> EConstant(w1, "0");
+        | _, EConstant (w2, "0") when w = w2 -> EConstant(w2, "0");
+        (* 1*x, x*1 ~> x *)
+        | EConstant (w1, "1"), e2 when w = w1 -> e2
+        | e1, EConstant (w2, "1") when w = w2 -> e1
+        | _ -> EApp (e, [ e1; e2 ])
+    )
+
+    | EOp (K.Div, w), [ e1; e2 ] -> (
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
+        match e1.node, e2.node with
+        (* Division of literals. Note, ZArith div/rem coincides with C semantics. *)
+        | EConstant (w1, s1), EConstant (w2, s2) when w = w1 && w1 = w2 ->
+          EConstant (w1, op_on_strings Z.div w s1 s2)
+        (* 0/x ~> x *)
+        | EConstant (w2, "0"), _ when w = w2 -> EConstant(w2, "0")
+        (* x/1 ~> x *)
+        | _, EConstant (w2, "1") when w = w2 -> e1.node
+        | _ -> EApp (e, [ e1; e2 ])
+    )
+
+    | EOp (K.Mod, w), [ e1; e2 ] -> (
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
+        match e1.node, e2.node with
+        (* Mod of literals. Note, ZArith div/rem coincides with C semantics. *)
+        | EConstant (w1, s1), EConstant (w2, s2) when w = w1 && w1 = w2 ->
+          EConstant (w1, op_on_strings Z.rem w s1 s2)
+        (* 0 % x ~> 0 *)
+        | EConstant (w2, "0"), _ when w = w2 -> EConstant(w2, "0")
+        (* x % 1 ~> 0 *)
+        | _, EConstant (w2, "1") when w = w2 -> EConstant(w2, "0")
+        | _ -> EApp (e, [ e1; e2 ])
+    )
+
+    | _ ->
+        EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
+end
 
 let remove_ignore_unit = object
 
@@ -1510,11 +1607,11 @@ class scope_helpers = object (self)
 
   (* FIXME: there are too many overlapping flags for this function --
      just do `Type | `External | `Other | `EnumCase *)
-  method private record (global_scope, local_scopes) ~is_type ~is_external ?(is_enum=false) flags lident =
+  method private record (global_scope, local_scopes) ~is_type ~is_external ?is_enum flags lident =
     let kind_name, kind_scope =
       if is_type then
         GlobalNames.(Type, Type)
-      else if is_enum then
+      else if is_enum <> None then
         Other, (if !Options.short_enums then Macro else Other)
       else if List.mem Common.Macro flags || List.mem Common.IfDef flags then
         Macro, Macro
@@ -1526,6 +1623,7 @@ class scope_helpers = object (self)
     let attempt_shortening = is_private && not is_external in
     let target = GlobalNames.target_c_name ~kind:kind_name ~attempt_shortening lident in
     (* KPrint.bprintf "%a (enum: %b) --> %s\n" plid lident is_enum (fst target); *)
+    let lident = match is_enum with Some t -> GlobalNames.mangle_enum lident t | None -> lident in
     let c_name = GlobalNames.extend global_scope local_scope is_private (lident, kind_scope) target in
     if not is_private then
       Hashtbl.add original_of_c_name c_name lident
@@ -1559,7 +1657,7 @@ let record_toplevel_names = object (self)
       self#record env ~is_type:true ~is_external:false flags name;
     match def with
     | Enum lids -> List.iter (fun (lid, _) ->
-        self#record env ~is_type:false ~is_external:false ~is_enum:true flags lid
+        self#record env ~is_type:false ~is_external:false ~is_enum:(TQualified name) flags lid
       ) lids
     | Forward _ -> Hashtbl.add forward name ()
     | _ -> ()
@@ -2134,6 +2232,7 @@ let simplify2 ifdefs (files: file list): file list =
   let files = functional_updates#visit_files false files in
   let files = functional_updates#visit_files true files in
   let files = let_to_sequence#visit_files () files in
+  let files = constant_fold#visit_files () files in
   files
 
 let debug env =
