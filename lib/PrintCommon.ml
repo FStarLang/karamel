@@ -39,7 +39,9 @@ let width_to_string = function
 
 let print_width w =
   string (width_to_string w) ^^
-  (if !Options.linux_ints then empty else string "_t")
+  (if !Options.linux_ints || (!Options.cuda && is_float w)
+   then empty
+   else string "_t")
 
 let print_constant = function
   | w, s -> string s ^^ print_width w
