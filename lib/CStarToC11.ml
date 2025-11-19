@@ -407,8 +407,9 @@ and mk_initializer ~null_check t e_array e_size e_value: C.stmt =
 
   | _ ->
       match e_value with
-      | C.Constant (_, s)
-      | C.Cast (_, C.Constant (_, s)) when int_of_string s = 0 ->
+      | C.Constant (w, s)
+      | C.Cast (_, C.Constant (w, s)) when (K.is_int w && int_of_string s = 0)
+                                        || (K.is_float w && (s = "0.0f" || s = "0.0l")) ->
           (* KPrint.bprintf "need memset 0\n"; *)
           if_not_null @@
           mk_memset t e_array e_size (C.Constant (K.UInt8, "0"))

@@ -494,14 +494,9 @@ let constant_fold = object (self)
     | EOp (K.Add, w), [ e1; e2 ] -> (
         let e1 = self#visit_expr env e1 in
         let e2 = self#visit_expr env e2 in
-        let is_int w =
-          match w with
-          | K.UInt8 | K.UInt16 | K.UInt32 | K.UInt64 | K.Int8 | K.Int16 | K.Int32 | K.Int64 | K.SizeT -> true
-          | _ -> false
-        in
         match e1.node, e2.node with
         (* Sum literals *)
-        | EConstant (w1, s1), EConstant (w2, s2) when is_int w && w = w1 && w1 = w2 ->
+        | EConstant (w1, s1), EConstant (w2, s2) when K.is_int w && w = w1 && w1 = w2 ->
           EConstant (w1, op_on_strings Z.add w s1 s2)
         (* 0+x, x+0 ~> x *)
         | EConstant (w1, "0"), e2 when w = w1 -> e2
