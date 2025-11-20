@@ -9,13 +9,10 @@ open PrintAst.Ops
 type node = lident * typ list * cg list
 type color = Gray | Black
 
-(* Is this a normalized entry or not? *)
-type normalized = bool
-
 (* Each polymorphic type `lid` applied to types `ts` and const generics `ts`
    appears in `state`, and maps to `monomorphized_lid`, the name of its
    monomorphized instance. *)
-let state: (node, color * lident * normalized) Hashtbl.t = Hashtbl.create 41
+let state: (node, color * lident) Hashtbl.t = Hashtbl.create 41
 
 (* Because of polymorphic externals, one still encounters,
    post-monomorphizations, application nodes in types (e.g. after instantiating
@@ -24,9 +21,9 @@ let state: (node, color * lident * normalized) Hashtbl.t = Hashtbl.create 41
 let resolve t: typ =
   match t with
   | TApp _ | TCgApp _ when Hashtbl.mem state (flatten_tapp t) ->
-      TQualified (snd3 (Hashtbl.find state (flatten_tapp t)))
+      TQualified (snd (Hashtbl.find state (flatten_tapp t)))
   | TTuple ts when Hashtbl.mem state (tuple_lid, ts, []) ->
-      TQualified (snd3 (Hashtbl.find state (tuple_lid, ts, [])))
+      TQualified (snd (Hashtbl.find state (tuple_lid, ts, [])))
   | _ ->
       t
 
@@ -61,8 +58,8 @@ type reverse_mapping = (lident * expr list * typ list, lident) Hashtbl.t
 let generated_lids: reverse_mapping = Hashtbl.create 41
 
 let debug () =
-  Hashtbl.iter (fun (lid, ts, cgs) (_, monomorphized_lid, normalized) ->
-    KPrint.bprintf "%a <%a> <%a> %b ~~> %a\n" plid lid pcgs cgs ptyps ts normalized plid monomorphized_lid
+  Hashtbl.iter (fun (lid, ts, cgs) (_, monomorphized_lid) ->
+    KPrint.bprintf "%a <%a> <%a> ~~> %a\n" plid lid pcgs cgs ptyps ts plid monomorphized_lid
   ) state;
   Hashtbl.iter (fun (lid, es, ts) monomorphized_lid ->
     KPrint.bprintf "%a <%a> <%a> ~~> %a\n" plid lid pexprs es ptyps ts plid
