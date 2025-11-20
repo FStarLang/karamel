@@ -518,7 +518,8 @@ let monomorphize_data_types map = object(self)
           ignore (self#visit_decl false d);
           (* FORWARD DECLARATIONS: we force a visit of this (non-polymorphic) type definition, for
              the sole side-effect of remembering that we have seen it, and that further occurrences
-             of it need not generate a forward declaration.
+             of it need not generate a forward declaration (i.e. mark it Black, because
+             under_ref=false).
 
              Note that `visit_node` will insert our own definition in the pending list, flushed by
              `clear` -- ignore and don't insert twice. *)
@@ -586,7 +587,9 @@ let datatypes files =
   let map = build_def_map files in
   let o = monomorphize_data_types map in
   let files = o#visit_files false files in
-  (* FORWARD DECLARATIONS: because we forced a visit TODO *)
+  (* FORWARD DECLARATIONS: because of the convoluted treatment of forward declarations, we have
+     nodes in the map with Black and no type or cg arguments. Remove those as it is just very
+     confusing for future phases. *)
   Hashtbl.filter_map_inplace (fun k v ->
     match k with
     | _, [], [] -> None
