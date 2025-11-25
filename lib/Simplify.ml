@@ -1000,11 +1000,27 @@ let misc_cosmetic = object (self)
     | _ ->
         EIfThenElse (e1, e2, e3)
 
-  (* &x[0] --> x *)
-  method! visit_EAddrOf env e =
-    let e = self#visit_expr env e in
+  (* &x[0] --> x
+
+     Note that this is only valid if it preserves the type: for instance, this program cannot be
+     rewritten:
+
+    int main() {
+      int x[1] = { 0 };
+      const int *x0 = x;
+      int *x1 = &x[0]; // cannot be rewritten to int *x1 = x0 since it would discard the const qualifier
+      return *x0 + *x1;
+    }
+  *)
+  method! visit_EAddrOf (_, t) e =
+    let e = self#visit_expr_w () e in
+    let compatible t2 =
+      match t, t2 with
+      | TBuf _, TBuf _ -> t = t2
+      | _ -> true
+    in
     match e.node with
-    | EBufRead (e, { node = EConstant (_, "0"); _ }) ->
+    | EBufRead (e, { node = EConstant (_, "0"); _ }) when compatible e.typ ->
         e.node
     | _ ->
         EAddrOf e
