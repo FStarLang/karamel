@@ -1346,7 +1346,12 @@ and translate_pat env (p: Ast.pattern): MiniRust.pat =
       ) field_names pats)
   | PUnit -> failwith "TODO: PUnit"
   | PBool _ -> failwith "TODO: PBool"
-  | PEnum _ -> failwith "TODO: PEnum"
+  | PEnum cons ->
+      (* Same as constructors, above, since enums and variants are the same in Rust (`enum`
+         keyword). *)
+      let lid = Helpers.assert_tlid p.typ in
+      let name = lookup_type env lid in
+      StructP (`Variant (name, snd cons), [])
   | PTuple ps ->
       TupleP (List.map (translate_pat env) ps)
   | PDeref _ -> failwith "TODO: PDeref"
