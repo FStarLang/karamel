@@ -33,6 +33,22 @@
 open MiniRust
 open PrintMiniRust
 
+let map_funs f_map files =
+  let files =
+    List.fold_left (fun files (filename, decls) ->
+      let decls = List.fold_left (fun decls decl ->
+        match decl with
+        | Function ({ body; _ } as f) ->
+            let body = f_map () body in
+            Function {f with body} :: decls
+        | _ -> decl :: decls
+      ) [] decls in
+      let decls = List.rev decls in
+      (filename, decls) :: files
+    ) [] files
+  in
+  List.rev files
+
 module DataType = struct
   type t = [ `Struct of Name.t | `Variant of Name.t * string ]
   let compare = compare
@@ -552,8 +568,14 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
 
   | As (e, t) ->
       (* Not really correct, but As is only used for integer casts *)
-      let known, e = infer_expr env valuation return_expected t known e in
-      known, As (e, t)
+      begin match t with
+      | Function _ ->
+          let known, e = infer_expr env valuation return_expected expected known e in
+          known, As (e, expected)
+      | _ ->
+          let known, e = infer_expr env valuation return_expected t known e in
+          known, As (e, t)
+      end
 
   | For (b, e1, e2) ->
       let known, e1 = infer_expr env valuation return_expected bool known e1 in
@@ -628,7 +650,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
 
         (* If f is a function pointer field, update its argument types' mutabilities. *)
         begin match f.typ, e with
-        | Function _, Name func ->
+        | Function _, (Name func | As (Name func, _)) ->
           let fn_arg_tys = lookup env valuation func in
           update_mut_args_fn_field name fn fn_arg_tys
         | _ -> () end;
@@ -1244,6 +1266,8 @@ let infer_mut_borrows files =
 
   let valuation = F.lfp rhs in
 
+  (* XXX why the List.revs all over the place? *)
+
   (* lfp does not actually perform any computation.
     We now apply the valuation to all functions to compute mutability inference. *)
   let files = List.map (fun (filename, decls) -> filename, List.map (function
@@ -1261,6 +1285,8 @@ let infer_mut_borrows files =
      The second execution will use this information when building the initial
      `known` set, forcing expressions assigned to the mutable parameter to
      be mutable borrows.
+
+     XXX why is this not a fixpoint?
   *)
   let files = List.map (fun (filename, decls) -> filename, List.map (function
     | Function _ as decl ->
@@ -1271,7 +1297,7 @@ let infer_mut_borrows files =
 
   (* We can finally update the struct and enumeration fields mutability
      based on the information computed during inference on functions *)
-  List.map (fun (filename, decls) -> filename, List.map (function
+  let files = List.map (fun (filename, decls) -> filename, List.map (function
     | Struct ({ name; _ } as s) -> Struct { s with fields = Hashtbl.find structs (`Struct name) }
     | Enumeration s  ->
         Enumeration { s with items = List.map (fun (cons, fields) ->
@@ -1281,7 +1307,25 @@ let infer_mut_borrows files =
         ) s.items }
     | x -> x
     ) decls
-  ) (List.rev files)
+  ) (List.rev files) in
+
+  (* Final step: AstToMiniRust inserts casts for functions used a function pointers. But, if the
+     function type changed since, the type in the `As` node needs to be updated too. We rely on the
+     fact that no one generates casts, at function types, that apply to local variables -- meaning
+     that whatever undergoes a cast must be a toplevel function (and is hence found in the
+     valuation). *)
+  let files = map_funs (object
+    inherit [_] map_expr as super
+    method! visit_As _ e t =
+      match e, t with
+      | Name f, Function (n, l, _ts, t) ->
+          let ts = lookup env valuation f in
+          As (e, Function (n, l, ts, t))
+      | _ ->
+          super#visit_As () e t
+  end#visit_expr) files in
+
+  files
 
 
 (* Transformations occuring on the MiniRust AST, after translation and mutability inference *)
@@ -1419,22 +1463,6 @@ let cleanup_splits = object(self)
     | _ ->
         super#visit_Match () e_scrut t branches
 end
-
-let map_funs f_map files =
-  let files =
-    List.fold_left (fun files (filename, decls) ->
-      let decls = List.fold_left (fun decls decl ->
-        match decl with
-        | Function ({ body; _ } as f) ->
-            let body = f_map () body in
-            Function {f with body} :: decls
-        | _ -> decl :: decls
-      ) [] decls in
-      let decls = List.rev decls in
-      (filename, decls) :: files
-    ) [] files
-  in
-  List.rev files
 
 let compute_derives files =
   (* A map from lid to Ast definition, of type decl *)
