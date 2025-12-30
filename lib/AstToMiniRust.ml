@@ -650,9 +650,9 @@ let field_type env (e: Ast.expr) f =
   [fn_t_ret] corresponds to the return type of the function we are currently
   translating, and is used for EReturn nodes.
    *)
-let rec translate_expr (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) : env * MiniRust.expr =
+let rec translate_expr (env: env) ?context (fn_t_ret: MiniRust.typ) (e: Ast.expr) : env * MiniRust.expr =
   (* KPrint.bprintf "translate_expr: %a : %a\n" PrintAst.Ops.pexpr e PrintAst.Ops.ptyp e.typ; *)
-  translate_expr_with_type env fn_t_ret e (translate_type env e.typ)
+  translate_expr_with_type env ?context fn_t_ret e (translate_type env e.typ)
 
 and translate_expr_list (env: env) (fn_t_ret: MiniRust.typ) (es: Ast.expr list) : env * MiniRust.expr list =
   let env, acc =
@@ -697,7 +697,7 @@ and translate_array (env: env) (fn_t_ret: MiniRust.typ) is_toplevel (init: Ast.e
 
 (* However, generally, we will have a type provided by the context that may
    necessitate the insertion of conversions *)
-and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (t_ret: MiniRust.typ): env * MiniRust.expr =
+and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (t_ret: MiniRust.typ): env * MiniRust.expr =
   (* KPrint.bprintf "translate_expr_with_type: %a @@ %a\n" PrintMiniRust.ptyp t_ret PrintAst.Ops.pexpr e; *)
 
   let erase_borrow_kind_info = (object(self)
@@ -732,10 +732,16 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
         Constant (SizeT, x)
     | _, Constant UInt32, Constant SizeT ->
         As (x, Constant SizeT)
+
     | _, Function (_, _, ts, t), Function (_, _, ts', t') when ts = ts' && t = t' ->
         (* The type annotations coming from Ast do not feature polymorphic binders in types, but we
            do retain them in our Function type -- so we need to relax the comparison here *)
-        x
+        begin match e.node with
+        | EQualified _ when context <> `CallHead ->
+            As (x, t_ret)
+        | _ ->
+            x
+        end
 
     (* More conversions due to box-ing types. *)
     | _, Ref (_, _, Slice _), App (Name (["Box"], _), [Slice _]) ->
@@ -915,7 +921,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
         | [ { typ = TUnit; node; _ } ] -> assert (node = EUnit); []
         | _ -> es
       in
-      let env, e = translate_expr env fn_t_ret e in
+      let env, e = translate_expr env ~context:`CallHead fn_t_ret e in
       let ts = List.map (translate_type env) ts in
       let env, es = translate_expr_list env fn_t_ret es in
       env, Call (e, ts, es)
@@ -934,7 +940,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
         | _ -> es, snd (Helpers.flatten_arrow e0.typ)
       in
       (* KPrint.bprintf "Translating arguments to call %a\n" PrintAst.Ops.pexpr e0; *)
-      let env, e0 = translate_expr env fn_t_ret e0 in
+      let env, e0 = translate_expr env ~context:`CallHead fn_t_ret e0 in
       let env, es = translate_expr_list_with_types env fn_t_ret es (List.map (translate_type env) ts) in
       env, possibly_convert (Call (e0, [], es)) (translate_type env e.typ)
 
