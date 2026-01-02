@@ -1210,14 +1210,16 @@ let infer_mut_borrows files =
      these fields will be promoted to "mutable" as a side-effect of the
      mutability inference. *)
   List.iter (fun (_, decls) ->
-    List.iter (fun decl ->
+    List.iter (fun (decl: decl) ->
       match decl with
       | Struct ({name; fields; _}) ->
           Hashtbl.add structs (`Struct name) fields
       | Enumeration { name; items; _ } ->
           List.iter (fun (cons, fields) ->
-            Option.value fields ~default:[] |>
-            Hashtbl.add structs (`Variant (name, cons))
+            match fields with
+            | Struct fields ->
+                Hashtbl.add structs (`Variant (name, cons)) fields
+            | Unit _ -> ()
           ) items
       | _ ->
           ()
@@ -1298,13 +1300,14 @@ let infer_mut_borrows files =
   (* We can finally update the struct and enumeration fields mutability
      based on the information computed during inference on functions *)
   let files = List.map (fun (filename, decls) -> filename, List.map (function
-    | Struct ({ name; _ } as s) -> Struct { s with fields = Hashtbl.find structs (`Struct name) }
     | Enumeration s  ->
         Enumeration { s with items = List.map (fun (cons, fields) ->
           cons, match fields with
-            | None -> None
-            | Some _ -> Some (Hashtbl.find structs (`Variant (s.name, cons)))
+            | Unit c -> Unit c
+            | Struct _ -> Struct (Hashtbl.find structs (`Variant (s.name, cons)))
         ) s.items }
+    | Struct ({ name; _ } as s) ->
+        Struct { s with fields = Hashtbl.find structs (`Struct name) }
     | x -> x
     ) decls
   ) (List.rev files) in
@@ -1519,9 +1522,9 @@ let compute_derives files =
         | Enumeration { items; _ } ->
             let ts = List.concat_map (fun (_cons, fields) ->
               match fields with
-              | Some fields ->
+              | Struct fields ->
                   List.map (fun sf -> traits sf.typ) fields
-              | None ->
+              | Unit _ ->
                   []
             ) items in
             List.fold_left TraitSet.inter everything ts
@@ -1533,8 +1536,8 @@ let add_derives valuation files =
   let to_list ts = List.of_seq (TraitSet.to_seq ts) in
   List.map (fun (f, decls) ->
     f, List.map (function
-      | Struct s -> Struct { s with derives = s.derives @ to_list (valuation s.name) }
       | Enumeration s -> Enumeration { s with derives = s.derives @ to_list (valuation s.name) }
+      | Struct s -> Struct { s with derives = s.derives @ to_list (valuation s.name) }
       | d -> d
     ) decls
   ) files

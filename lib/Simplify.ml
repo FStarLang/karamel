@@ -549,7 +549,7 @@ let sequence_to_let = object (self)
         failwith "[sequence_to_let]: impossible (empty sequence)"
 
   method! visit_EIgnore (env, t) e =
-    (nest_in_return_pos t (fun _ e -> with_type t (EIgnore (self#visit_expr_w env e))) e).node
+    (nest_in_return_pos t (fun _ e -> with_type t (EIgnore e)) ((self#visit_expr_w env e))).node
 
 end
 

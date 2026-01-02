@@ -182,7 +182,7 @@ type decl =
   }
   | Enumeration of {
     name: name;
-    items: item list;
+    items: enum_variant list;
     derives: trait list;
     meta: meta;
     generic_params: generic_param list;
@@ -218,9 +218,13 @@ type decl =
     mut: bool;
   }
 
-and item =
-  (* Not supporting tuples yet *)
-  string * struct_field list option
+and enum_variant =
+  string * enum_variant_payload
+
+and enum_variant_payload =
+  | Struct of struct_field list
+  | Unit of Z.t option (* discriminant, if specified *)
+  (* TODO: tuple *)
 
 and struct_field = {
   name: string;
