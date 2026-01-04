@@ -856,8 +856,11 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
   | EAny -> failwith "Unexpected EAny"
   | EAbort (_, s) ->
       env, Panic (Stdlib.Option.value ~default:"" s)
-  | EIgnore _ ->
-      failwith "unexpected: EIgnore"
+  | EIgnore e ->
+      let t = translate_type env e.typ in
+      let env, e = translate_expr env fn_t_ret e in
+      let binding: MiniRust.binding = { name = "_"; typ = t; mut = false; ref = false } in
+      env, Let (binding, Some e, Unit)
   | EApp ({ node = EOp (o, _); _ }, es) when H.is_wrapping_operator o ->
       let w = Helpers.assert_tint (List.hd es).typ in
       let env, es = translate_expr_list env fn_t_ret es in
@@ -1078,6 +1081,7 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
          sub-environments since their variables go out of scope? *)
       env, IfThenElse (e1, e2, e3)
   | ESequence _ ->
+      (* `sequence_to_let` eliminates all sequences *)
       failwith "unexpected: ESequence"
   | EAssign (e1, e2) ->
       let lvalue_type = match e1.node with
@@ -1381,7 +1385,20 @@ let is_handled_primitively = function
 
 (* In Rust, like in C, all the declarations from the current module are in
  * scope immediately. This requires us to duplicate a little bit of work. *)
-let bind_decl env (d: Ast.decl): env =
+let bind_type_decl env (d: Ast.decl): env =
+  match d with
+  | DType (lid, _flags, _, _, _decl) ->
+      if LidMap.mem lid env.types then
+        (* Name already assigned thanks to a forward declaration *)
+        env
+      else
+        let env, name = translate_lid env lid in
+        let env = push_type env lid name in
+        env
+  | _ ->
+      env
+
+let bind_non_type_decl env (d: Ast.decl): env =
   match d with
   | DFunction (_, _, _, _, _, lid, _, _) when is_handled_primitively lid ->
       env
@@ -1440,17 +1457,9 @@ let bind_decl env (d: Ast.decl): env =
       let name = translate_unknown_lid lid in
       push_decl env lid (name, make_poly (translate_type_with_config env {default_config with keep_mut = true} t) type_parameters)
 
-  | DType (lid, _flags, _, _, decl) ->
-      let env, name =
-        if LidMap.mem lid env.types then
-          (* Name already assigned thanks to a forward declaration *)
-          env, lookup_type env lid
-        else
-          let env, name = translate_lid env lid in
-          let env = push_type env lid name in
-          env, name
-      in
-      match decl with
+  | DType (lid, _, _, _, decl) ->
+      let name = lookup_type env lid in
+      begin match decl with
       | Flat fields ->
           (* These sets are mutually exclusive, so we don't box *and* introduce a
              lifetime at the same time *)
@@ -1465,6 +1474,8 @@ let bind_decl env (d: Ast.decl): env =
           in
           let fields = List.map (fun (f, (t, _m)) ->
             let f = Option.get f in
+            let open PrintAst.Ops in
+            KPrint.bprintf "%a: field %s has type %a\n" plid lid f ptyp t;
             { MiniRust.name = f; visibility = Some Pub; typ = translate_type_with_config env { box; lifetime; keep_mut = false } t }
           ) fields in
           { env with
@@ -1490,6 +1501,7 @@ let bind_decl env (d: Ast.decl): env =
           ) env branches
       | _ ->
           env
+      end
 
 let translate_meta attributes flags =
   let comments = List.filter_map (function Common.Comment c -> Some c | _ -> None) flags in
@@ -1606,7 +1618,11 @@ let translate_decl env { derives; attributes; static; no_mangle; _ } (d: Ast.dec
       | Enum idents ->
           (* TODO: enum cases with set values *)
           (* No need to do name binding here since there are entirely resolved via the type name. *)
-          let items = List.map (fun (i, v) -> assert (v = None); snd i, None) idents in
+          let items = List.map (fun (i, (v: Z.t option)) ->
+            snd i, match v with
+            | None -> MiniRust.Unit None
+            | Some c -> Unit (Some c)
+          ) idents in
           Some (Enumeration { name; meta; items; derives; generic_params = [] })
       | Abbrev t ->
           let has_inner_pointer = has_pointer env t in
@@ -1630,7 +1646,7 @@ let translate_decl env { derives; attributes; static; no_mangle; _ } (d: Ast.dec
           let items = List.map (fun (cons, _) ->
             let fields = DataTypeMap.find (`Variant (lid, cons)) env.struct_fields in
             let fields = List.map (fun (x: MiniRust.struct_field) -> { x with visibility = None }) fields in
-            cons, Some fields
+            cons, MiniRust.Struct fields
           ) branches in
           Some (Enumeration { name; meta; items; derives; generic_params })
       | Union _ ->
@@ -1818,10 +1834,24 @@ let translate_files_with_metadata files metadata =
       | _ -> true
     ) decls in
 
+    (* Step 0.5: bind all *type* declarations so that types are in scope for adding functions in the
+     environment (with their types) *)
+    let env = List.fold_left (fun env d ->
+      try
+        bind_type_decl env d
+      with e ->
+        (* We do not increase failures as this will be counted below. *)
+        KPrint.bprintf "%sERROR translating type of %a: %s%s\n%s\n" Ansi.red
+          PrintAst.Ops.plid (Ast.lid_of_decl d)
+          (Printexc.to_string e) Ansi.reset
+          (Printexc.get_backtrace ());
+        env
+    ) env decls in
+
     (* Step 1: bind all declarations and add them to the environment with their types *)
     let env = List.fold_left (fun env d ->
       try
-        bind_decl env d
+        bind_non_type_decl env d
       with e ->
         (* We do not increase failures as this will be counted below. *)
         KPrint.bprintf "%sERROR translating type of %a: %s%s\n%s\n" Ansi.red

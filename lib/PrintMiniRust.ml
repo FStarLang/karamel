@@ -633,13 +633,14 @@ let rec print_decl env (d: decl) =
       group (print_derives derives) ^/^
       group (print_meta meta ^^ string "enum" ^/^ string target_name ^^ print_generic_params generic_params) ^/^
       braces_with_nesting (
-        separate_map (comma ^^ hardline) (fun (item_name, item_struct) ->
+        separate_map (comma ^^ hardline) (fun (item_name, item_payload) ->
           group @@
-          string item_name ^^ match item_struct with
-          | None -> empty
-          | Some [] -> empty
-          | Some item_struct -> break1 ^^ braces_with_nesting (print_struct env item_struct)
-      ) items)
+          string item_name ^^ match item_payload with
+          | Unit None -> empty
+          | Unit (Some c) -> space ^^ equals ^^ string (Z.to_string c)
+          | Struct item_struct -> break1 ^^ braces_with_nesting (print_struct env item_struct)
+        ) items
+      )
   | Struct { fields; meta; generic_params; derives; _ } ->
       group @@
       group (print_derives derives) ^/^
