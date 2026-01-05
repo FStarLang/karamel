@@ -1646,7 +1646,7 @@ let translate_decl env { derives; attributes; static; no_mangle; _ } (d: Ast.dec
           let items = List.map (fun (cons, _) ->
             let fields = DataTypeMap.find (`Variant (lid, cons)) env.struct_fields in
             let fields = List.map (fun (x: MiniRust.struct_field) -> { x with visibility = None }) fields in
-            cons, MiniRust.Struct fields
+            cons, if fields = [] then MiniRust.Unit None else MiniRust.Struct fields
           ) branches in
           Some (Enumeration { name; meta; items; derives; generic_params })
       | Union _ ->

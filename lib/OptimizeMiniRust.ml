@@ -185,6 +185,18 @@ let rec make_mut_borrow = function
       failwith "impossible: make_mut_borrow"
 
 (* Only works for struct types. *)
+let field_is_mut_borrow (n: DataType.t) f =
+  try
+    is_mut_borrow (Option.get (List.find_map (fun (sf: struct_field) ->
+      if sf.name = f then
+        Some sf.typ
+      else
+        None
+    ) (Hashtbl.find structs n)))
+  with Not_found ->
+    false
+
+(* Only works for struct types. *)
 let add_mut_field (n: DataType.t) f =
   let fields = Hashtbl.find structs n in
   (* Update the mutability of the field element *)
@@ -459,6 +471,13 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
   | Assign (Field (Index ((Open {atom; _} as e1), e2), f, st), e3, t) ->
       let known = add_mut_borrow atom known in
       let known, e2 = infer_expr env valuation return_expected usize known e2 in
+      let t =
+        match st with
+        | Some (Name (n, _)) when field_is_mut_borrow (`Struct n) f ->
+            fst (make_mut_borrow t)
+        | _ ->
+            t
+      in
       let known, e3 = infer_expr env valuation return_expected t known e3 in
       known, Assign (Field (Index (e1, e2), f, st), e3, t)
 
