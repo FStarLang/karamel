@@ -273,25 +273,47 @@ module Splits = struct
   (* Unlocks better comparisons in many cases *)
   let norm e =
     let exception NotConstant in
-    let rec norm (e: MiniRust.expr) =
+    let rec is_zero e =
+      try norm e = 0
+      with NotConstant -> false
+
+    and norm (e: MiniRust.expr) =
       (* This function assumes no overflow on index comparisons... FIXME *)
       match e with
       | As (e, _) ->
           norm e
+
+      | MethodCall (e1, [ "wrapping_add" ], [ e2 ])
+      | Call (Operator (Add | AddW), _, [ e1; e2 ]) when is_zero e1 ->
+          norm e2
+
+      | MethodCall (e1, [ "wrapping_add" ], [ e2 ])
+      | Call (Operator (Add | AddW), _, [ e1; e2 ]) when is_zero e2 ->
+          norm e1
+
       | MethodCall (e1, [ "wrapping_add" ], [ e2 ])
       | Call (Operator (Add | AddW), _, [ e1; e2 ]) ->
           norm e1 + norm e2
+
+      | MethodCall (e1, [ "wrapping_mul" ], [ e2 ])
+      | Call (Operator (Mult | MultW), _, [ e1; e2 ]) when is_zero e1 || is_zero e2 ->
+          0
+
       | MethodCall (e1, [ "wrapping_mul" ], [ e2 ])
       | Call (Operator (Mult | MultW), _, [ e1; e2 ]) ->
           norm e1 * norm e2
+
       | MethodCall (e1, [ "wrapping_sub" ], [ e2 ])
       | Call (Operator (Sub | SubW), _, [ e1; e2 ]) ->
           norm e1 - norm e2
+
       | MethodCall (e1, [ "wrapping_div" ], [ e2 ])
       | Call (Operator (Div | DivW), _, [ e1; e2 ]) ->
           norm e1 / norm e2
+
       | Constant (_, c) ->
           int_of_string c
+
       | _ ->
           raise NotConstant
     in
@@ -861,7 +883,7 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
       let env, e = translate_expr env fn_t_ret e in
       let binding: MiniRust.binding = { name = "_"; typ = t; mut = false; ref = false } in
       env, Let (binding, Some e, Unit)
-  | EApp ({ node = EOp (o, _); _ }, es) when H.is_wrapping_operator o ->
+  | EApp ({ node = EOp (o, w); _ }, es) when H.is_wrapping_operator o && not (Constant.is_float w) ->
       let w = Helpers.assert_tint (List.hd es).typ in
       let env, es = translate_expr_list env fn_t_ret es in
       env, possibly_convert (MethodCall (List.hd es, [ H.wrapping_operator o ], List.tl es)) (Constant w)
@@ -1474,8 +1496,8 @@ let bind_non_type_decl env (d: Ast.decl): env =
           in
           let fields = List.map (fun (f, (t, _m)) ->
             let f = Option.get f in
-            let open PrintAst.Ops in
-            KPrint.bprintf "%a: field %s has type %a\n" plid lid f ptyp t;
+            (* let open PrintAst.Ops in *)
+            (* KPrint.bprintf "%a: field %s has type %a\n" plid lid f ptyp t; *)
             { MiniRust.name = f; visibility = Some Pub; typ = translate_type_with_config env { box; lifetime; keep_mut = false } t }
           ) fields in
           { env with
