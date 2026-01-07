@@ -80,6 +80,14 @@ module F = Fix.Fix.ForOrderedType(Name)(Fix.Prop.Set(Set.Make(Int)))
 let structs: (DataType.t, MiniRust.struct_field list) Hashtbl.t =
   Hashtbl.create 31
 
+(* Same deal with mutable globals -- whatever is in this hash table is a mutable global *)
+let mutable_globals: (MiniRust.name, unit) Hashtbl.t =
+  Hashtbl.create 41
+
+(* Same deal with mutable globals -- whatever is in this hash table is a mutable global *)
+let mutable_borrow_globals: (MiniRust.name, unit) Hashtbl.t =
+  Hashtbl.create 41
+
 (* Our environments only contain signatures, and as such, are immutable -- these
    signatures will need to be augmented with information from the valuation to
    get the intended type. *)
@@ -195,6 +203,14 @@ let field_is_mut_borrow (n: DataType.t) f =
     ) (Hashtbl.find structs n)))
   with Not_found ->
     false
+
+let add_mut_global (n: MiniRust.name) =
+  if not (Hashtbl.mem mutable_globals n) then
+    Hashtbl.add mutable_globals n ()
+
+let add_mut_borrow_global (n: MiniRust.name) =
+  if not (Hashtbl.mem mutable_borrow_globals n) then
+    Hashtbl.add mutable_borrow_globals n ()
 
 (* Only works for struct types. *)
 let add_mut_field (n: DataType.t) f =
@@ -355,6 +371,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
          We list the few remaining ones here *)
       begin match o with
       | Add | Sub
+      | Mult | Div
       | BOr | BAnd | BXor | BNot
       | Eq | Neq | Lt | Lte | Gt | Gte
       | And | Or | Xor | Not ->
@@ -404,6 +421,11 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       let known, e3 = infer_expr env valuation return_expected t known e3 in
       add_mut_var atom known, Assign (e1, e3, t)
 
+  | Assign (Name n, e, t) ->
+      let known, e = infer_expr env valuation return_expected t known e in
+      add_mut_global n;
+      known, Assign (Name n, e, t)
+
   (* atom[e2] = e2 *)
   | Assign (Index (Open { atom; _ } as e1, e2), e3, t)
 
@@ -419,6 +441,12 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
   | Assign (Index (Field (Open {atom;_}, "1", None) as e1, e2), e3, t) ->
       (* KPrint.bprintf "[infer_expr-mut,assign] %a\n" pexpr e; *)
       let known = add_mut_borrow atom known in
+      let known, e2 = infer_expr env valuation return_expected usize known e2 in
+      let known, e3 = infer_expr env valuation return_expected t known e3 in
+      known, Assign (Index (e1, e2), e3, t)
+
+  | Assign (Index (Name n as e1, e2), e3, t) ->
+      add_mut_borrow_global n;
       let known, e2 = infer_expr env valuation return_expected usize known e2 in
       let known, e3 = infer_expr env valuation return_expected t known e3 in
       known, Assign (Index (e1, e2), e3, t)
@@ -457,6 +485,13 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
   | Assign (Field (_, "0", None), _, _)
   | Assign (Field (_, "1", None), _, _) ->
       failwith "TODO: assignment on slice"
+
+  (* atom.f = e *)
+  | Assign (Field (Open { atom; _ }, _, _) as e1, e2, t) ->
+      (* No field mutability in Rust; it's just the variable itself that needs to be mutable *)
+      let known = add_mut_var atom known in
+      let known, e2 = infer_expr env valuation return_expected t known e2 in
+      known, Assign (e1, e2, t)
 
   (* (atom[e2]).f[e4][e5] = e3 *)
   | Assign (Index (Index (Field (Index ((Open {atom; _} as e1), e2), f, st), e4), e5), e3, t) ->
@@ -522,7 +557,6 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       let known, e2 = infer_expr env valuation return_expected usize known e2 in
       let known, e3 = infer_expr env valuation return_expected usize known e3 in
       known, Assign (Index (e1, e2), e3, t1)
-
 
   | Assign _ ->
       KPrint.bprintf "[infer_expr-mut,assign] %a unsupported %s\n" pexpr e (show_expr e);
@@ -1328,8 +1362,15 @@ let infer_mut_borrows files =
     ) decls
   ) (List.rev files) in
 
+  let maybe_mut_borrow name t =
+    if Hashtbl.mem mutable_borrow_globals name then
+      fst (make_mut_borrow t)
+    else
+      t
+  in
+
   (* We can finally update the struct and enumeration fields mutability
-     based on the information computed during inference on functions *)
+     based on the information computed during inference on functions. We also adjust globals. *)
   let files = List.map (fun (filename, decls) -> filename, List.map (function
     | Enumeration s  ->
         Enumeration { s with items = List.map (fun (cons, fields) ->
@@ -1339,6 +1380,10 @@ let infer_mut_borrows files =
         ) s.items }
     | Struct ({ name; _ } as s) ->
         Struct { s with fields = Hashtbl.find structs (`Struct name) }
+    | Constant c when Hashtbl.mem mutable_globals c.name ->
+        Static { name = c.name; typ = maybe_mut_borrow c.name c.typ; body = c.body; meta = c.meta; mut = true }
+    | Static c when Hashtbl.mem mutable_globals c.name ->
+        Static { name = c.name; typ = maybe_mut_borrow c.name c.typ; body = c.body; meta = c.meta; mut = true }
     | x -> x
     ) decls
   ) (List.rev files) in

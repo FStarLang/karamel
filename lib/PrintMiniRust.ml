@@ -256,8 +256,14 @@ let rec is_ignored_pattern env = function
   | _ -> false
 
 (* print a block *and* the expression within it *)
-let rec print_block_expression env e =
-  braces_with_nesting (print_statements env e)
+let rec print_block_expression env ?(lbrace_conflict=false) e =
+  let doc = 
+    braces_with_nesting (print_statements env e)
+  in
+  if lbrace_conflict then
+    parens_with_nesting doc
+  else
+    doc
 
 and print_block_or_if_expression env e =
   match e with
@@ -282,7 +288,7 @@ and print_statements env (e: expr): document =
          handling here *)
       print_statements (push env (GoneUnit)) e2
   | Let ({ typ = Unit; _ }, Some e1, e2) ->
-      print_expr env max_int e1 ^^ semi ^^ hardline ^^
+      print_expr env ~lbrace_conflict:true max_int e1 ^^ semi ^^ hardline ^^
       print_statements (push env (GoneUnit)) e2
   | Let ({ name; _ } as b, None, e2) ->
       (* Special-case: this is a variable declaration without a definition *)
@@ -301,7 +307,7 @@ and print_statements env (e: expr): document =
         nest 4 (break 1 ^^ print_expr env max_int e1) ^^ semi) ^^ hardline ^^
       print_statements (push env (Bound b)) e2
   | _ ->
-      print_expr env max_int e
+      print_expr env ~lbrace_conflict:true max_int e
 
 (*
 
@@ -356,7 +362,7 @@ and prec_of_op1 o =
   | _ -> failwith "unexpected: unknown unary operator"
 
 
-and print_expr env (context: int) (e: expr): document =
+and print_expr env ?(lbrace_conflict=false) (context: int) (e: expr): document =
   (* If the current expressions precedence level exceeds that of the context, it
      needs to be parenthesized, otherwise it'll parse incorrectly. *)
   let paren_if mine doc =
@@ -394,7 +400,7 @@ and print_expr env (context: int) (e: expr): document =
   | Constant c ->
       print_constant c
   | Let _ ->
-      print_block_expression env e
+      print_block_expression env ~lbrace_conflict e
   | Call (Operator o, ts, [ e1; e2 ]) ->
       assert (ts = []);
       let mine, left, right = prec_of_op2 o in
@@ -402,8 +408,8 @@ and print_expr env (context: int) (e: expr): document =
         (* Stupid syntax conflict where 0 as u32 < e2 is looked ahead as the beginning of a type
            application *)
         match o, e1 with
-        | (Lt | Lte), As _ -> parens (print_expr env left e1)
-        | _ -> print_expr env left e1
+        | (Lt | Lte), As _ -> parens (print_expr env ~lbrace_conflict left e1)
+        | _ -> print_expr env ~lbrace_conflict left e1
       in
       paren_if mine @@
       group (e1 ^/^
@@ -439,17 +445,17 @@ and print_expr env (context: int) (e: expr): document =
   | Assign (e1, e2, _) ->
       let mine, left, right = 18, 17, 18 in
       paren_if mine @@
-      group (print_expr env left e1 ^^ space ^^ equals ^^
+      group (print_expr env ~lbrace_conflict left e1 ^^ space ^^ equals ^^
         (nest 4 (break1 ^^ print_expr env right e2)))
   | AssignOp (e1, o, e2, _) ->
       let mine, left, right = 18, 17, 18 in
       paren_if mine @@
-      group (print_expr env left e1 ^^ space ^^ print_op o ^^ equals ^^
+      group (print_expr env ~lbrace_conflict left e1 ^^ space ^^ print_op o ^^ equals ^^
         (nest 4 (break1 ^^ print_expr env right e2)))
   | As (e1, e2) ->
       let mine = 7 in
       paren_if mine @@
-      group (print_expr env mine e1 ^/^ string "as" ^/^ print_typ env e2)
+      group (print_expr env ~lbrace_conflict mine e1 ^/^ string "as" ^/^ print_typ env e2)
   | For (b, e1, e2) ->
       let name = allocate_name env b.name in
       group @@
@@ -510,11 +516,11 @@ and print_expr env (context: int) (e: expr): document =
   | Index (p, e) ->
       let mine = 4 in
       paren_if mine @@
-      print_expr env mine p ^^ group (brackets (print_expr env max_int e))
+      print_expr env ~lbrace_conflict mine p ^^ group (brackets (print_expr env max_int e))
   | Field (e, s, _) ->
       let mine = 3 in
       paren_if mine @@
-      group (print_expr env mine e ^^ dot ^^ string s)
+      group (print_expr env ~lbrace_conflict mine e ^^ dot ^^ string s)
   | Deref e ->
       let mine = 6 in
       paren_if mine @@
