@@ -237,7 +237,8 @@ and smallest t1 t2 =
   | _, TAny ->
       t1
   | TBuf (t1, b1), TBuf (t2, b2) ->
-      TBuf (smallest t1 t2, b1 && b2)
+      assert (b1 <= b2);
+      TBuf (smallest t1 t2, b1)
   | _ ->
       t1
 
@@ -473,6 +474,11 @@ and check' env t e =
           end
 
       | lid, ts, cgs when kind env lid = Some Record ->
+          begin match flatten_tapp e.typ with
+          | lid', _, _ when lid' <> lid ->
+              checker_error env "Type mismatch: %a vs %a" plid lid plid lid'
+          | _ -> ()
+          end;
           let fieldtyps = assert_flat env (lookup_type env lid) in
           let fieldtyps = List.map (fun (field, (typ, m)) ->
             field, (DeBruijn.subst_tn ts (DeBruijn.subst_ctn' cgs typ), m)
@@ -498,8 +504,7 @@ and check' env t e =
       ) branches;
 
   | EAddrOf e ->
-      let t = infer env e in
-      c (TBuf (t, false))
+      check env (assert_tbuf t) e
 
 
 and check_case env c t =
@@ -533,9 +538,9 @@ and args_of_branch env t ident =
       checker_error env "Type annotation is not an lid but %a" ptyp t
 
 and infer env e =
-  if Options.debug "checker" then KPrint.bprintf "[infer] %a\n" pexpr e;
+  if Options.debug "checker" then KPrint.bprintf "[infer] %a: %a\n" pexpr e ptyp e.typ;
   let t = infer' env e in
-  if Options.debug "checker" then KPrint.bprintf "[infer, got] %a\n" ptyp t;
+  if Options.debug "checker" then KPrint.bprintf "[infer, got] %a: %a\n" pexpr e ptyp t;
   check_subtype env t e.typ;
   (* This is all because of external that retain their polymorphic
      signatures. TODO: does this alleviate the need for those crappy checks in
@@ -551,6 +556,9 @@ and prefer_nominal t1 t2 =
       t1
   | _, (TQualified _ | TApp _) ->
       t2
+  | TBuf (t1, b1), TBuf (t2, b2) ->
+      assert (b1 <= b2);
+      TBuf (smallest t1 t2, b2)
   | _, _ ->
       t1
 

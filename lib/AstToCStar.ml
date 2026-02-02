@@ -209,6 +209,12 @@ let whitelisted_tapp e =
 
 let no_return_type_lids = ref []
 
+(* For field names, we simply avoid keywords. This is potentially incorrect, e.g. a record with fields
+   `switch` and `switch0` would see both fields mapped to the same name. Ideally, we would maintain a
+   global mapping of fields (per type), just like we do for enums -- see lib/Simplify.ml,
+   specifically, record_names. *)
+let avoid_keywords name = mk_fresh name (fun name -> List.mem name GlobalNames.keywords)
+
 let rec unit_to_void env e es extra =
   let mk_expr env e = mk_expr env false false e in
   match es with
@@ -450,10 +456,10 @@ and mk_expr env in_stmt under_initializer_list e =
   | EFlat fields ->
       let name = match e.typ with TQualified lid -> Some lid | _ -> None in
       CStar.Struct (name, List.map (fun (name, expr) ->
-        name, mk_expr env true expr
+        Option.map avoid_keywords name, mk_expr env true expr
       ) fields)
   | EField (expr, field) ->
-      CStar.Field (mk_expr env false expr, field)
+      CStar.Field (mk_expr env false expr, avoid_keywords field)
 
   | EAddrOf e ->
       CStar.AddrOf (mk_expr env false e)
@@ -975,7 +981,7 @@ and mk_type_def env ?name d: CStar.typ =
       (* Not naming the structs or enums here, because they're going to be
        * typedef'd and we'll only refer to the typedef'd name. *)
       CStar.Struct (List.map (fun (field, (typ, _)) ->
-        field, mk_type env typ
+        Option.map avoid_keywords field, mk_type env typ
       ) fields)
 
   | Abbrev t ->
@@ -991,7 +997,7 @@ and mk_type_def env ?name d: CStar.typ =
 
   | Union fields ->
       CStar.Union (List.map (fun (f, t) ->
-        f, mk_type env t
+        avoid_keywords f, mk_type env t
       ) fields)
 
   | Forward _ ->
