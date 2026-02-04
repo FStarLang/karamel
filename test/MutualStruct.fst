@@ -87,7 +87,7 @@ and object6_pair = {
 }
 *)
 
-// This test extracts. It should compile, but the C compiler complains with object7_pair incomplete because KaRaMeL extracted it too early
+// This test extracts and compiles.
 
 noeq
 type object7_tagged = {
