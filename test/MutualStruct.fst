@@ -110,3 +110,58 @@ and object7_pair = {
   object7_pair_fst: object7;
   object7_pair_snd: object7;
 }
+
+// This test extracts and compiles.
+
+noeq
+type slice (a: Type0) : Type0 = { elt: ref a; len: U64.t; }
+
+[@@no_auto_projectors]
+noeq
+type object8_map = {
+  object8_map_length_size: U8.t;
+  object8_map_ptr: slice object8_map_entry;
+}
+
+and object8_array = {
+  object8_array_length_size: U8.t;
+  object8_array_ptr: slice object8_raw;
+}
+
+and object8_raw =
+| OBJECT8_Case_Simple: v: U8.t -> object8_raw
+| OBJECT8_Case_Array: v: object8_array -> object8_raw
+| OBJECT8_Case_Map: v: object8_map -> object8_raw
+
+and object8_map_entry = {
+  object8_map_entry_key: object8_raw;
+  object8_map_entry_value: object8_raw;
+}
+
+let f8 (x: object8_map) : Tot bool = true
+
+// This test extracts, but has failed to compile since #664
+
+[@@no_auto_projectors]
+noeq
+type object9_array = {
+  object9_array_length_size: U8.t;
+  object9_array_ptr: slice object9_raw;
+}
+
+and object9_map = {
+  object9_map_length_size: U8.t;
+  object9_map_ptr: slice object9_map_entry;
+}
+
+and object9_raw =
+| OBJECT9_Case_Simple: v: U8.t -> object9_raw
+| OBJECT9_Case_Array: v: object9_array -> object9_raw
+| OBJECT9_Case_Map: v: object9_map -> object9_raw
+
+and object9_map_entry = {
+  object9_map_entry_key: object9_raw;
+  object9_map_entry_value: object9_raw;
+}
+
+let f9 (x: object9_map) : Tot bool = true
