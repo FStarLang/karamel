@@ -332,16 +332,18 @@ let monomorphize_data_types map = object(self)
    * order declarations as they are needed, including that of the node we are
    * visiting. *)
   method private visit_node (under_ref: bool) (n: node) =
-    (* Fast-path: there are no type arguments (so: nothing to monomorphize here)
-       and we are not under a ref (so: no forward declarations to insert here),
-       so we do not visit this lid, and do not self#record it.
+    (* Fast-path:
+       - there are no type arguments (so: nothing to monomorphize here)
+       - we are not under a ref (so: no forward declarations to insert here),
+       - we are not visiting ourselves either (so: no hopeful forward declaration to insert here)
+       --> we do not visit this lid, and do not self#record it.
 
        1. If we saw this lid, great.
        2. If we haven't seen this lid yet, no problem, its contents will be
           visited through self#visit_decl in the case where n = 0 && n_cgs = 0,
           and it will be inserted in its original spot, which has the nice
           side-effect of preserving the source order.*)
-    if snd3 n = [] && thd3 n = [] && not under_ref then
+    if snd3 n = [] && thd3 n = [] && not under_ref && Option.map fst @@ Hashtbl.find_opt state n <> Some Gray then
       fst3 n
     else
       (* We recursively visit the arguments. This avoids inconsistencies where
@@ -445,7 +447,15 @@ let monomorphize_data_types map = object(self)
           end;
           chosen_lid
       | Gray, chosen_lid ->
-          (* FORWARD DECLARATION: simple case of a recursive type that needs a forward declaration *)
+          (* FORWARD DECLARATION: simple case of a recursive type that needs a
+             forward declaration.
+
+             We still insert something to deal with cases like
+
+             typedef struct s {
+               void f(t x);
+             } t;
+          *)
           if Options.debug "data-types-traversal" then
             KPrint.bprintf "visiting %a: Gray\n" ptyp (fold_tapp n);
           begin match Hashtbl.find map lid with
@@ -537,7 +547,9 @@ let monomorphize_data_types map = object(self)
           assert (n = 0 && n_cgs = 0);
           (* This was not inserted earlier (see comment at the beginning of
              visit_node, so we visit it here *)
+          Hashtbl.add state (lid, [], []) (Gray, lid);
           let d = self#visit_decl false d in
+          Hashtbl.replace state (lid, [], []) (Black, lid);
           Hashtbl.add seen_declarations lid ();
           self#clear () @ [ d ]
 
