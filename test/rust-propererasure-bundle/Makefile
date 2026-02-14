@@ -59,7 +59,7 @@ derived.rs: $(ALL_KRML_FILES) $(KRML_BIN)
 	$(KRML) -minimal -bundle 'FStar.*,LowStar.*,C,C.*,Prims' -bundle 'Base+Caller=Derived[rename=Derived]' \
 	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)
 	$(SED) -i 's/\(patterns..\)/\1\nmod lowstar { pub mod ignore { pub fn ignore<T>(_x: T) {}}}\n/' $@
-	echo 'fn main () { let r = derived::main_ (); if r != 0 { println!("main_ returned: {}\\n", r); panic!() } }' >> $@
+	echo 'fn main () { let r = main_ (); if r != 0 { println!("main_ returned: {}\\n", r); panic!() } }' >> $@
 
 %.rust-test: %.rs
 	rustc $< -o $*.exe && ./$*.exe
