@@ -15,7 +15,3 @@ type cbor_string = {
   cbor_string_ptr: slice U32.t;
   cbor_string_perm: Ghost.erased bool;
 }
-
-let f (p: Ghost.erased bool) (c: cbor_string) : cbor_string = {
-  c with cbor_string_perm = p && c.cbor_string_perm
-}
