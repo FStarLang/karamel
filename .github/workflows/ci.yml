@@ -143,6 +143,7 @@ jobs:
         run: |
           echo "KRML_HOME=$(pwd)/karamel" >> $GITHUB_ENV
           echo "EVERPARSE_USE_KRML_HOME=1" >> $GITHUB_ENV
+          echo "EVERPARSE_USE_LOCAL_SWITCH=1" >> $GITHUB_ENV
           echo "ADMIT=1" >> $GITHUB_ENV
 
       # TODO: Remove `ref:` line once project-everest/everparse#244 is merged
@@ -151,20 +152,20 @@ jobs:
         with:
           repository: project-everest/everparse
           ref: _nik_smt_univs_2025
-          path: everparse
+          path: karamel/everparse
 
       - name: Generate CBOR .krml files
         run: |
-          make -C everparse cbor-extract-krml -kj$(nproc)
+          make -C karamel/everparse cbor-extract-krml -kj$(nproc)
       - name: Generate and test CBOR snapshot with Karamel
         run: |
-          make -C everparse cbor-snapshot -Otarget -kj$(nproc) && make -C everparse cbor-test-unverified -Otarget -kj$(nproc)
+          make -C karamel/everparse cbor-snapshot -Otarget -kj$(nproc) && make -C karamel/everparse cbor-test-unverified -Otarget -kj$(nproc)
       - name: Generate COSE .krml files
         run: |
-          make -C everparse cose-extract-krml -kj$(nproc)
+          make -C karamel/everparse cose-extract-krml -kj$(nproc)
       - name: Generate and test COSE snapshot with Karamel
         run: |
-          make -C everparse cose-snapshot -Otarget -kj$(nproc) && make -C everparse cose-extracted-test -Otarget -kj$(nproc)
+          make -C karamel/everparse cose-snapshot -Otarget -kj$(nproc) && make -C karamel/everparse cose-extracted-test -Otarget -kj$(nproc)
 
   # This is checked in parallel with no F* around. It checks that the
   # krllib snapshot builds, on several systems.
