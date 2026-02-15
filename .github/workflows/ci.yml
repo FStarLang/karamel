@@ -150,8 +150,8 @@ jobs:
       - name: Clone EverParse
         uses: actions/checkout@master
         with:
-          repository: project-everest/everparse
-          ref: _nik_smt_univs_2025
+          repository: tahina-pro/quackyducky
+          ref: _taramana_smt_univs_2025_ci_krml
           path: karamel/everparse
 
       - name: Generate CBOR .krml files
