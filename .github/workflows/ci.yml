@@ -154,6 +154,9 @@ jobs:
           ref: _taramana_smt_univs_2025_ci_krml
           path: karamel/everparse
 
+      - name: Build EverParse dependencies
+        run: |
+          make -C karamel/everparse -f deps.Makefile -kj$(nproc)
       - name: Generate CBOR .krml files
         run: |
           make -C karamel/everparse cbor-extract-krml -kj$(nproc)
