@@ -53,6 +53,10 @@ jobs:
       - name: Delete OPAM state if it already existed
         run: |
           gh cache delete opam-${{ runner.os }}-${{ runner.arch }} || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref }}
 
       - name: Save OPAM state
         uses: actions/cache/save@v4
