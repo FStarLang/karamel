@@ -50,6 +50,18 @@ jobs:
       - run: opam install --deps-only karamel/karamel.opam
       - run: opam install ctypes ctypes-foreign # not in deps?
 
+      - name: Build EverParse opam dependencies
+        run: |
+          opam install re
+          # FIXME: we should rather do the following:
+          # opam install --deps-only ./everparse/opt/everparse-deps.opam
+          # But the maximum available version of sexplib with ocaml 4.x
+          # is 0.16, which requires sexplib0 0.16,
+          # whereas F* installs sexplib0 0.17
+          # Fortunately, sexplib is required only by 3d,
+          # and so far no Karamel regression test suite for EverParse
+          # requires 3d
+
       - name: Delete OPAM state if it already existed
         run: |
           gh cache delete opam-${{ runner.os }}-${{ runner.arch }} || true
@@ -157,25 +169,20 @@ jobs:
           echo "EVERPARSE_USE_KRML_HOME=1" >> $GITHUB_ENV
           echo "ADMIT=1" >> $GITHUB_ENV
 
-      # TODO: Remove `ref:` line once project-everest/everparse#244 is merged
-      - name: Clone EverParse
-        uses: actions/checkout@master
+      - name: Restore EverParse cache if it exists
+        uses: actions/cache/restore@v4
         with:
-          repository: tahina-pro/quackyducky
-          ref: _taramana_smt_univs_2025_ci_krml
           path: everparse
+          key: everparse-${{ runner.os }}-${{ runner.arch }}
 
-      - name: Build EverParse opam dependencies
+      # NOTE: we use `git checkout` instead of actions/checkout,
+      # because of `git pull` below
+      # TODO: remove --branch line once project-everest#244 is merged
+      - name: Clone EverParse if it does not exist
         run: |
-          opam install re
-          # FIXME: we should rather do the following:
-          # opam install --deps-only ./everparse/opt/everparse-deps.opam
-          # But the maximum available version of sexplib with ocaml 4.x
-          # is 0.16, which requires sexplib0 0.16,
-          # whereas F* installs sexplib0 0.17
-          # Fortunately, sexplib is required only by 3d,
-          # and so far no Karamel regression test suite for EverParse
-          # requires 3d
+          if ! [[ -d everparse ]] ; then git clone \
+            --branch _nik_smt_univs_2025 \
+            https://github.com/project-everest/everparse ; fi
 
       # Need to build Karamel only at the last minute, since `opam
       # install` might recompile F*
@@ -187,9 +194,25 @@ jobs:
           export OCAMLRUNPARAM=b
           OTHERFLAGS='--admit_smt_queries true' make -kj$(nproc)
 
-      - name: Generate CBOR .krml files
+      - name: Generate CBOR .krml files and CDDL
+        working-directory: everparse
         run: |
-          make -C everparse cbor-extract-krml -kj$(nproc)
+          git pull && make cbor-extract-krml cddl -kj$(nproc)
+
+      - name: Delete EverParse cache if it already existed
+        run: |
+          gh cache delete everparse-${{ runner.os }}-${{ runner.arch }} || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref }}
+
+      - name: Save EverParse cache
+        uses: actions/cache/save@v4
+        with:
+          path: everparse
+          key: everparse-${{ runner.os }}-${{ runner.arch }}
+
       - name: Generate CBOR snapshot with Karamel
         run: |
           make -C everparse cbor-snapshot -Otarget -kj$(nproc)
