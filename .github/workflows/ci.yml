@@ -164,6 +164,7 @@ jobs:
 
       - name: Build EverParse dependencies
         run: |
+          opam install --deps-only ./everparse/opt/everparse-deps.opam &&
           make -C everparse -f deps.Makefile -kj$(nproc)
       - name: Generate CBOR .krml files
         run: |
