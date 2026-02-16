@@ -146,14 +146,6 @@ jobs:
           echo "EVERPARSE_USE_LOCAL_SWITCH=1" >> $GITHUB_ENV
           echo "ADMIT=1" >> $GITHUB_ENV
 
-      - name: Build Karamel
-        working-directory: karamel
-        run: |
-          eval $(opam env)
-          . $HOME/.cargo/env
-          export OCAMLRUNPARAM=b
-          OTHERFLAGS='--admit_smt_queries true' make -kj$(nproc)
-
       # TODO: Remove `ref:` line once project-everest/everparse#244 is merged
       - name: Clone EverParse
         uses: actions/checkout@master
@@ -162,9 +154,22 @@ jobs:
           ref: _taramana_smt_univs_2025_ci_krml
           path: everparse
 
+      - name: Build EverParse opam dependencies
+        run: |
+          opam install --deps-only ./everparse/opt/everparse-deps.opam
+
+      # Need to build Karamel only at the last minute, since `opam
+      # install` might recompile F*
+      - name: Build Karamel
+        working-directory: karamel
+        run: |
+          eval $(opam env)
+          . $HOME/.cargo/env
+          export OCAMLRUNPARAM=b
+          OTHERFLAGS='--admit_smt_queries true' make -kj$(nproc)
+
       - name: Build EverParse dependencies
         run: |
-          opam install --deps-only ./everparse/opt/everparse-deps.opam &&
           make -C everparse -f deps.Makefile -kj$(nproc)
       - name: Generate CBOR .krml files
         run: |
