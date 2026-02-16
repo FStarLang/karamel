@@ -50,6 +50,10 @@ jobs:
       - run: opam install --deps-only karamel/karamel.opam
       - run: opam install ctypes ctypes-foreign # not in deps?
 
+      - name: Delete OPAM state if it already existed
+        run: |
+          gh cache delete opam-${{ runner.os }}-${{ runner.arch }} || true
+
       - name: Save OPAM state
         uses: actions/cache/save@v4
         with:
