@@ -156,7 +156,15 @@ jobs:
 
       - name: Build EverParse opam dependencies
         run: |
-          opam install --deps-only ./everparse/opt/everparse-deps.opam
+          opam install re
+          # FIXME: we should rather do the following:
+          # opam install --deps-only ./everparse/opt/everparse-deps.opam
+          # But the maximum available version of sexplib with ocaml 4.x
+          # is 0.16, which requires sexplib0 0.16,
+          # whereas F* installs sexplib0 0.17
+          # Fortunately, sexplib is required only by 3d,
+          # and so far no Karamel regression test suite for EverParse
+          # requires 3d
 
       # Need to build Karamel only at the last minute, since `opam
       # install` might recompile F*
