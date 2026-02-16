@@ -18,17 +18,9 @@ defaults:
     shell: bash
 
 jobs:
-  build-and-test:
+  build-deps:
     runs-on: ubuntu-latest
     steps:
-      - name: Install Z3 with script
-        run: |
-          wget https://raw.githubusercontent.com/FStarLang/FStar/refs/heads/master/.scripts/get_fstar_z3.sh -O get_fstar_z3.sh
-          chmod +x get_fstar_z3.sh
-          ./get_fstar_z3.sh /usr/local/bin
-       # If these fail, stop right now.
-      - run: which z3-4.8.5
-      - run: which z3-4.13.3
 
       - name: Setup ocaml
         uses: ocaml/setup-ocaml@v3
@@ -61,6 +53,35 @@ jobs:
       - name: Save OPAM state
         uses: actions/cache/save@v4
         with:
+          path: _opam
+          key: opam-${{ runner.os }}-${{ runner.arch }}
+
+  build-and-test:
+    needs: build-deps
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Z3 with script
+        run: |
+          wget https://raw.githubusercontent.com/FStarLang/FStar/refs/heads/master/.scripts/get_fstar_z3.sh -O get_fstar_z3.sh
+          chmod +x get_fstar_z3.sh
+          ./get_fstar_z3.sh /usr/local/bin
+       # If these fail, stop right now.
+      - run: which z3-4.8.5
+      - run: which z3-4.13.3
+
+      - name: Setup ocaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+           ocaml-compiler: 4.14.2
+
+      - uses: actions/checkout@master
+        with:
+          path: karamel
+
+      - name: Restore OPAM state
+        uses: actions/cache/restore@v4
+        with:
+          fail-on-cache-miss: true
           path: _opam
           key: opam-${{ runner.os }}-${{ runner.arch }}
 
@@ -94,6 +115,7 @@ jobs:
 
   # EverParse (CBOR, COSE) regressions
   test-everparse:
+    needs: build-deps
     runs-on: ubuntu-latest
     steps:
       - name: Install Z3 with script
@@ -114,28 +136,10 @@ jobs:
         with:
           path: karamel
 
-      # We keep the OPAM state fully cached between runs, and rely on OPAM to
-      # update itself. This means we don't build F* again if it doesn't change.
-      # The nightly build will start from scratch.
-      - name: Try restore OPAM state
-        if: ${{ inputs.nocache != 'true' && github.event_name != 'schedule' }}
+      - name: Restore OPAM state
         uses: actions/cache/restore@v4
         with:
-          path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}
-
-      # Build F* master.
-      - run: opam update
-      - run: opam pin -n fstar --dev-repo
-      - run: opam install fstar
-
-      # Install karamel deps
-      - run: opam install --deps-only karamel/karamel.opam
-      - run: opam install ctypes ctypes-foreign # not in deps?
-
-      - name: Save OPAM state
-        uses: actions/cache/save@v4
-        with:
+          fail-on-cache-miss: true
           path: _opam
           key: opam-${{ runner.os }}-${{ runner.arch }}
 
