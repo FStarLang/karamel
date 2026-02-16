@@ -182,15 +182,21 @@ jobs:
       - name: Generate CBOR .krml files
         run: |
           make -C everparse cbor-extract-krml -kj$(nproc)
-      - name: Generate and test CBOR snapshot with Karamel
+      - name: Generate CBOR snapshot with Karamel
         run: |
-          make -C everparse cbor-snapshot -Otarget -kj$(nproc) && make -C everparse cbor-test-unverified -Otarget -kj$(nproc)
+          make -C everparse cbor-snapshot -Otarget -kj$(nproc)
+      - name: Test CBOR snapshot
+        run: |
+          make -C everparse cbor-test-unverified -Otarget -kj$(nproc)
       - name: Generate COSE .krml files
         run: |
           make -C everparse cose-extract-krml -kj$(nproc)
-      - name: Generate and test COSE snapshot with Karamel
+      - name: Generate COSE snapshot with Karamel
         run: |
-          make -C everparse cose-snapshot -Otarget -kj$(nproc) && make -C everparse cose-extracted-test -Otarget -kj$(nproc)
+          make -C everparse cose-snapshot -Otarget -kj$(nproc)
+      - name: Test COSE snapshot
+        run: |
+          make -C everparse cose-extracted-test -Otarget -kj$(nproc)
 
   # This is checked in parallel with no F* around. It checks that the
   # krllib snapshot builds, on several systems.
