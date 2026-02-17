@@ -194,10 +194,10 @@ jobs:
           export OCAMLRUNPARAM=b
           OTHERFLAGS='--admit_smt_queries true' make -kj$(nproc)
 
-      - name: Generate CBOR .krml files and CDDL
+      - name: Generate CBOR and COSE .krml files
         working-directory: everparse
         run: |
-          git pull && make cbor-extract-krml cddl -kj$(nproc)
+          git pull && make cbor-extract-krml cose-extract-krml -kj$(nproc)
 
       - name: Delete EverParse cache if it already existed
         run: |
@@ -219,9 +219,6 @@ jobs:
       - name: Test CBOR snapshot
         run: |
           make -C everparse cbor-test-unverified -Otarget -kj$(nproc)
-      - name: Generate COSE .krml files
-        run: |
-          make -C everparse cose-extract-krml -kj$(nproc)
       - name: Generate COSE snapshot with Karamel
         run: |
           make -C everparse cose-snapshot -Otarget -kj$(nproc)
