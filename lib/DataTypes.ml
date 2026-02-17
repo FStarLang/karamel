@@ -687,21 +687,13 @@ let remove_unit_buffers = object (self)
 
 end
 
-let remove_unit_fields = object (self)
+let build_unit_field_table erasable_fields = object (self)
 
   inherit [_] map
-
-  val erasable_fields = Hashtbl.create 41
-  val mutable atoms = []
 
   method private is_erasable = function
     | TUnit -> true
     | _ -> false
-
-  method private default_value = function
-    | TUnit -> EUnit
-    | TAny -> EAny
-    | t -> Warn.fatal_error "default_value: %a" ptyp t
 
   method! visit_DType _ lid flags n_cgs n type_def =
     match type_def with
@@ -736,6 +728,19 @@ let remove_unit_fields = object (self)
       end else
         Some (f, (t, m))
     ) fields
+
+end
+
+let remove_unit_fields erasable_fields = object (self)
+
+  inherit [_] map
+
+  val mutable atoms = []
+
+  method private default_value = function
+    | TUnit -> EUnit
+    | TAny -> EAny
+    | t -> Warn.fatal_error "default_value: %a" ptyp t
 
   (* As we're about to visit a pattern, we collect binders for now-defunct
    * fields, and replace them with default values in the corresponding branch. *)
@@ -1369,7 +1374,9 @@ let simplify files =
 (* Unit elimination, after monomorphization *)
 let optimize files =
   let files = remove_unit_buffers#visit_files () files in
-  let files = remove_unit_fields#visit_files () files in
+  let tbl = Hashtbl.create 41 in
+  let files = (build_unit_field_table tbl)#visit_files () files in
+  let files = (remove_unit_fields tbl)#visit_files () files in
   files
 
 (* For Rust, we leave `match` nodes in the AST -- Rust *does* have

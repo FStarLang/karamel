@@ -1401,7 +1401,7 @@ let mk_type_or_external m (w: where) ?(is_inline_static=false) (d: decl): C.decl
               else
                 failwith "TODO: support for negative enum values"
             in
-            let cases = List.map (fun (lid, v) -> to_c_name m (lid, Macro), v) cases in
+            let cases = List.map (fun (lid, v) -> to_c_name m (lid, Other), v) cases in
             wrap_verbatim name flags (Text (enum_as_macros cases)) @
             let qs, spec, decl = mk_spec_and_declarator_t m name (Int t) in
             [ Decl ([], (qs, spec, None, Some Typedef, { maybe_unused = false; target = None }, [ decl, None, None ]))]

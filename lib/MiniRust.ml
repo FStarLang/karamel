@@ -8,10 +8,10 @@ end
 type borrow_kind_ = Mut | Shared
 [@@deriving show]
 
-type borrow_kind = borrow_kind_ [@ opaque ]
-and constant = Constant.t [@ opaque ]
-and width = Constant.width [@ opaque ]
-and op = Constant.op [@ opaque ]
+type borrow_kind = borrow_kind_ [@ visitors.opaque ]
+and constant = Constant.t [@ visitors.opaque ]
+and width = Constant.width [@ visitors.opaque ]
+and op = Constant.op [@ visitors.opaque ]
 and name = Name.t [@ visitors.opaque ]
 
 (* Some design choices.
@@ -21,7 +21,7 @@ and name = Name.t [@ visitors.opaque ]
      between statements and expressions -- Rust is not as strict as C in that
      regard. We'll do "the right thing" once we go to a concrete Rust syntax
      tree prior to pretty-printing. *)
-and db_index = int [@ opaque ]
+and db_index = int [@ visitors.opaque ]
 [@@deriving show,
     visitors { variety = "map"; name = "map_misc"; polymorphic = true },
     visitors { variety = "reduce"; name = "reduce_misc"; polymorphic = true }]
@@ -131,7 +131,8 @@ and pat =
 (* In the Rust grammar, both variants and structs are covered by the struct
   case. We disambiguate between the two *)
 and struct_name =
-  [ `Struct of name | `Variant of name * string ] [@ opaque]
+  [ `Struct of name | `Variant of name * string ] [@ visitors.opaque]
+  [@@deriving show]
 
 and open_var = {
   name: string;
@@ -182,7 +183,7 @@ type decl =
   }
   | Enumeration of {
     name: name;
-    items: item list;
+    items: enum_variant list;
     derives: trait list;
     meta: meta;
     generic_params: generic_param list;
@@ -218,9 +219,13 @@ type decl =
     mut: bool;
   }
 
-and item =
-  (* Not supporting tuples yet *)
-  string * struct_field list option
+and enum_variant =
+  string * enum_variant_payload
+
+and enum_variant_payload =
+  | Struct of struct_field list
+  | Unit of Z.t option (* discriminant, if specified *)
+  (* TODO: tuple *)
 
 and struct_field = {
   name: string;
