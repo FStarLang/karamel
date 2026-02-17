@@ -138,14 +138,6 @@ jobs:
     needs: build-deps
     runs-on: ubuntu-latest
     steps:
-      - name: Install Z3 with script
-        run: |
-          wget https://raw.githubusercontent.com/FStarLang/FStar/refs/heads/master/.scripts/get_fstar_z3.sh -O get_fstar_z3.sh
-          chmod +x get_fstar_z3.sh
-          ./get_fstar_z3.sh /usr/local/bin
-       # If these fail, stop right now.
-      - run: which z3-4.8.5
-      - run: which z3-4.13.3
 
       - name: Setup ocaml
         uses: ocaml/setup-ocaml@v3
