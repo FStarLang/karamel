@@ -333,10 +333,16 @@ let allocate_tag (enums: ((ident * Z.t option) list, lident) Hashtbl.t) (tag_rem
   let tags_with_prefix = List.map (fun (tag, value) -> ((fst preferred_tag_lid, tag), value)) tags_without_prefix in
   match Hashtbl.find enums tags_without_prefix with
   | tag_lid ->
+      (* KPrint.bprintf "for tags %s, found %a\n" *)
+      (*   (String.concat ", " (List.map fst tags_without_prefix)) *)
+      (*   plid tag_lid; *)
       if not (Hashtbl.mem tag_remap lid) then
         Hashtbl.add tag_remap lid tag_lid;
       Found tag_lid
   | exception Not_found ->
+      (* KPrint.bprintf "for tags %s, NOT found, preferred=%a\n" *)
+      (*   (String.concat ", " (List.map fst tags_without_prefix)) *)
+      (*   plid preferred_tag_lid; *)
       Hashtbl.add enums tags_without_prefix preferred_tag_lid;
       Hashtbl.add tag_remap lid preferred_tag_lid;
       (* Private will be removed, if needed, by the cross-call analysis. *)
