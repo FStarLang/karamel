@@ -332,114 +332,145 @@ let monomorphize_data_types map = object(self)
    * order declarations as they are needed, including that of the node we are
    * visiting. *)
   method private visit_node (under_ref: bool) (n: node) =
-    (* Because we have no equirecursive types, this should not loop *)
-    let n = fst3 n, List.map (self#visit_typ under_ref) (snd3 n), thd3 n in
-    let lid, args, cgs = n in
-    (* White, gray or black? *)
-    match Hashtbl.find state n with
-    | exception Not_found ->
-        let chosen_lid, flag = self#lid_of n in
-        if Options.debug "data-types-traversal" then
-          KPrint.bprintf "visiting %a: Not_found --> %a\n" ptyp (fold_tapp n) plid chosen_lid;
-        let flag = if fst3 best_hint = n then thd3 best_hint @ flag else flag in
-        if lid = tuple_lid then begin
-          Hashtbl.add state n (Gray, chosen_lid);
-          (* For tuples, we immediately know how to generate a definition. *)
-          let fields = List.mapi (fun i arg -> Some (self#field_at i), (arg, false)) args in
-          self#record (DType (chosen_lid, [ Common.Private ] @ flag, 0, 0, Flat fields));
-          Hashtbl.replace state n (Black, chosen_lid)
-        end else begin
-          (* This specific node has not been visited yet. *)
-          Hashtbl.add state n (Gray, chosen_lid);
+    (* Fast-path:
+       - there are no type arguments (so: nothing to monomorphize here)
+       - we are not under a ref (so: no forward declarations to insert here),
+       - we are not visiting ourselves either (so: no hopeful forward declaration to insert here)
+       --> we do not visit this lid, and do not self#record it.
 
-          let subst fields = List.map (fun (field, (t, m)) ->
-            field, (DeBruijn.subst_tn args (DeBruijn.subst_ctn' cgs t), m)
-          ) fields in
-          assert (not (Hashtbl.mem map lid) || not (has_variables args) && not (has_cg_variables cgs));
-          begin match Hashtbl.find map lid with
-          | exception Not_found ->
-              (* Unknown, external non-polymorphic lid, e.g. Prims.int *)
-              Hashtbl.replace state n (Black, chosen_lid)
-          | flags, ((Variant _ | Flat _ | Union _) as def) when under_ref && not (Hashtbl.mem seen_declarations lid) ->
-              (* FORWARD DECLARATION: this is unrelated to monomorphization (but we do it
-                 here anyway). An occurrence of `t<ts>*` appears before the definition of `t`; we
-                 pick a name, insert a forward declaration for `t<ts>`, then remember that *once we
-                 have see the definition of `t`*, we will insert the monomorphized `t___ts` at that
-                 specific location.
+       1. If we saw this lid, great.
+       2. If we haven't seen this lid yet, no problem, its contents will be
+          visited through self#visit_decl in the case where n = 0 && n_cgs = 0,
+          and it will be inserted in its original spot, which has the nice
+          side-effect of preserving the source order.*)
+    if snd3 n = [] && thd3 n = [] && not under_ref && Option.map fst @@ Hashtbl.find_opt state n <> Some Gray then
+      fst3 n
+    else
+      (* We recursively visit the arguments. This avoids inconsistencies where
+         the map would previously record both t<u<v>> and t<u__v> which then
+         required renormalizations and didn't work anyhow.
 
-                 The comment below furthermore tries to explain why we do things this way (as
-                 opposed to inserting the monomorphized `t___ts` immediately).
+         Because we have no equirecursive types, this should not loop *)
+      let n = fst3 n, List.map (self#visit_typ under_ref) (snd3 n), thd3 n in
+      let lid, args, cgs = n in
+      (* White, gray or black? *)
+      match Hashtbl.find state n with
+      | exception Not_found ->
+          let chosen_lid, flag = self#lid_of n in
+          if Options.debug "data-types-traversal" then
+            KPrint.bprintf "visiting %a: Not_found --> %a\n" ptyp (fold_tapp n) plid chosen_lid;
+          let flag = if fst3 best_hint = n then thd3 best_hint @ flag else flag in
+          if lid = tuple_lid then begin
+            assert (args <> []);
+            Hashtbl.add state n (Gray, chosen_lid);
+            (* For tuples, we immediately know how to generate a definition. *)
+            let fields = List.mapi (fun i arg -> Some (self#field_at i), (arg, false)) args in
+            self#record (DType (chosen_lid, [ Common.Private ] @ flag, 0, 0, Flat fields));
+            Hashtbl.replace state n (Black, chosen_lid)
+          end else begin
+            (* This specific node has not been visited yet. *)
+            Hashtbl.add state n (Gray, chosen_lid);
 
-                 Because this looks up a definition in the global map, the
-                 definitions are reordered according to the traversal order, which
-                 is generally a good idea (we accept more programs!), EXCEPT
-                 when the user relies on mutual recursion behind a reference
-                 (pointer) type. In that case, following the type dependency graph is
-                 generally not a good idea, since we may go from a valid
-                 ordering to an invalid one (see tests/MutualStruct.fst). So,
-                 the intent here (i.e., when under a ref type) is that:
-                 - tuple types ALWAYS get monomorphized on-demand (see
-                   above)
-                 - abbreviations are fine and won't cause further issues
-                 - data types, however, need to have their names allocated and a
-                   forward reference inserted (TODO: at most once), then the
-                   specific choice of type arguments need to be recorded as
-                   something we want to visit later (once we're done with this
-                   particular traversal)... *)
-              if Options.debug "data-types-traversal" then
-                KPrint.bprintf "DEFERRING %a\n" ptyp (fold_tapp n);
-              if match def with Union _ -> true | _ -> false then
-                self#record (DType (chosen_lid, flags, 0, 0, Forward FUnion))
-              else
-                self#record (DType (chosen_lid, flags, 0, 0, Forward FStruct));
-              Hashtbl.add pending_monomorphizations lid (args, cgs);
-              (* FORWARD DECLARATIONS: remove us from the state to make sure future occurences of the
-                 same situation send us through this codepath again *)
-              Hashtbl.remove state n
-          | flags, Variant branches ->
-              let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
-              let branches = self#visit_branches_t under_ref branches in
-              self#record (DType (chosen_lid, flag @ flags, 0, 0, Variant branches));
-              Hashtbl.replace state n (Black, chosen_lid)
-          | flags, Flat fields ->
-              let fields = self#visit_fields_t_opt under_ref (subst fields) in
-              self#record (DType (chosen_lid, flag @ flags, 0, 0, Flat fields));
-              Hashtbl.replace state n (Black, chosen_lid)
-          | flags, Union fields ->
-              let fields = List.map (fun (f, t) ->
+            let subst fields = List.map (fun (field, (t, m)) ->
+              field, (DeBruijn.subst_tn args (DeBruijn.subst_ctn' cgs t), m)
+            ) fields in
+            assert (not (Hashtbl.mem map lid) || not (has_variables args) && not (has_cg_variables cgs));
+            begin match Hashtbl.find map lid with
+            | exception Not_found ->
+                (* Unknown, external non-polymorphic lid, e.g. Prims.int *)
+                Hashtbl.replace state n (Black, chosen_lid)
+            | flags, ((Variant _ | Flat _ | Union _) as def) when under_ref && not (Hashtbl.mem seen_declarations lid) ->
+                (* FORWARD DECLARATION: this is unrelated to monomorphization (but we do it
+                   here anyway). An occurrence of `t<ts>*` appears before the definition of `t`; we
+                   pick a name, insert a forward declaration for `t<ts>`, then remember that *once we
+                   have see the definition of `t`, we will insert the monomorphized `t___ts` at that
+                   specific location.
+
+                   The comment below furthermore tries to explain why we do things this way (as
+                   opposed to inserting the monomorphized `t___ts` immediately).
+
+                   Because this looks up a definition in the global map, the
+                   definitions are reordered according to the traversal order, which
+                   is generally a good idea (we accept more programs!), EXCEPT
+                   when the user relies on mutual recursion behind a reference
+                   (pointer) type. In that case, following the type dependency graph is
+                   generally not a good idea, since we may go from a valid
+                   ordering to an invalid one (see tests/MutualStruct.fst). So,
+                   the intent here (i.e., when under a ref type) is that:
+                   - tuple types ALWAYS get monomorphized on-demand (see
+                     above)
+                   - abbreviations are fine and won't cause further issues
+                   - data types, however, need to have their names allocated and a
+                     forward reference inserted (TODO: at most once), then the
+                     specific choice of type arguments need to be recorded as
+                     something we want to visit later (once we're done with this
+                     particular traversal)... *)
+                if Options.debug "data-types-traversal" then
+                  KPrint.bprintf "DEFERRING %a\n" ptyp (fold_tapp n);
+                if match def with Union _ -> true | _ -> false then
+                  self#record (DType (chosen_lid, flags, 0, 0, Forward FUnion))
+                else
+                  self#record (DType (chosen_lid, flags, 0, 0, Forward FStruct));
+                Hashtbl.add pending_monomorphizations lid (args, cgs);
+                (* FORWARD DECLARATIONS: remove us from the state to make sure future occurences of the
+                   same situation send us through this codepath again *)
+                Hashtbl.remove state n
+            | flags, Variant branches ->
+                let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
+                let branches = self#visit_branches_t under_ref branches in
+                if args <> [] || cgs <> [] then
+                  self#record (DType (chosen_lid, flag @ flags, 0, 0, Variant branches));
+                Hashtbl.replace state n (Black, chosen_lid)
+            | flags, Flat fields ->
+                let fields = self#visit_fields_t_opt under_ref (subst fields) in
+                if args <> [] || cgs <> [] then
+                  self#record (DType (chosen_lid, flag @ flags, 0, 0, Flat fields));
+                Hashtbl.replace state n (Black, chosen_lid)
+            | flags, Union fields ->
+                let fields = List.map (fun (f, t) ->
+                  let t = DeBruijn.subst_tn args t in
+                  let t = self#visit_typ under_ref t in
+                  f, t
+                ) fields in
+                if args <> [] || cgs <> [] then
+                  self#record (DType (chosen_lid, flag @ flags, 0, 0, Union fields));
+                Hashtbl.replace state n (Black, chosen_lid)
+            | flags, Abbrev t ->
                 let t = DeBruijn.subst_tn args t in
                 let t = self#visit_typ under_ref t in
-                f, t
-              ) fields in
-              self#record (DType (chosen_lid, flag @ flags, 0, 0, Union fields));
-              Hashtbl.replace state n (Black, chosen_lid)
-          | flags, Abbrev t ->
-              let t = DeBruijn.subst_tn args t in
-              let t = self#visit_typ under_ref t in
-              self#record (DType (chosen_lid, flag @ flags, 0, 0, Abbrev t));
-              Hashtbl.replace state n (Black, chosen_lid)
-          | _ ->
-              Hashtbl.replace state n (Black, chosen_lid)
-          end
-        end;
-        chosen_lid
-    | Gray, chosen_lid ->
-        (* FORWARD DECLARATION: simple case of a recursive type that needs a forward declaration *)
-        if Options.debug "data-types-traversal" then
-          KPrint.bprintf "visiting %a: Gray\n" ptyp (fold_tapp n);
-        begin match Hashtbl.find map lid with
-        | exception Not_found ->
-            ()
-        | flags, Union _ ->
-            self#record (DType (chosen_lid, flags, 0, 0, Forward FUnion))
-        | flags, _ ->
-            self#record (DType (chosen_lid, flags, 0, 0, Forward FStruct))
-        end;
-        chosen_lid
-    | Black, chosen_lid ->
-        if Options.debug "data-types-traversal" then
-          KPrint.bprintf "visiting %a: Black\n" ptyp (fold_tapp n);
-        chosen_lid
+                if args <> [] || cgs <> [] then
+                  self#record (DType (chosen_lid, flag @ flags, 0, 0, Abbrev t));
+                Hashtbl.replace state n (Black, chosen_lid)
+            | _ ->
+                Hashtbl.replace state n (Black, chosen_lid)
+            end
+          end;
+          chosen_lid
+      | Gray, chosen_lid ->
+          (* FORWARD DECLARATION: simple case of a recursive type that needs a
+             forward declaration.
+
+             We still insert something to deal with cases like
+
+             typedef struct s {
+               void f(t x);
+             } t;
+          *)
+          if Options.debug "data-types-traversal" then
+            KPrint.bprintf "visiting %a: Gray\n" ptyp (fold_tapp n);
+          begin match Hashtbl.find map lid with
+          | exception Not_found ->
+              ()
+          | flags, Union _ ->
+              self#record (DType (chosen_lid, flags, 0, 0, Forward FUnion))
+          | flags, _ ->
+              self#record (DType (chosen_lid, flags, 0, 0, Forward FStruct))
+          end;
+          chosen_lid
+      | Black, chosen_lid ->
+          if Options.debug "data-types-traversal" then
+            KPrint.bprintf "visiting %a: Black\n" ptyp (fold_tapp n);
+          chosen_lid
 
   (* Top-level, non-parameterized declarations are root of our graph traversal.
    * This also visits, via occurrences in code, applications of parameterized
@@ -514,18 +545,13 @@ let monomorphize_data_types map = object(self)
 
       | DType (lid, _, n_cgs, n, (Flat _ | Variant _ | Abbrev _ | Union _)) ->
           assert (n = 0 && n_cgs = 0);
-          (* Regular traversal logic, as below. *)
-          ignore (self#visit_decl false d);
-          (* FORWARD DECLARATIONS: we force a visit of this (non-polymorphic) type definition, for
-             the sole side-effect of remembering that we have seen it, and that further occurrences
-             of it need not generate a forward declaration (i.e. mark it Black, because
-             under_ref=false).
-
-             Note that `visit_node` will insert our own definition in the pending list, flushed by
-             `clear` -- ignore and don't insert twice. *)
-          ignore (self#visit_node false (lid, [], []));
+          (* This was not inserted earlier (see comment at the beginning of
+             visit_node, so we visit it here *)
+          Hashtbl.add state (lid, [], []) (Gray, lid);
+          let d = self#visit_decl false d in
+          Hashtbl.replace state (lid, [], []) (Black, lid);
           Hashtbl.add seen_declarations lid ();
-          self#clear ()
+          self#clear () @ [ d ]
 
       | _ ->
           (* Not a type, e.g. a global; needs to be retained. *)
