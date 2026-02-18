@@ -332,18 +332,8 @@ let monomorphize_data_types map = object(self)
    * order declarations as they are needed, including that of the node we are
    * visiting. *)
   method private visit_node (under_ref: bool) (n: node) =
-    (* Fast-path:
-       - there are no type arguments (so: nothing to monomorphize here)
-       - we are not under a ref (so: no forward declarations to insert here),
-       - we are not visiting ourselves either (so: no hopeful forward declaration to insert here)
-       --> we do not visit this lid, and do not self#record it.
-
-       1. If we saw this lid, great.
-       2. If we haven't seen this lid yet, no problem, its contents will be
-          visited through self#visit_decl in the case where n = 0 && n_cgs = 0,
-          and it will be inserted in its original spot, which has the nice
-          side-effect of preserving the source order.*)
-    if snd3 n = [] && thd3 n = [] && not under_ref && Option.map fst @@ Hashtbl.find_opt state n <> Some Gray then
+    (* Fast-path: non-polymorphic type that has already been fully processed. *)
+    if snd3 n = [] && thd3 n = [] && not under_ref && (match Hashtbl.find_opt state n with Some (Black, _) -> true | _ -> false) then
       fst3 n
     else
       (* We recursively visit the arguments. This avoids inconsistencies where
@@ -351,7 +341,7 @@ let monomorphize_data_types map = object(self)
          required renormalizations and didn't work anyhow.
 
          Because we have no equirecursive types, this should not loop *)
-      let n = fst3 n, List.map (self#visit_typ under_ref) (snd3 n), thd3 n in
+      let n = fst3 n, List.map (self#visit_typ true) (snd3 n), thd3 n in
       let lid, args, cgs = n in
       (* White, gray or black? *)
       match Hashtbl.find state n with
@@ -418,13 +408,11 @@ let monomorphize_data_types map = object(self)
             | flags, Variant branches ->
                 let branches = List.map (fun (cons, fields) -> cons, subst fields) branches in
                 let branches = self#visit_branches_t under_ref branches in
-                if args <> [] || cgs <> [] then
-                  self#record (DType (chosen_lid, flag @ flags, 0, 0, Variant branches));
+                self#record (DType (chosen_lid, flag @ flags, 0, 0, Variant branches));
                 Hashtbl.replace state n (Black, chosen_lid)
             | flags, Flat fields ->
                 let fields = self#visit_fields_t_opt under_ref (subst fields) in
-                if args <> [] || cgs <> [] then
-                  self#record (DType (chosen_lid, flag @ flags, 0, 0, Flat fields));
+                self#record (DType (chosen_lid, flag @ flags, 0, 0, Flat fields));
                 Hashtbl.replace state n (Black, chosen_lid)
             | flags, Union fields ->
                 let fields = List.map (fun (f, t) ->
@@ -432,14 +420,12 @@ let monomorphize_data_types map = object(self)
                   let t = self#visit_typ under_ref t in
                   f, t
                 ) fields in
-                if args <> [] || cgs <> [] then
-                  self#record (DType (chosen_lid, flag @ flags, 0, 0, Union fields));
+                self#record (DType (chosen_lid, flag @ flags, 0, 0, Union fields));
                 Hashtbl.replace state n (Black, chosen_lid)
             | flags, Abbrev t ->
                 let t = DeBruijn.subst_tn args t in
                 let t = self#visit_typ under_ref t in
-                if args <> [] || cgs <> [] then
-                  self#record (DType (chosen_lid, flag @ flags, 0, 0, Abbrev t));
+                self#record (DType (chosen_lid, flag @ flags, 0, 0, Abbrev t));
                 Hashtbl.replace state n (Black, chosen_lid)
             | _ ->
                 Hashtbl.replace state n (Black, chosen_lid)
@@ -545,13 +531,12 @@ let monomorphize_data_types map = object(self)
 
       | DType (lid, _, n_cgs, n, (Flat _ | Variant _ | Abbrev _ | Union _)) ->
           assert (n = 0 && n_cgs = 0);
-          (* This was not inserted earlier (see comment at the beginning of
-             visit_node, so we visit it here *)
-          Hashtbl.add state (lid, [], []) (Gray, lid);
-          let d = self#visit_decl false d in
-          Hashtbl.replace state (lid, [], []) (Black, lid);
+          (* Visit the declaration to trigger processing of referenced types *)
+          ignore (self#visit_decl false d);
+          (* Ensure the type itself is recorded in the correct DFS order *)
+          ignore (self#visit_node false (lid, [], []));
           Hashtbl.add seen_declarations lid ();
-          self#clear () @ [ d ]
+          self#clear ()
 
       | _ ->
           (* Not a type, e.g. a global; needs to be retained. *)
