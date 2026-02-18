@@ -140,7 +140,7 @@ and object8_map_entry = {
 
 let f8 (x: object8_map) : Tot bool = true
 
-// This test extracts, but has failed to compile since #664
+// This test extracts and compiles.
 
 [@@no_auto_projectors]
 noeq

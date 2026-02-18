@@ -1486,7 +1486,8 @@ and hoist_expr tbl loc pos e =
   | EFlat fields ->
       let lhs, fields = List.split (List.map (fun (ident, expr) ->
         let is_array = match e.typ, ident with
-          | TQualified lid, Some ident -> Helpers.is_array (Hashtbl.find tbl (lid, ident)) 
+          | TQualified lid, Some ident ->
+              (match Hashtbl.find_opt tbl (lid, ident) with Some t -> Helpers.is_array t | None -> false)
           | _ -> false
         in
         (* The rationale is that one must NOT hoist "ebufcreate" nodes that encode array

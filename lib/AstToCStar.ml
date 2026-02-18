@@ -209,6 +209,18 @@ let whitelisted_tapp e =
 
 let no_return_type_lids = ref []
 
+(* Table for resolving type abbreviations, used to normalize types before
+   mangle_enum so that aliases and canonical types produce the same name. *)
+let type_abbrevs: (lident, typ) Hashtbl.t = Hashtbl.create 256
+
+let rec resolve_abbrev (t: typ): typ =
+  match t with
+  | TQualified lid ->
+    (match Hashtbl.find_opt type_abbrevs lid with
+    | Some t' -> resolve_abbrev t'
+    | None -> t)
+  | _ -> t
+
 (* For field names, we simply avoid keywords. This is potentially incorrect, e.g. a record with fields
    `switch` and `switch0` would see both fields mapped to the same name. Ideally, we would maintain a
    global mapping of fields (per type), just like we do for enums -- see lib/Simplify.ml,
@@ -381,7 +393,7 @@ and mk_expr env in_stmt under_initializer_list e =
   | EBound var ->
       CStar.Var (find env var)
   | EEnum lident ->
-      CStar.Qualified (GlobalNames.mangle_enum lident e.typ)
+      CStar.Qualified (GlobalNames.mangle_enum lident (resolve_abbrev e.typ))
   | EQualified lident ->
       if LidSet.mem lident env.ifdefs then
         Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, IfDef lident));
@@ -687,7 +699,7 @@ and mk_stmts env e ret_type =
           List.map (fun (lid, e) ->
             (match lid with
             | SConstant k -> `Int k
-            | SEnum lid -> `Ident (GlobalNames.mangle_enum lid e0.typ)
+            | SEnum lid -> `Ident (GlobalNames.mangle_enum lid (resolve_abbrev e0.typ))
             | _ -> failwith "impossible"),
             mk_block env return_pos e
           ) branches, default) :: comment e0.meta @ acc
@@ -1027,6 +1039,15 @@ and mk_program m name env decls =
   List.rev decls
 
 and mk_files files m ifdefs macros =
+  (* Build abbreviation table for enum type resolution *)
+  Hashtbl.clear type_abbrevs;
+  List.iter (fun (_, decls) ->
+    List.iter (fun d ->
+      match d with
+      | DType (lid, _, _, _, Abbrev t) -> Hashtbl.replace type_abbrevs lid t
+      | _ -> ()
+    ) decls
+  ) files;
   let env = { empty with ifdefs; macros } in
   List.map (fun file ->
     let name, program = file in
