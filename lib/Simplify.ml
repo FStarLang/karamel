@@ -233,7 +233,7 @@ let unused private_count_table lid ts (i: int) =
       snd (List.nth l i) = Mark.AtMost 0
     ) ||
     (* Second case: it's a unit, so here type-based elimination *)
-    List.nth ts i = TUnit
+    i < List.length ts && List.nth ts i = TUnit
   in
   unused_i i &&
   implies (i = 0) (List.exists not (List.init (List.length ts) unused_i))
