@@ -1,7 +1,5 @@
 module DeclOrder
 
-#set-options "--__no_positivity"
-
 open FStar.HyperStack.ST
 module U32 = FStar.UInt32
 
@@ -14,7 +12,7 @@ module U32 = FStar.UInt32
    appearing after the types that embed them by value. *)
 
 noeq
-type box (a: Type0) = {
+type box ([@@@strictly_positive] a: Type0) = {
   value: a;
   tag: U32.t
 }
