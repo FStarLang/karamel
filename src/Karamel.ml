@@ -734,6 +734,7 @@ Supported options:|}
   tick_print true "Drop";
 
   Diagnostics.all files !arg_diagnostics;
+  let files = Inlining.inline_type_abbrevs files in
 
   (* 7. Final transformation on the AST: go to C names. This must really be done
    * at the last minute, since it invalidates pretty much any map ever built.
