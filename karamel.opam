@@ -29,11 +29,11 @@ depends: [
 depexts: ["coreutils" "make"] {os = "macos" & os-distribution = "homebrew"}
 build: [
   # Makefile requires modern make - build with gmake on mac, disable logging to avoid sandbox issues
-  ["gmake" "PREFIX=%{prefix}%" "NOSHORTLOG=1"] { os = "macos" & make = "make" }
+  ["gmake" "PREFIX=%{prefix}%" "NOSHORTLOG=1"] { os = "macos" }
   [make "PREFIX=%{prefix}%"] { os != "macos" }
 ]
 install: [
-  ["gmake" "PREFIX=%{prefix}%" "install"] { os = "macos" & make = "make" }
+  ["gmake" "PREFIX=%{prefix}%" "install"] { os = "macos" }
   [make "PREFIX=%{prefix}%" "install"] { os != "macos" }
 ]
 remove: [
