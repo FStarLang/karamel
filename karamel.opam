@@ -33,7 +33,7 @@ build: [
   [make "PREFIX=%{prefix}%"] { os != "macos" }
 ]
 install: [
-  ["gmake" "PREFIX=%{prefix}%" "install"] { os = "macos" }
+  ["gmake" "PREFIX=%{prefix}%" "NOSHORTLOG=1" "install"] { os = "macos" }
   [make "PREFIX=%{prefix}%" "install"] { os != "macos" }
 ]
 remove: [
