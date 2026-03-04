@@ -39,14 +39,14 @@ ifneq ($(RESOURCEMONITOR),)
 endif
 
 FSTAR = $(RUNLIM) $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_dir obj \
-  $(addprefix --include , $(INCLUDE_PATHS)) --cmi \
+  $(addprefix --include , $(INCLUDE_PATHS)) \
   --already_cached 'Prims FStar -FStar.Krml.Endianness LowStar -LowStar.Lib'
 
 # Note: not compatible with the OPAM layout until fstar can be queried for the
 # location of ulib.
 ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
   FStar.UInt128.fst FStar.Date.fsti \
-    FStar.HyperStack.IO.fst FStar.IO.fsti FStar.Int.Cast.Full.fst \
+    FStar.IO.fsti FStar.Int.Cast.Full.fst \
     FStar.Bytes.fsti FStar.Dyn.fsti LowStar.Printf.fst LowStar.Endianness.fst
 
 .PHONY: clean clean-c
