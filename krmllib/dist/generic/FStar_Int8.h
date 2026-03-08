@@ -50,6 +50,10 @@ extern int8_t FStar_Int8_shift_right(int8_t a, uint32_t s);
 
 extern int8_t FStar_Int8_shift_left(int8_t a, uint32_t s);
 
+extern int8_t FStar_Int8_rotate_right(int8_t a, uint32_t s);
+
+extern int8_t FStar_Int8_rotate_left(int8_t a, uint32_t s);
+
 extern bool FStar_Int8_eq(int8_t a, int8_t b);
 
 extern bool FStar_Int8_ne(int8_t a, int8_t b);
