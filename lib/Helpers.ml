@@ -497,6 +497,7 @@ let builtin_names =
     ["C"], "fflush";
     ["C"], "clock";
     (* Special array index to turn b[0] into *b (cf. PR #278) *)
+    ["Pulse"; "Lib"; "Pervasives"], "_zero_for_deref";
     ["C"], "_zero_for_deref";
     (* Hand-written type definition parameterized over KRML_VERIFIED_UINT128 *)
     ["FStar"; "UInt128"], "uint128";

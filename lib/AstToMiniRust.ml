@@ -828,6 +828,7 @@ and translate_expr_with_type (env: env) (fn_t_ret: MiniRust.typ) (e: Ast.expr) (
   | EQualified lid ->
       begin try
         match lid with
+        | [ "Pulse"; "Lib"; "Pervasives" ], "_zero_for_deref"
         | [ "C" ], "_zero_for_deref" ->
             (* CInt for Rust means no suffix -- rustc will convert to usize or u32 *)
             env, Constant (CInt, "0")
