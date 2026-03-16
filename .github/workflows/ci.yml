@@ -18,17 +18,9 @@ defaults:
     shell: bash
 
 jobs:
-  build-and-test:
+  build-deps:
     runs-on: ubuntu-latest
     steps:
-      - name: Install Z3 with script
-        run: |
-          wget https://raw.githubusercontent.com/FStarLang/FStar/refs/heads/master/.scripts/get_fstar_z3.sh -O get_fstar_z3.sh
-          chmod +x get_fstar_z3.sh
-          ./get_fstar_z3.sh /usr/local/bin
-       # If these fail, stop right now.
-      - run: which z3-4.8.5
-      - run: which z3-4.13.3
 
       - name: Setup ocaml
         uses: ocaml/setup-ocaml@v3
@@ -58,9 +50,58 @@ jobs:
       - run: opam install --deps-only karamel/karamel.opam
       - run: opam install ctypes ctypes-foreign # not in deps?
 
+      - name: Build EverParse opam dependencies
+        run: |
+          opam install re
+          # FIXME: we should rather do the following:
+          # opam install --deps-only ./everparse/opt/everparse-deps.opam
+          # But the maximum available version of sexplib with ocaml 4.x
+          # is 0.16, which requires sexplib0 0.16,
+          # whereas F* installs sexplib0 0.17
+          # Fortunately, sexplib is required only by 3d,
+          # and so far no Karamel regression test suite for EverParse
+          # requires 3d
+
+      - name: Delete OPAM state if it already existed
+        run: |
+          gh cache delete opam-${{ runner.os }}-${{ runner.arch }} || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref }}
+
       - name: Save OPAM state
         uses: actions/cache/save@v4
         with:
+          path: _opam
+          key: opam-${{ runner.os }}-${{ runner.arch }}
+
+  build-and-test:
+    needs: build-deps
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Z3 with script
+        run: |
+          wget https://raw.githubusercontent.com/FStarLang/FStar/refs/heads/master/.scripts/get_fstar_z3.sh -O get_fstar_z3.sh
+          chmod +x get_fstar_z3.sh
+          ./get_fstar_z3.sh /usr/local/bin
+       # If these fail, stop right now.
+      - run: which z3-4.8.5
+      - run: which z3-4.13.3
+
+      - name: Setup ocaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+           ocaml-compiler: 4.14.2
+
+      - uses: actions/checkout@master
+        with:
+          path: karamel
+
+      - name: Restore OPAM state
+        uses: actions/cache/restore@v4
+        with:
+          fail-on-cache-miss: true
           path: _opam
           key: opam-${{ runner.os }}-${{ runner.arch }}
 
@@ -91,6 +132,91 @@ jobs:
         with:
           path: karamel/book/_build
           name: book
+
+  # EverParse (CBOR, COSE) regressions
+  test-everparse:
+    needs: build-deps
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Setup ocaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+           ocaml-compiler: 4.14.2
+
+      - uses: actions/checkout@master
+        with:
+          path: karamel
+
+      - name: Restore OPAM state
+        uses: actions/cache/restore@v4
+        with:
+          fail-on-cache-miss: true
+          path: _opam
+          key: opam-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Setup environment
+        run: |
+          echo "KRML_HOME=$(pwd)/karamel" >> $GITHUB_ENV
+          echo "EVERPARSE_USE_KRML_HOME=1" >> $GITHUB_ENV
+          echo "ADMIT=1" >> $GITHUB_ENV
+
+      - name: Restore EverParse cache if it exists
+        uses: actions/cache/restore@v4
+        with:
+          path: everparse
+          key: everparse-${{ runner.os }}-${{ runner.arch }}
+
+      # NOTE: we use `git checkout` instead of actions/checkout,
+      # because of `git pull` below
+      # TODO: remove --branch line once project-everest#244 is merged
+      - name: Clone EverParse if it does not exist
+        run: |
+          if ! [[ -d everparse ]] ; then git clone \
+            --branch _nik_smt_univs_2025 \
+            https://github.com/project-everest/everparse ; fi
+
+      # Need to build Karamel only at the last minute, since `opam
+      # install` might recompile F*
+      - name: Build Karamel
+        working-directory: karamel
+        run: |
+          eval $(opam env)
+          . $HOME/.cargo/env
+          export OCAMLRUNPARAM=b
+          OTHERFLAGS='--admit_smt_queries true' make -kj$(nproc)
+
+      - name: Generate CBOR and COSE .krml files
+        working-directory: everparse
+        run: |
+          git pull && make cbor-extract-krml cose-extract-krml -kj$(nproc)
+
+      - name: Delete EverParse cache if it already existed
+        run: |
+          gh cache delete everparse-${{ runner.os }}-${{ runner.arch }} || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref }}
+
+      - name: Save EverParse cache
+        uses: actions/cache/save@v4
+        with:
+          path: everparse
+          key: everparse-${{ runner.os }}-${{ runner.arch }}
+
+      - name: Generate CBOR snapshot with Karamel
+        run: |
+          make -C everparse cbor-snapshot -Otarget -kj$(nproc)
+      - name: Test CBOR snapshot
+        run: |
+          make -C everparse cbor-test-unverified -Otarget -kj$(nproc)
+      - name: Generate COSE snapshot with Karamel
+        run: |
+          make -C everparse cose-snapshot -Otarget -kj$(nproc)
+      - name: Test COSE snapshot
+        run: |
+          make -C everparse cose-extracted-test -Otarget -kj$(nproc)
 
   # This is checked in parallel with no F* around. It checks that the
   # krllib snapshot builds, on several systems.
