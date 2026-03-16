@@ -130,9 +130,15 @@ extern bool FStar_UInt_msb(krml_checked_int_t n, krml_checked_int_t a);
 
 extern Prims_list__bool *FStar_UInt_zero_extend_vec(krml_checked_int_t n, Prims_list__bool *a);
 
+extern Prims_list__bool
+*FStar_UInt_zero_extends_vec(krml_checked_int_t n, krml_checked_int_t m, Prims_list__bool *a);
+
 extern Prims_list__bool *FStar_UInt_one_extend_vec(krml_checked_int_t n, Prims_list__bool *a);
 
 extern krml_checked_int_t FStar_UInt_zero_extend(krml_checked_int_t n, krml_checked_int_t a);
+
+extern krml_checked_int_t
+FStar_UInt_zero_extends(krml_checked_int_t n, krml_checked_int_t m, krml_checked_int_t a);
 
 extern krml_checked_int_t FStar_UInt_one_extend(krml_checked_int_t n, krml_checked_int_t a);
 

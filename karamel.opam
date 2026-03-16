@@ -25,12 +25,16 @@ depends: [
   "ctypes-foreign"
   "uucp"
 ]
-depexts: ["coreutils"] {os = "macos" & os-distribution = "homebrew"}
+# require modern GNU make (brew package 'make') on mac
+depexts: ["coreutils" "make"] {os = "macos" & os-distribution = "homebrew"}
 build: [
-  [make "PREFIX=%{prefix}%"]
+  # Makefile requires modern make - build with gmake on mac, disable logging to avoid sandbox issues
+  ["gmake" "PREFIX=%{prefix}%" "NOSHORTLOG=1"] { os = "macos" & make = "make" }
+  [make "PREFIX=%{prefix}%"] { os != "macos" }
 ]
 install: [
-  [make "PREFIX=%{prefix}%" "install"]
+  ["gmake" "PREFIX=%{prefix}%" "install"] { os = "macos" & make = "make" }
+  [make "PREFIX=%{prefix}%" "install"] { os != "macos" }
 ]
 remove: [
   [ "rm" "-rf"

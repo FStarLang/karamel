@@ -33,6 +33,22 @@
 open MiniRust
 open PrintMiniRust
 
+let map_funs f_map files =
+  let files =
+    List.fold_left (fun files (filename, decls) ->
+      let decls = List.fold_left (fun decls decl ->
+        match decl with
+        | Function ({ body; _ } as f) ->
+            let body = f_map () body in
+            Function {f with body} :: decls
+        | _ -> decl :: decls
+      ) [] decls in
+      let decls = List.rev decls in
+      (filename, decls) :: files
+    ) [] files
+  in
+  List.rev files
+
 module DataType = struct
   type t = [ `Struct of Name.t | `Variant of Name.t * string ]
   let compare = compare
@@ -63,6 +79,14 @@ module F = Fix.Fix.ForOrderedType(Name)(Fix.Prop.Set(Set.Make(Int)))
    global state. *)
 let structs: (DataType.t, MiniRust.struct_field list) Hashtbl.t =
   Hashtbl.create 31
+
+(* Same deal with mutable globals -- whatever is in this hash table is a mutable global *)
+let mutable_globals: (MiniRust.name, unit) Hashtbl.t =
+  Hashtbl.create 41
+
+(* Same deal with mutable globals -- whatever is in this hash table is a mutable global *)
+let mutable_borrow_globals: (MiniRust.name, unit) Hashtbl.t =
+  Hashtbl.create 41
 
 (* Our environments only contain signatures, and as such, are immutable -- these
    signatures will need to be augmented with information from the valuation to
@@ -167,6 +191,26 @@ let rec make_mut_borrow = function
   | t ->
       KPrint.bprintf "[make_mut_borrow] %a\n" ptyp t;
       failwith "impossible: make_mut_borrow"
+
+(* Only works for struct types. *)
+let field_is_mut_borrow (n: DataType.t) f =
+  try
+    is_mut_borrow (Option.get (List.find_map (fun (sf: struct_field) ->
+      if sf.name = f then
+        Some sf.typ
+      else
+        None
+    ) (Hashtbl.find structs n)))
+  with Not_found ->
+    false
+
+let add_mut_global (n: MiniRust.name) =
+  if not (Hashtbl.mem mutable_globals n) then
+    Hashtbl.add mutable_globals n ()
+
+let add_mut_borrow_global (n: MiniRust.name) =
+  if not (Hashtbl.mem mutable_borrow_globals n) then
+    Hashtbl.add mutable_borrow_globals n ()
 
 (* Only works for struct types. *)
 let add_mut_field (n: DataType.t) f =
@@ -327,6 +371,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
          We list the few remaining ones here *)
       begin match o with
       | Add | Sub
+      | Mult | Div
       | BOr | BAnd | BXor | BNot
       | Eq | Neq | Lt | Lte | Gt | Gte
       | And | Or | Xor | Not ->
@@ -376,6 +421,11 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       let known, e3 = infer_expr env valuation return_expected t known e3 in
       add_mut_var atom known, Assign (e1, e3, t)
 
+  | Assign (Name n, e, t) ->
+      let known, e = infer_expr env valuation return_expected t known e in
+      add_mut_global n;
+      known, Assign (Name n, e, t)
+
   (* atom[e2] = e2 *)
   | Assign (Index (Open { atom; _ } as e1, e2), e3, t)
 
@@ -391,6 +441,12 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
   | Assign (Index (Field (Open {atom;_}, "1", None) as e1, e2), e3, t) ->
       (* KPrint.bprintf "[infer_expr-mut,assign] %a\n" pexpr e; *)
       let known = add_mut_borrow atom known in
+      let known, e2 = infer_expr env valuation return_expected usize known e2 in
+      let known, e3 = infer_expr env valuation return_expected t known e3 in
+      known, Assign (Index (e1, e2), e3, t)
+
+  | Assign (Index (Name n as e1, e2), e3, t) ->
+      add_mut_borrow_global n;
       let known, e2 = infer_expr env valuation return_expected usize known e2 in
       let known, e3 = infer_expr env valuation return_expected t known e3 in
       known, Assign (Index (e1, e2), e3, t)
@@ -430,6 +486,13 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
   | Assign (Field (_, "1", None), _, _) ->
       failwith "TODO: assignment on slice"
 
+  (* atom.f = e *)
+  | Assign (Field (Open { atom; _ }, _, _) as e1, e2, t) ->
+      (* No field mutability in Rust; it's just the variable itself that needs to be mutable *)
+      let known = add_mut_var atom known in
+      let known, e2 = infer_expr env valuation return_expected t known e2 in
+      known, Assign (e1, e2, t)
+
   (* (atom[e2]).f[e4][e5] = e3 *)
   | Assign (Index (Index (Field (Index ((Open {atom; _} as e1), e2), f, st), e4), e5), e3, t) ->
       let known = add_mut_borrow atom known in
@@ -443,6 +506,13 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
   | Assign (Field (Index ((Open {atom; _} as e1), e2), f, st), e3, t) ->
       let known = add_mut_borrow atom known in
       let known, e2 = infer_expr env valuation return_expected usize known e2 in
+      let t =
+        match st with
+        | Some (Name (n, _)) when field_is_mut_borrow (`Struct n) f ->
+            fst (make_mut_borrow t)
+        | _ ->
+            t
+      in
       let known, e3 = infer_expr env valuation return_expected t known e3 in
       known, Assign (Field (Index (e1, e2), f, st), e3, t)
 
@@ -487,7 +557,6 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       let known, e2 = infer_expr env valuation return_expected usize known e2 in
       let known, e3 = infer_expr env valuation return_expected usize known e3 in
       known, Assign (Index (e1, e2), e3, t1)
-
 
   | Assign _ ->
       KPrint.bprintf "[infer_expr-mut,assign] %a unsupported %s\n" pexpr e (show_expr e);
@@ -552,8 +621,14 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
 
   | As (e, t) ->
       (* Not really correct, but As is only used for integer casts *)
-      let known, e = infer_expr env valuation return_expected t known e in
-      known, As (e, t)
+      begin match t with
+      | Function _ ->
+          let known, e = infer_expr env valuation return_expected expected known e in
+          known, As (e, expected)
+      | _ ->
+          let known, e = infer_expr env valuation return_expected t known e in
+          known, As (e, t)
+      end
 
   | For (b, e1, e2) ->
       let known, e1 = infer_expr env valuation return_expected bool known e1 in
@@ -621,22 +696,26 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
   | Struct (name, es) ->
       (* The declaration of the struct should have been traversed beforehand, hence
          it should be in the map *)
-      let fields_mut = Hashtbl.find structs name in
-      let known, es = List.fold_left2 (fun (known, es) (fn, e) (f: struct_field) ->
-        assert (fn = f.name);
-        let known, e = infer_expr env valuation return_expected f.typ known e in
+      if es = [] then
+        (* "unit" enum (no arguments) *)
+        known, Struct (name, es)
+      else
+        let fields_mut = Hashtbl.find structs name in
+        let known, es = List.fold_left2 (fun (known, es) (fn, e) (f: struct_field) ->
+          assert (fn = f.name);
+          let known, e = infer_expr env valuation return_expected f.typ known e in
 
-        (* If f is a function pointer field, update its argument types' mutabilities. *)
-        begin match f.typ, e with
-        | Function _, Name func ->
-          let fn_arg_tys = lookup env valuation func in
-          update_mut_args_fn_field name fn fn_arg_tys
-        | _ -> () end;
+          (* If f is a function pointer field, update its argument types' mutabilities. *)
+          begin match f.typ, e with
+          | Function _, (Name func | As (Name func, _)) ->
+            let fn_arg_tys = lookup env valuation func in
+            update_mut_args_fn_field name fn fn_arg_tys
+          | _ -> () end;
 
-        known, (fn, e) :: es
-      ) (known, []) es fields_mut in
-      let es = List.rev es in
-      known, Struct (name, es)
+          known, (fn, e) :: es
+        ) (known, []) es fields_mut in
+        let es = List.rev es in
+        known, Struct (name, es)
 
   | Match (e_scrut, t, arms) as _e_match ->
       (* We have the expected type of the scrutinee: valuation *)
@@ -700,51 +779,59 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
         let rec update_fields (known: known) pat e : known * pat * expr =
           match pat with
           | StructP (name as struct_name, fieldpats) ->
-              let fields = Hashtbl.find structs name in
-              let known, fieldpats, e = List.fold_left2 (fun (known, fieldpats, e) (f, pat) { name; typ; _ } ->
-                assert (f = name);
-                match pat with
-                | OpenP open_var ->
-                    let { atom; _ } = open_var in
-                    let was_ref = VarSet.mem atom known.p in
-                    let mut = VarSet.mem atom known.r in
-                    let ref = match typ with
-                      | App (Name (["Box"], []), [_]) | Vec _ | Ref (_, Mut, _) ->
-                          true (* prevent a move-out, again *)
-                      | _ ->
-                          mut (* something mutated relying on an implicit conversion to ref *)
-                    in
-                    (* KPrint.bprintf "In match:\n%a\nPattern variable %s: mut=%b, ref=%b\n"
-                      pexpr _e_match open_var.name mut ref; *)
-                    (* i., above *)
-                    if mut then add_mut_field struct_name f;
-                    (* ii.b. *)
-                    let known = match e_scrut with
-                      | Open { atom; _ } when mut -> add_mut_var atom known
-                      | Deref (Open { atom; _ }) when mut -> add_mut_borrow atom known
-                      | _ ->
-                          (* KPrint.bprintf "%a is not open or deref\n" pexpr e; *)
-                          known
-                    in
-                    (* ii.a *)
-                    let known = if ref then { known with p = VarSet.add atom known.p } else known in
+              if fieldpats = [] then
+                (* constant enum *)
+                known, pat, e
+              else
+                let fields =
+                  match Hashtbl.find_opt structs name with
+                  | Some fields -> fields
+                  | None -> Warn.failwith "could not find fields for %s" (show_struct_name name)
+                in
+                let known, fieldpats, e = List.fold_left2 (fun (known, fieldpats, e) (f, pat) { name; typ; _ } ->
+                  assert (f = name);
+                  match pat with
+                  | OpenP open_var ->
+                      let { atom; _ } = open_var in
+                      let was_ref = VarSet.mem atom known.p in
+                      let mut = VarSet.mem atom known.r in
+                      let ref = match typ with
+                        | App (Name (["Box"], []), [_]) | Vec _ | Ref (_, Mut, _) ->
+                            true (* prevent a move-out, again *)
+                        | _ ->
+                            mut (* something mutated relying on an implicit conversion to ref *)
+                      in
+                      (* KPrint.bprintf "In match:\n%a\nPattern variable %s: mut=%b, ref=%b\n"
+                        pexpr _e_match open_var.name mut ref; *)
+                      (* i., above *)
+                      if mut then add_mut_field struct_name f;
+                      (* ii.b. *)
+                      let known = match e_scrut with
+                        | Open { atom; _ } when mut -> add_mut_var atom known
+                        | Deref (Open { atom; _ }) when mut -> add_mut_borrow atom known
+                        | _ ->
+                            (* KPrint.bprintf "%a is not open or deref\n" pexpr e; *)
+                            known
+                      in
+                      (* ii.a *)
+                      let known = if ref then { known with p = VarSet.add atom known.p } else known in
 
-                    (* Helper to replace all occurences of variable open_var by a dereference of open_var *)
-                    let add_deref = object
-                      inherit [_] map_expr
-                        method! visit_Open _ v =
-                          if v = open_var then Deref (Open v) else Open v
-                    end in
+                      (* Helper to replace all occurences of variable open_var by a dereference of open_var *)
+                      let add_deref = object
+                        inherit [_] map_expr
+                          method! visit_Open _ v =
+                            if v = open_var then Deref (Open v) else Open v
+                      end in
 
-                    (* We only perform the rewriting if the field was not already ref *)
-                    let e = if ref && not was_ref && match typ with | Ref _ -> true | _ -> false then add_deref#visit_expr () e else e in
-                    known, (f, OpenP open_var) :: fieldpats, e
-                | _ ->
-                    let known, pat, e = update_fields known pat e in
-                    known, (f, pat) :: fieldpats, e
-              ) (known, [], e) fieldpats fields in
-              let fieldpats = List.rev fieldpats in
-              known, StructP (name, fieldpats), e
+                      (* We only perform the rewriting if the field was not already ref *)
+                      let e = if ref && not was_ref && match typ with | Ref _ -> true | _ -> false then add_deref#visit_expr () e else e in
+                      known, (f, OpenP open_var) :: fieldpats, e
+                  | _ ->
+                      let known, pat, e = update_fields known pat e in
+                      known, (f, pat) :: fieldpats, e
+                ) (known, [], e) fieldpats fields in
+                let fieldpats = List.rev fieldpats in
+                known, StructP (name, fieldpats), e
 
           | TupleP ps ->
               let known, ps , e= List.fold_left (fun (known, ps, e) p ->
@@ -1188,14 +1275,16 @@ let infer_mut_borrows files =
      these fields will be promoted to "mutable" as a side-effect of the
      mutability inference. *)
   List.iter (fun (_, decls) ->
-    List.iter (fun decl ->
+    List.iter (fun (decl: decl) ->
       match decl with
       | Struct ({name; fields; _}) ->
           Hashtbl.add structs (`Struct name) fields
       | Enumeration { name; items; _ } ->
           List.iter (fun (cons, fields) ->
-            Option.value fields ~default:[] |>
-            Hashtbl.add structs (`Variant (name, cons))
+            match fields with
+            | Struct fields ->
+                Hashtbl.add structs (`Variant (name, cons)) fields
+            | Unit _ -> ()
           ) items
       | _ ->
           ()
@@ -1244,6 +1333,8 @@ let infer_mut_borrows files =
 
   let valuation = F.lfp rhs in
 
+  (* XXX why the List.revs all over the place? *)
+
   (* lfp does not actually perform any computation.
     We now apply the valuation to all functions to compute mutability inference. *)
   let files = List.map (fun (filename, decls) -> filename, List.map (function
@@ -1261,6 +1352,8 @@ let infer_mut_borrows files =
      The second execution will use this information when building the initial
      `known` set, forcing expressions assigned to the mutable parameter to
      be mutable borrows.
+
+     XXX why is this not a fixpoint?
   *)
   let files = List.map (fun (filename, decls) -> filename, List.map (function
     | Function _ as decl ->
@@ -1269,19 +1362,49 @@ let infer_mut_borrows files =
     ) decls
   ) (List.rev files) in
 
+  let maybe_mut_borrow name t =
+    if Hashtbl.mem mutable_borrow_globals name then
+      fst (make_mut_borrow t)
+    else
+      t
+  in
+
   (* We can finally update the struct and enumeration fields mutability
-     based on the information computed during inference on functions *)
-  List.map (fun (filename, decls) -> filename, List.map (function
-    | Struct ({ name; _ } as s) -> Struct { s with fields = Hashtbl.find structs (`Struct name) }
+     based on the information computed during inference on functions. We also adjust globals. *)
+  let files = List.map (fun (filename, decls) -> filename, List.map (function
     | Enumeration s  ->
         Enumeration { s with items = List.map (fun (cons, fields) ->
           cons, match fields with
-            | None -> None
-            | Some _ -> Some (Hashtbl.find structs (`Variant (s.name, cons)))
+            | Unit c -> Unit c
+            | Struct _ -> Struct (Hashtbl.find structs (`Variant (s.name, cons)))
         ) s.items }
+    | Struct ({ name; _ } as s) ->
+        Struct { s with fields = Hashtbl.find structs (`Struct name) }
+    | Constant c when Hashtbl.mem mutable_globals c.name ->
+        Static { name = c.name; typ = maybe_mut_borrow c.name c.typ; body = c.body; meta = c.meta; mut = true }
+    | Static c when Hashtbl.mem mutable_globals c.name ->
+        Static { name = c.name; typ = maybe_mut_borrow c.name c.typ; body = c.body; meta = c.meta; mut = true }
     | x -> x
     ) decls
-  ) (List.rev files)
+  ) (List.rev files) in
+
+  (* Final step: AstToMiniRust inserts casts for functions used a function pointers. But, if the
+     function type changed since, the type in the `As` node needs to be updated too. We rely on the
+     fact that no one generates casts, at function types, that apply to local variables -- meaning
+     that whatever undergoes a cast must be a toplevel function (and is hence found in the
+     valuation). *)
+  let files = map_funs (object
+    inherit [_] map_expr as super
+    method! visit_As _ e t =
+      match e, t with
+      | Name f, Function (n, l, _ts, t) ->
+          let ts = lookup env valuation f in
+          As (e, Function (n, l, ts, t))
+      | _ ->
+          super#visit_As () e t
+  end#visit_expr) files in
+
+  files
 
 
 (* Transformations occuring on the MiniRust AST, after translation and mutability inference *)
@@ -1420,22 +1543,6 @@ let cleanup_splits = object(self)
         super#visit_Match () e_scrut t branches
 end
 
-let map_funs f_map files =
-  let files =
-    List.fold_left (fun files (filename, decls) ->
-      let decls = List.fold_left (fun decls decl ->
-        match decl with
-        | Function ({ body; _ } as f) ->
-            let body = f_map () body in
-            Function {f with body} :: decls
-        | _ -> decl :: decls
-      ) [] decls in
-      let decls = List.rev decls in
-      (filename, decls) :: files
-    ) [] files
-  in
-  List.rev files
-
 let compute_derives files =
   (* A map from lid to Ast definition, of type decl *)
   let definitions = List.fold_left (fun map (_, decls) ->
@@ -1491,9 +1598,9 @@ let compute_derives files =
         | Enumeration { items; _ } ->
             let ts = List.concat_map (fun (_cons, fields) ->
               match fields with
-              | Some fields ->
+              | Struct fields ->
                   List.map (fun sf -> traits sf.typ) fields
-              | None ->
+              | Unit _ ->
                   []
             ) items in
             List.fold_left TraitSet.inter everything ts
@@ -1505,8 +1612,8 @@ let add_derives valuation files =
   let to_list ts = List.of_seq (TraitSet.to_seq ts) in
   List.map (fun (f, decls) ->
     f, List.map (function
-      | Struct s -> Struct { s with derives = s.derives @ to_list (valuation s.name) }
       | Enumeration s -> Enumeration { s with derives = s.derives @ to_list (valuation s.name) }
+      | Struct s -> Struct { s with derives = s.derives @ to_list (valuation s.name) }
       | d -> d
     ) decls
   ) files

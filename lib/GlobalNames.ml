@@ -172,10 +172,18 @@ let create () =
   reserve_keywords used_c_names.other;
   c_of_original, used_c_names
 
+(* enums are allowed to be type-disambiguated, meaning that collisions for just the enum lid are
+   legal (and Checker knows this and does type-disambiguation too); therefore, the key for `extend`
+   below needs to be isomorphic to (type_lid, enum_lid) *)
+let mangle_enum enum_lid t =
+  let type_lid = Helpers.assert_tlid t in
+  (fst type_lid @ fst enum_lid), snd type_lid ^ snd enum_lid
+
 let extend (global: t) (local: t) is_local original_name (desired_name, non_modular_renaming) =
   let c_of_original, g_used_c_names = global in
   let _, l_used_c_names = local in
   if Hashtbl.mem c_of_original original_name then
+    (* Key is not unique *)
     fatal_error "Duplicate global name in identical namespace: %a" plid (fst original_name);
 
   let kind = snd original_name in

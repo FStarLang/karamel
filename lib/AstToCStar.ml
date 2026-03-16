@@ -209,6 +209,12 @@ let whitelisted_tapp e =
 
 let no_return_type_lids = ref []
 
+(* For field names, we simply avoid keywords. This is potentially incorrect, e.g. a record with fields
+   `switch` and `switch0` would see both fields mapped to the same name. Ideally, we would maintain a
+   global mapping of fields (per type), just like we do for enums -- see lib/Simplify.ml,
+   specifically, record_names. *)
+let avoid_keywords name = mk_fresh name (fun name -> List.mem name GlobalNames.keywords)
+
 let rec unit_to_void env e es extra =
   let mk_expr env e = mk_expr env false false e in
   match es with
@@ -375,7 +381,7 @@ and mk_expr env in_stmt under_initializer_list e =
   | EBound var ->
       CStar.Var (find env var)
   | EEnum lident ->
-      CStar.Qualified lident
+      CStar.Qualified (GlobalNames.mangle_enum lident e.typ)
   | EQualified lident ->
       if LidSet.mem lident env.ifdefs then
         Warn.(maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, IfDef lident));
@@ -450,10 +456,10 @@ and mk_expr env in_stmt under_initializer_list e =
   | EFlat fields ->
       let name = match e.typ with TQualified lid -> Some lid | _ -> None in
       CStar.Struct (name, List.map (fun (name, expr) ->
-        name, mk_expr env true expr
+        Option.map avoid_keywords name, mk_expr env true expr
       ) fields)
   | EField (expr, field) ->
-      CStar.Field (mk_expr env false expr, field)
+      CStar.Field (mk_expr env false expr, avoid_keywords field)
 
   | EAddrOf e ->
       CStar.AddrOf (mk_expr env false e)
@@ -668,7 +674,7 @@ and mk_stmts env e ret_type =
     | EAbort (_, s) ->
         env, CStar.Abort (Option.value ~default:"" s) :: comment e.meta @ acc
 
-    | ESwitch (e, branches) ->
+    | ESwitch (e0, branches) ->
         let default, branches =
           List.partition (function (SWild, _) -> true | _ -> false) branches
         in
@@ -677,14 +683,14 @@ and mk_stmts env e ret_type =
           | [] -> None
           | _ -> failwith "impossible"
         in
-        env, CStar.Switch (mk_expr env false false e,
+        env, CStar.Switch (mk_expr env false false e0,
           List.map (fun (lid, e) ->
             (match lid with
             | SConstant k -> `Int k
-            | SEnum lid -> `Ident lid
+            | SEnum lid -> `Ident (GlobalNames.mangle_enum lid e0.typ)
             | _ -> failwith "impossible"),
             mk_block env return_pos e
-          ) branches, default) :: comment e.meta @ acc
+          ) branches, default) :: comment e0.meta @ acc
 
     | EReturn e ->
         mk_as_return env e (comment e.meta @ acc) Must
@@ -964,18 +970,18 @@ and mk_declaration m env d: (CStar.decl * _) option =
       Some (CStar.TypeForward (name, flags, k), [ GlobalNames.to_c_name m (name, Type) ])
 
   | DType (name, flags, 0, 0, def) ->
-      Some (CStar.Type (name, mk_type_def env def, flags), [ GlobalNames.to_c_name m (name, Type) ] )
+      Some (CStar.Type (name, mk_type_def env ~name def, flags), [ GlobalNames.to_c_name m (name, Type) ] )
 
   | DType _ ->
       None
 
-and mk_type_def env d: CStar.typ =
+and mk_type_def env ?name d: CStar.typ =
   match d with
   | Flat fields ->
       (* Not naming the structs or enums here, because they're going to be
        * typedef'd and we'll only refer to the typedef'd name. *)
       CStar.Struct (List.map (fun (field, (typ, _)) ->
-        field, mk_type env typ
+        Option.map avoid_keywords field, mk_type env typ
       ) fields)
 
   | Abbrev t ->
@@ -985,11 +991,13 @@ and mk_type_def env d: CStar.typ =
       failwith "Variant should've been desugared at this stage"
 
   | Enum tags ->
-      CStar.Enum tags
+      CStar.Enum (List.map (fun (lid, n) ->
+        GlobalNames.mangle_enum lid (TQualified (Option.get name)), n
+      ) tags)
 
   | Union fields ->
       CStar.Union (List.map (fun (f, t) ->
-        f, mk_type env t
+        avoid_keywords f, mk_type env t
       ) fields)
 
   | Forward _ ->

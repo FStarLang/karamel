@@ -46,9 +46,11 @@ let mk_is_struct files =
     | _ ->
         false
 
-let will_be_lvalue e =
+let rec will_be_lvalue e =
   match e.node with
-  | EField _ | EBound _ | EOpen _ | EBufRead _ ->
+  | EField (e, _) ->
+      will_be_lvalue e
+  | EBound _ | EOpen _ | EBufRead _ ->
       true
   | _ ->
       false
