@@ -609,6 +609,7 @@ Supported options:|}
    * spurious dependencies otherwise. Requires accurate use count. *)
   let files = DataTypes.simplify files in
   let files = Monomorphization.datatypes files in
+  print PrintAst.print_files files;
   let files = DataTypes.optimize files in
   let files = Monomorphization.equalities files in
   let files = Inlining.inline files in

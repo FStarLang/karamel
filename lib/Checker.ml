@@ -545,7 +545,7 @@ and infer env e =
   (* This is all because of external that retain their polymorphic
      signatures. TODO: does this alleviate the need for those crappy checks in
      subtype? *)
-  let t = MonomorphizationState.resolve_deep t in
+  let t = MonomorphizationState.normalize t in
   e.typ <- prefer_nominal t e.typ;
   if Options.debug "checker" then KPrint.bprintf "[infer, now] %a\n" ptyp e.typ;
   t
@@ -618,7 +618,7 @@ and infer' env e =
                 assert (cs' = []);
                 TPoly (ts, infer_app t (cs @ cs'))
             | t ->
-                MonomorphizationState.resolve (infer_app t (cs @ cs'))
+                MonomorphizationState.normalize (infer_app t (cs @ cs'))
           in
           if Options.debug "checker-cg" then
             KPrint.bprintf "infer-cg: infer_app --> %a\n" ptyp t;
@@ -1126,7 +1126,7 @@ and assert_cons_of env t id: fields_t =
 and subtype env t1 t2 =
   if Options.debug "checker" then
     KPrint.bprintf "%a <=? %a\n" ptyp t1 ptyp t2;
-  let rec normalize t = MonomorphizationState.resolve_deep (expand_abbrev env t) in
+  let rec normalize t = MonomorphizationState.normalize (expand_abbrev env t) in
   let t1 = normalize t1 in
   let t2 = normalize t2 in
   if Options.debug "checker" then
