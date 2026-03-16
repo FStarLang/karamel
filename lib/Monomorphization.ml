@@ -262,14 +262,7 @@ let monomorphize_data_types map = object(self)
   val mutable current_file = ""
   (* For forward references, a map from lid to its pending monomorphizations
      (type arguments) *)
-  val pending_monomorphizations: (lident, (typ list * cg list)) Hashtbl.t = Hashtbl.create 41
-
-  method has_pending_monomorphizations =
-    if Options.debug "data-types-traversal" then
-      Hashtbl.iter (fun lid (ts, cgs) ->
-        KPrint.bprintf "Missing monomorphization: %a\n" ptyp (fold_tapp (lid, ts, cgs))
-      ) pending_monomorphizations;
-    Hashtbl.length pending_monomorphizations > 0
+  val mutable pending_monomorphizations: (lident * typ list * cg list) list = []
 
   (* Record a new declaration. *)
   method private record (d: decl) =
@@ -323,7 +316,7 @@ let monomorphize_data_types map = object(self)
   method private allocate_names t =
     resolve_deep (fun (lid, args, cgs as node) ->
       if not (Hashtbl.mem state node) then begin
-        Hashtbl.add pending_monomorphizations lid (args, cgs);
+        pending_monomorphizations <- (lid, args, cgs) :: pending_monomorphizations;
         Hashtbl.add state node (White, fst (self#lid_of node))
       end;
       true
@@ -340,6 +333,8 @@ let monomorphize_data_types map = object(self)
   method forward_kind lid =
     match Hashtbl.find map lid with
     | exception Not_found ->
+        if Options.debug "data-types-traversal" then
+          KPrint.bprintf "Cannot determine forward kind for %a\n" plid lid;
         None
     | flags, Union _ ->
         Some (flags, Common.FUnion)
@@ -355,8 +350,11 @@ let monomorphize_data_types map = object(self)
         self#record (DType (chosen_lid, flags, 0, 0, Forward k))
 
   method private mark_if_need_be node chosen_lid =
+    (* At this stage, we have to re-mark the node Gray because it may be the
+       case that we have previously inserted a forward declaration, yet the type
+       is self-recursive and we do not want to loop. See EqB.fst. *)
     match Hashtbl.find_opt state node with
-    | Some (BlackForward, _) -> ()
+    | Some (BlackForward, _) when false -> ()
     | _ -> Hashtbl.replace state node (Gray, chosen_lid)
 
   (* Visit a given node in the graph, modifying [pending] to append in reverse
@@ -370,8 +368,15 @@ let monomorphize_data_types map = object(self)
 
        This has the side-effect of filling the pending_monomorphizations map for
        all names that have been allocated in the process. *)
-    let n = fst3 n, List.map self#allocate_names (snd3 n), thd3 n in
     let lid, args, cgs = n in
+    let n = lid, List.map self#allocate_names args, cgs in
+
+    if Options.debug "data-types-traversal" then
+      KPrint.bprintf "visit_node %a %a\n" ptyp (fold_tapp n) plid (fst3 n);
+
+    (* Subtle: args now refers to the (non-normalized) arguments with type
+       applications inside, but n is in normalized for to avoid
+       misunderstandings. *)
 
     match under_ref, Hashtbl.find_opt state n with
     | false, Some (Black, chosen_lid)
@@ -398,8 +403,6 @@ let monomorphize_data_types map = object(self)
         (* Finally, if we've never visited this node but still need to insert a
            forward declaration, we allocate the name now. *)
         let chosen_lid, flag = self#lid_of n in
-        if Options.debug "data-types-traversal" then
-          KPrint.bprintf "forward %a: None under ref\n" ptyp (fold_tapp n);
         (* Some logic to try to inherit the flags on the forward declaration
            that the original declaration had (not sure why). *)
         let k =
@@ -407,6 +410,8 @@ let monomorphize_data_types map = object(self)
           | None -> None
           | Some (flags, k) -> Some (flag @ flags, k)
         in
+        if Options.debug "data-types-traversal" then
+          KPrint.bprintf "forward %a: None under ref (%b)\n" ptyp (fold_tapp n) (k = None);
         self#insert_forward chosen_lid k;
         Hashtbl.replace state n (BlackForward, chosen_lid);
         chosen_lid
@@ -429,10 +434,13 @@ let monomorphize_data_types map = object(self)
         (* We have something to do *)
         let chosen_lid, flag = match entry with None -> self#lid_of n | Some (_, lid) -> lid, [] in
         if Options.debug "data-types-traversal" then
-          KPrint.bprintf "visiting %a: chosen_lid %a\n" ptyp (fold_tapp n) plid chosen_lid;
+          KPrint.bprintf "visiting %a: chosen_lid %a lid %a\n" ptyp (fold_tapp n) plid chosen_lid plid (fst3 n);
 
         (* Prevent loops and multiple forward declarations *)
         self#mark_if_need_be n chosen_lid;
+        if Options.debug "data-types-traversal" then
+          KPrint.bprintf "now %s\n" (show_color (fst (Hashtbl.find state n)));
+
 
         let record_and_visit (d: decl) =
           self#record (self#visit_decl false d)
@@ -476,22 +484,16 @@ let monomorphize_data_types map = object(self)
         Hashtbl.replace state n (Black, chosen_lid);
         chosen_lid
 
-  method private flush_pending lid =
-    List.iter (fun (ts, cgs) ->
-      ignore (self#visit_node false (lid, ts, cgs));
-      Hashtbl.remove pending_monomorphizations lid
-    ) (Hashtbl.find_all pending_monomorphizations lid)
-
   (* Top-level, non-parameterized declarations are roots of our graph traversal.
    * This also visits, via occurrences in code, applications of parameterized
    * types. *)
   method! visit_file _ file =
     let name, decls = file in
     current_file <- name;
-    let decls =
-      List.concat_map (fun d ->
-        if Options.debug "data-types-traversal" then
-          KPrint.bprintf "decl %a\n" plid (lid_of_decl d);
+    name, List.concat_map (fun d ->
+      if Options.debug "data-types-traversal" then
+        KPrint.bprintf "decl %a\n" plid (lid_of_decl d);
+      let decls =
         match d with
         | DType (lid, _, 0, 0, Abbrev (TTuple args)) when not !Options.keep_tuples ->
             let node = tuple_lid, List.map self#allocate_names args, [] in
@@ -555,23 +557,15 @@ let monomorphize_data_types map = object(self)
 
               self#clear ()
 
-        | DType (lid, _, n_cgs, n, _) when n > 0 || n_cgs > 0 ->
-            (* The type itself cannot be monomorphized, but we may have seen in
-               the past monomorphic instances of this type that we ought to
-               generate. *)
-            self#flush_pending lid;
-
-            (* Leaving this declaration in place to remember where to insert
-               pending monomorphizations for this possibly inserted afterwards. *)
-            self#clear () @ [ d ]
-
+        | DType (_, _, n_cgs, n, _) when n > 0 || n_cgs > 0 ->
+            []
 
         | DType (lid, _, n_cgs, n, (Flat _ | Variant _ | Abbrev _ | Union _)) ->
             assert (n = 0 && n_cgs = 0);
             let node = lid, [], [] in
             begin match Hashtbl.find_opt state node with
             | Some (Black, _) ->
-                [ d ]
+                []
             | _ ->
                 self#mark_if_need_be node lid;
                 let d = self#visit_decl false d in
@@ -583,14 +577,17 @@ let monomorphize_data_types map = object(self)
             (* Not a type, e.g. a global; needs to be retained. *)
             let d = self#visit_decl false d in
             self#clear () @ [ d ]
-      ) decls
-    in
-    (* At this stage, there may still be pending tuples that have occurred
-       behind a pointer. We don't have a good heuristic regarding where to place
-       such tuples (the definition of tuples is "ambient") so we just flush them
-       here at the end of the file. *)
-    self#flush_pending tuple_lid;
-    name, decls @ self#clear ()
+      in
+      let flush_all () =
+        while pending_monomorphizations <> [] do
+          let r = pending_monomorphizations in
+          pending_monomorphizations <- [];
+          List.iter (fun x -> ignore (self#visit_node false x)) r
+        done;
+        self#clear ()
+      in
+      decls @ flush_all ()
+    ) decls
 
   method! visit_DType env name flags n n_cgs d =
     if n > 0 then
@@ -644,29 +641,7 @@ end
 let datatypes files =
   let map = build_def_map files in
   let o = monomorphize_data_types map in
-  let rec do_it files =
-    let files = o#visit_files false files in
-    (* We may trigger monomorphizations *after* we have seen a declaration. To
-       put the pending declarations in the right place, we have to traverse the
-       files again anyhow.
-
-       type t a = ...
-       let u = t ()
-    *)
-    if o#has_pending_monomorphizations then
-      do_it files
-    else
-      files
-  in
-  let files = do_it files in
-  let files = List.map (fun (f, decls) ->
-    f, List.filter (function
-      | DType (_, _, n_cgs, n, _) when n_cgs > 0 || n > 0 ->
-          false
-      | _ ->
-          true
-    ) decls
-  ) files in
+  let files = o#visit_files false files in
   (* FORWARD DECLARATIONS: because of the convoluted treatment of forward declarations, we have
      nodes in the map with Black and no type or cg arguments. Remove those as it is just very
      confusing for future phases. *)

@@ -24,6 +24,7 @@ type color =
   | Black
     (* We have visited this node and have emitted a full declaration for it.
        Nothing left to do. *)
+[@@ deriving show]
 
 (* Each polymorphic type `lid` applied to types `ts` and const generics `ts`
    appears in `state`, and maps to `monomorphized_lid`, the name of its
