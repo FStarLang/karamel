@@ -278,31 +278,6 @@ let monomorphize_data_types map = object(self)
     pending <- [];
     r
 
-  (* This method produces a type that is *unsuitable* for further passes, since
-     it breaks the invariant that type abbreviations are inlined away. It is,
-     however, a good candidate for picking a suitable, auto-generated name while
-     using existing, previously-picked abbreviations. NB: not doing so will
-     generate type errors, see miTLS for a minimal testcase *)
-  method pretty (t: typ) =
-    (object
-      inherit [_] map
-      method! visit_TTuple () args =
-        match Hashtbl.find state (tuple_lid, args, []) with
-        | exception Not_found ->
-            let args = List.map (self#visit_typ false) args in
-            TTuple args
-        | _, chosen_lid ->
-            TQualified chosen_lid
-
-      method! visit_TApp () lid args =
-        match Hashtbl.find state (lid, args, []) with
-        | exception Not_found ->
-            let args = List.map (self#visit_typ false) args in
-            TApp (lid, args)
-        | _, chosen_lid ->
-            TQualified chosen_lid
-    end)#visit_typ () t
-
   (* Compute the name of a given node in the graph. *)
   method private lid_of (n: node) =
     let lid, ts, cgs = n in
@@ -313,17 +288,18 @@ let monomorphize_data_types map = object(self)
     else
       NameGen.gen_lid lid ts (Cg cgs)
 
+  (* This computes a canonical name for an entry into the `state`, while also
+     settling the chosen name once in for all via `White`. For our usual
+     `t<u<v>>` example, this forces a name for `u<v>` to be picked (and
+     remembered), and using that to determine the canonical entry for `t<u<v>>`.
+     *)
   method private allocate_names t =
     resolve_deep (fun (lid, args, cgs as node) ->
-      if not (Hashtbl.mem map lid) then
-        false
-      else begin
-        if not (Hashtbl.mem state node) then begin
-          pending_monomorphizations <- (lid, args, cgs) :: pending_monomorphizations;
-          Hashtbl.add state node (White, fst (self#lid_of node))
-        end;
-        true
-      end
+      if not (Hashtbl.mem state node) then begin
+        pending_monomorphizations <- (lid, args, cgs) :: pending_monomorphizations;
+        Hashtbl.add state node (White, fst (self#lid_of node))
+      end;
+      true
     ) t
 
   (* Prettifying the field names for n-uples. *)
@@ -383,7 +359,9 @@ let monomorphize_data_types map = object(self)
 
     (* Subtle: args now refers to the (non-normalized) arguments with type
        applications inside, but n is in normalized form to avoid
-       misunderstandings. *)
+       misunderstandings. In other words, we use the form with allocated names
+       everywhere for the keys to the `state` (i.e., `n`), but for recursive
+       calls, we subtitute the original `args` with type applications in it. *)
 
     match under_ref, Hashtbl.find_opt state n with
     | false, Some (Black, chosen_lid)
@@ -463,7 +441,7 @@ let monomorphize_data_types map = object(self)
           ) fields in
           assert (not (Hashtbl.mem map lid) || not (has_variables args) && not (has_cg_variables cgs));
 
-          begin match Hashtbl.find map lid with
+          match Hashtbl.find map lid with
           | exception Not_found ->
               (* Unknown, external non-polymorphic lid, e.g. Prims.int *)
               ()
@@ -485,7 +463,6 @@ let monomorphize_data_types map = object(self)
               record_and_visit (DType (chosen_lid, flag @ flags, 0, 0, Abbrev t))
           | _ ->
               ()
-          end
         end;
         Hashtbl.replace state n (Black, chosen_lid);
         chosen_lid
