@@ -315,11 +315,15 @@ let monomorphize_data_types map = object(self)
 
   method private allocate_names t =
     resolve_deep (fun (lid, args, cgs as node) ->
-      if not (Hashtbl.mem state node) then begin
-        pending_monomorphizations <- (lid, args, cgs) :: pending_monomorphizations;
-        Hashtbl.add state node (White, fst (self#lid_of node))
-      end;
-      true
+      if not (Hashtbl.mem map lid) then
+        false
+      else begin
+        if not (Hashtbl.mem state node) then begin
+          pending_monomorphizations <- (lid, args, cgs) :: pending_monomorphizations;
+          Hashtbl.add state node (White, fst (self#lid_of node))
+        end;
+        true
+      end
     ) t
 
   (* Prettifying the field names for n-uples. *)
@@ -338,8 +342,11 @@ let monomorphize_data_types map = object(self)
         None
     | flags, Union _ ->
         Some (flags, Common.FUnion)
-    | flags, _ ->
+    | flags, Flat _
+    | flags, Variant _ ->
         Some (flags, FStruct)
+    | _ ->
+        None
 
   (* Insert a forward struct declaration, with name `chosen_lid` *)
   method private insert_forward chosen_lid forward_kind =
@@ -375,7 +382,7 @@ let monomorphize_data_types map = object(self)
       KPrint.bprintf "visit_node %a %a\n" ptyp (fold_tapp n) plid (fst3 n);
 
     (* Subtle: args now refers to the (non-normalized) arguments with type
-       applications inside, but n is in normalized for to avoid
+       applications inside, but n is in normalized form to avoid
        misunderstandings. *)
 
     match under_ref, Hashtbl.find_opt state n with
@@ -434,13 +441,12 @@ let monomorphize_data_types map = object(self)
         (* We have something to do *)
         let chosen_lid, flag = match entry with None -> self#lid_of n | Some (_, lid) -> lid, [] in
         if Options.debug "data-types-traversal" then
-          KPrint.bprintf "visiting %a: chosen_lid %a lid %a\n" ptyp (fold_tapp n) plid chosen_lid plid (fst3 n);
+          KPrint.bprintf "visiting %a: chosen_lid %a lid %a\n" ptyp (fold_tapp n) plid chosen_lid plid lid;
 
         (* Prevent loops and multiple forward declarations *)
         self#mark_if_need_be n chosen_lid;
         if Options.debug "data-types-traversal" then
           KPrint.bprintf "now %s\n" (show_color (fst (Hashtbl.find state n)));
-
 
         let record_and_visit (d: decl) =
           self#record (self#visit_decl false d)
@@ -496,18 +502,23 @@ let monomorphize_data_types map = object(self)
       let decls =
         match d with
         | DType (lid, _, 0, 0, Abbrev (TTuple args)) when not !Options.keep_tuples ->
-            let node = tuple_lid, List.map self#allocate_names args, [] in
+            let node_arg = tuple_lid, args, [] in
+            let node_key = tuple_lid, List.map self#allocate_names args, [] in
 
             if Options.debug "data-types-traversal" then
-              KPrint.bprintf "%a abbreviation for %a (%b)\n" plid lid ptyp (TApp (tuple_lid, args)) (Hashtbl.mem state node);
+              KPrint.bprintf "%a abbreviation for %a (%b)\n" plid lid ptyp (TApp (tuple_lid, args)) (Hashtbl.mem state node_arg);
 
-            if Hashtbl.mem state node then
+            if Hashtbl.mem state node_key then
               (* We have already picked a name. Just roll with it. *)
               let d = self#visit_decl false d in
               self#clear () @ [ d ]
             else begin
-              Hashtbl.add state node (White, lid);
-              assert (self#visit_node false node = lid);
+              Hashtbl.add state node_key (White, lid);
+              assert (self#visit_node false node_arg = lid);
+
+              (* This type should not be recursively visited *)
+              Hashtbl.add state (lid, [], []) (Black, lid);
+
               (* We drop the abbreviation since now the correct type has been
                  emitted with that very name. *)
               self#clear ()
@@ -519,14 +530,13 @@ let monomorphize_data_types map = object(self)
                ditch the type abbreviation and replace it with a monomorphization
                of the same name. *)
 
-            let hd, args, cgs = flatten_tapp t in
-            let args = List.map self#allocate_names args in
-            let node = hd, args, cgs in
+            let node_arg = flatten_tapp t in
+            let node_key = fst3 node_arg, List.map self#allocate_names (snd3 node_arg), thd3 node_arg in
 
             if Options.debug "data-types-traversal" then
-              KPrint.bprintf "%a abbreviation for %a (%b)\n" plid lid ptyp t (Hashtbl.mem state node);
+              KPrint.bprintf "%a abbreviation for %a (%b)\n" plid lid ptyp t (Hashtbl.mem state node_arg);
 
-            if Hashtbl.mem state node then
+            if Hashtbl.mem state node_key then
               let d = self#visit_decl false d in
               (* We have already picked a name. Just roll with it. *)
               self#clear () @ [ d ]
@@ -537,7 +547,7 @@ let monomorphize_data_types map = object(self)
                  support lists "trivially" at the expense of a run-time GC)... then
                  we need to make sure the generated name refers to the GC'd type. So
                  the monomorphized type will be named foobar_gc... *)
-              let abbrev_for_gc_type = Hashtbl.mem map hd && List.mem Common.GcType (fst (Hashtbl.find map hd)) in
+              let abbrev_for_gc_type = Hashtbl.mem map (fst3 node_arg) && List.mem Common.GcType (fst (Hashtbl.find map (fst3 node_arg))) in
 
               let chosen_lid =
                 if abbrev_for_gc_type then
@@ -545,15 +555,18 @@ let monomorphize_data_types map = object(self)
                 else
                   lid
               in
-              Hashtbl.add state node (White, chosen_lid);
+              Hashtbl.add state node_key (White, chosen_lid);
 
-              assert (self#visit_node false node = chosen_lid);
+              assert (self#visit_node false node_arg = chosen_lid);
 
               (* And a type abbreviation will automatically be rewritten (see
                  GcTypes) into `typedef foobar foobar_gc *`. And mitlsffi.c will be
                  happy. *)
               if abbrev_for_gc_type then
                 self#record (DType (lid, [], 0, 0, Abbrev (TQualified chosen_lid)));
+
+              (* This type should not be recursively visited *)
+              Hashtbl.add state (lid, [], []) (Black, chosen_lid);
 
               self#clear ()
 
