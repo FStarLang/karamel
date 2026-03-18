@@ -386,10 +386,7 @@ let monomorphize_data_types map = object(self)
        inconsistencies where the map would previously record both t<u<v>> and
        t<u__v> which then required renormalizations and didn't work anyhow.
 
-       Because we have no equirecursive types, this does not loop.
-
-       This has the side-effect of filling the pending_monomorphizations map for
-       all names that have been allocated in the process. *)
+       Because we have no equirecursive types, this does not loop. *)
     let n = lid, List.map self#allocate_names args, cgs in
 
     if Options.debug "data-types-traversal" then
