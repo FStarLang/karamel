@@ -495,9 +495,6 @@ let monomorphize_data_types map = object(self)
               Hashtbl.add state node_key (White, lid);
               assert (self#visit_node (0, false) node_arg = lid);
 
-              (* This type should not be recursively visited *)
-              Hashtbl.add state (lid, [], []) (Black, lid);
-
               (* We drop the abbreviation since now the correct type has been
                  emitted with that very name. *)
               self#clear ()
@@ -543,9 +540,6 @@ let monomorphize_data_types map = object(self)
                  happy. *)
               if abbrev_for_gc_type then
                 self#record (DType (lid, [], 0, 0, Abbrev (TQualified chosen_lid)));
-
-              (* This type should not be recursively visited *)
-              Hashtbl.add state (lid, [], []) (Black, chosen_lid);
 
               self#clear ()
 
