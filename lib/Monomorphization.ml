@@ -256,13 +256,13 @@ let monomorphize_data_types map = object(self)
 
   inherit [_] map as super
 
-  (* We record pending declarations as we visit top-level declarations. *)
-  val mutable pending = []
   (* Current file, for warning purposes. *)
   val mutable current_file = ""
-  (* For forward references, a map from lid to its pending monomorphizations
-     (type arguments) *)
-  val mutable pending_monomorphizations: (lident * typ list * cg list) list = []
+
+  (* Accumulating generated declarations **************************************)
+
+  (* We record pending declarations as we visit top-level declarations. *)
+  val mutable pending = []
 
   (* Record a new declaration. *)
   method private record (d: decl) =
@@ -277,6 +277,8 @@ let monomorphize_data_types map = object(self)
     let r = List.rev pending in
     pending <- [];
     r
+
+  (* Name generation **********************************************************)
 
   (* Compute the name of a given node in the graph. *)
   method private lid_of (n: node) =
@@ -294,17 +296,21 @@ let monomorphize_data_types map = object(self)
      remembered), and using that to determine the canonical entry for `t<u<v>>`.
      *)
   method private allocate_names t =
-    resolve_deep (fun (lid, args, cgs as node) ->
+    resolve_deep (fun (lid, _, _ as node) ->
       if not (Hashtbl.mem map lid) then
+        (* We do not allocate names (and generate spurious map entries) for things
+           we do not intend to monomorphize (because they don't have a
+           definition). *)
         false
       else begin
         if not (Hashtbl.mem state node) then begin
-          pending_monomorphizations <- (lid, args, cgs) :: pending_monomorphizations;
           Hashtbl.add state node (White, fst (self#lid_of node))
         end;
         true
       end
     ) t
+
+  (* Main monomorphization logic **********************************************)
 
   (* Prettifying the field names for n-uples. *)
   method private field_at i =
@@ -478,101 +484,90 @@ let monomorphize_data_types map = object(self)
     name, List.concat_map (fun d ->
       if Options.debug "data-types-traversal" then
         KPrint.bprintf "decl %a\n" plid (lid_of_decl d);
-      let decls =
-        match d with
-        | DType (lid, _, 0, 0, Abbrev (TTuple args)) when not !Options.keep_tuples ->
-            let node_arg = tuple_lid, args, [] in
-            let node_key = tuple_lid, List.map self#allocate_names args, [] in
+      match d with
+      | DType (lid, _, 0, 0, Abbrev (TTuple args)) when not !Options.keep_tuples ->
+          let node_arg = tuple_lid, args, [] in
+          let node_key = tuple_lid, List.map self#allocate_names args, [] in
 
-            if Options.debug "data-types-traversal" then
-              KPrint.bprintf "%a abbreviation for %a (%b)\n" plid lid ptyp (TApp (tuple_lid, args)) (Hashtbl.mem state node_arg);
+          if Options.debug "data-types-traversal" then
+            KPrint.bprintf "%a abbreviation for %a (%b)\n" plid lid ptyp (TApp (tuple_lid, args)) (Hashtbl.mem state node_arg);
 
-            if Hashtbl.mem state node_key then
-              (* We have already picked a name. Just roll with it. *)
-              let d = self#visit_decl (0, false) d in
-              self#clear () @ [ d ]
-            else begin
-              Hashtbl.add state node_key (White, lid);
-              assert (self#visit_node (0, false) node_arg = lid);
-
-              (* We drop the abbreviation since now the correct type has been
-                 emitted with that very name. *)
-              self#clear ()
-            end
-
-        | DType (lid, _, 0, 0, Abbrev ((TApp _ | TCgApp _) as t)) ->
-            (* We have not yet monomorphized this type, and conveniently, we have
-               a type abbreviation that provides us with a name hint! We simply
-               ditch the type abbreviation and replace it with a monomorphization
-               of the same name. *)
-
-            let node_arg = flatten_tapp t in
-            let node_key = fst3 node_arg, List.map self#allocate_names (snd3 node_arg), thd3 node_arg in
-
-            if Options.debug "data-types-traversal" then
-              KPrint.bprintf "%a abbreviation for %a (%b)\n" plid lid ptyp t (Hashtbl.mem state node_arg);
-
-            if Hashtbl.mem state node_key then
-              let d = self#visit_decl (0, false) d in
-              (* We have already picked a name. Just roll with it. *)
-              self#clear () @ [ d ]
-
-            else
-              (* miTLS backwards-compat strikes again: if the type is about to be
-                 GC'd (i.e. automatically rewritten to be heap-allocated to e.g.
-                 support lists "trivially" at the expense of a run-time GC)... then
-                 we need to make sure the generated name refers to the GC'd type. So
-                 the monomorphized type will be named foobar_gc... *)
-              let abbrev_for_gc_type = Hashtbl.mem map (fst3 node_arg) && List.mem Common.GcType (fst (Hashtbl.find map (fst3 node_arg))) in
-
-              let chosen_lid =
-                if abbrev_for_gc_type then
-                  fst lid, snd lid ^ "_gc"
-                else
-                  lid
-              in
-              Hashtbl.add state node_key (White, chosen_lid);
-
-              assert (self#visit_node (0, false) node_arg = chosen_lid);
-
-              (* And a type abbreviation will automatically be rewritten (see
-                 GcTypes) into `typedef foobar foobar_gc *`. And mitlsffi.c will be
-                 happy. *)
-              if abbrev_for_gc_type then
-                self#record (DType (lid, [], 0, 0, Abbrev (TQualified chosen_lid)));
-
-              self#clear ()
-
-        | DType (_, _, n_cgs, n, _) when n > 0 || n_cgs > 0 ->
-            []
-
-        | DType (lid, _, n_cgs, n, (Flat _ | Variant _ | Abbrev _ | Union _)) ->
-            assert (n = 0 && n_cgs = 0);
-            let node = lid, [], [] in
-            begin match Hashtbl.find_opt state node with
-            | Some (Black, _) ->
-                []
-            | _ ->
-                self#mark_if_need_be node lid;
-                let d = self#visit_decl (1, false) d in
-                Hashtbl.replace state node (Black, lid);
-                self#clear () @ [ d ]
-            end
-
-        | _ ->
-            (* Not a type, e.g. a global; needs to be retained. *)
+          if Hashtbl.mem state node_key then
+            (* We have already picked a name. Just roll with it. *)
             let d = self#visit_decl (0, false) d in
             self#clear () @ [ d ]
-      in
-      let flush_all () =
-        while pending_monomorphizations <> [] do
-          let r = pending_monomorphizations in
-          pending_monomorphizations <- [];
-          List.iter (fun x -> ignore (self#visit_node (0, false) x)) r
-        done;
-        self#clear ()
-      in
-      decls @ flush_all ()
+          else begin
+            Hashtbl.add state node_key (White, lid);
+            assert (self#visit_node (0, false) node_arg = lid);
+
+            (* We drop the abbreviation since now the correct type has been
+               emitted with that very name. *)
+            self#clear ()
+          end
+
+      | DType (lid, _, 0, 0, Abbrev ((TApp _ | TCgApp _) as t)) ->
+          (* We have not yet monomorphized this type, and conveniently, we have
+             a type abbreviation that provides us with a name hint! We simply
+             ditch the type abbreviation and replace it with a monomorphization
+             of the same name. *)
+
+          let node_arg = flatten_tapp t in
+          let node_key = fst3 node_arg, List.map self#allocate_names (snd3 node_arg), thd3 node_arg in
+
+          if Options.debug "data-types-traversal" then
+            KPrint.bprintf "%a abbreviation for %a (%b)\n" plid lid ptyp t (Hashtbl.mem state node_arg);
+
+          if Hashtbl.mem state node_key then
+            let d = self#visit_decl (0, false) d in
+            (* We have already picked a name. Just roll with it. *)
+            self#clear () @ [ d ]
+
+          else
+            (* miTLS backwards-compat strikes again: if the type is about to be
+               GC'd (i.e. automatically rewritten to be heap-allocated to e.g.
+               support lists "trivially" at the expense of a run-time GC)... then
+               we need to make sure the generated name refers to the GC'd type. So
+               the monomorphized type will be named foobar_gc... *)
+            let abbrev_for_gc_type = Hashtbl.mem map (fst3 node_arg) && List.mem Common.GcType (fst (Hashtbl.find map (fst3 node_arg))) in
+
+            let chosen_lid =
+              if abbrev_for_gc_type then
+                fst lid, snd lid ^ "_gc"
+              else
+                lid
+            in
+            Hashtbl.add state node_key (White, chosen_lid);
+
+            assert (self#visit_node (0, false) node_arg = chosen_lid);
+
+            (* And a type abbreviation will automatically be rewritten (see
+               GcTypes) into `typedef foobar foobar_gc *`. And mitlsffi.c will be
+               happy. *)
+            if abbrev_for_gc_type then
+              self#record (DType (lid, [], 0, 0, Abbrev (TQualified chosen_lid)));
+
+            self#clear ()
+
+      | DType (_, _, n_cgs, n, _) when n > 0 || n_cgs > 0 ->
+          []
+
+      | DType (lid, _, n_cgs, n, (Flat _ | Variant _ | Abbrev _ | Union _)) ->
+          assert (n = 0 && n_cgs = 0);
+          let node = lid, [], [] in
+          begin match Hashtbl.find_opt state node with
+          | Some (Black, _) ->
+              []
+          | _ ->
+              self#mark_if_need_be node lid;
+              let d = self#visit_decl (1, false) d in
+              Hashtbl.replace state node (Black, lid);
+              self#clear () @ [ d ]
+          end
+
+      | _ ->
+          (* Not a type, e.g. a global; needs to be retained. *)
+          let d = self#visit_decl (0, false) d in
+          self#clear () @ [ d ]
     ) decls
 
   method! visit_DType env name flags n n_cgs d =
