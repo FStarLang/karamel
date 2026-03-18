@@ -111,6 +111,7 @@ module NameGen = struct
             empty
     in
     let comment =
+      let original_name = if original_name = tuple_lid then [], "n-tuple" else original_name in
       string "A monomorphic instance of " ^^ print_lidents [ original_name ] ^^ hardline ^^
       (if ts <> [] then string "with types" ^^ break 1 ^^ group (print_typs ts) ^^ hardline else
         empty) ^^
@@ -169,8 +170,6 @@ let build_def_map files =
         ()
   )
 
-
-
 (* The type monomorphization phase, below, performs four things at once.
    - First, it monomorphizes data types, by emitting monomorphized definitions
      and replacing references to such polymorphic data types (the  `node`s) with
@@ -211,9 +210,10 @@ let build_def_map files =
    declarations are only reordered *when necessary*. Concretely, we reorder
    declarations as long as our graph traversal does not go through a reference
    (pointer). When it does, we emit a forward declaration (if not done already),
-   along with a suitably-chosen name, and remember to emit a monomorphized
-   instance of that type later on when we see the polymorphic declaration (via
-   the `pending_monomorphizations` table).
+   along with a suitably-chosen name. We no longer keep track of `node`s for
+   which merely a name was chosen: if the corresponding monomorphized
+   declaration ends up being never emitted (i.e. the corresponding `node` is
+   never visited), this was simply a phantom type.
 *)
 
 include MonomorphizationState
@@ -305,10 +305,10 @@ let monomorphize_data_types map = object(self)
         false
       else begin
         if not (Hashtbl.mem state node) then begin
-          let lid = fst (self#lid_of node) in
+          let lid, flags = self#lid_of node in
           if Options.debug "data-types-traversal" then
             KPrint.bprintf "lid_of %a: %a\n" ptyp (fold_tapp node) plid lid;
-          Hashtbl.add state node (White, lid)
+          Hashtbl.add state node (White flags, lid)
         end;
         true
       end
@@ -349,14 +349,39 @@ let monomorphize_data_types map = object(self)
   method private mark_if_need_be node chosen_lid =
     (* At this stage, we have to re-mark the node Gray because it may be the
        case that we have previously inserted a forward declaration, yet the type
-       is self-recursive and we do not want to loop. See EqB.fst. *)
+       is self-recursive and we do not want to loop. See EqB.fst. To truly fix
+       this, we would need to:
+       - eliminate the BlackForward color, replacing it with White
+       - keep a data structure on the side that keeps track of which forward
+         declarations have been emitted. *)
     match Hashtbl.find_opt state node with
-    | Some (BlackForward, _) when false -> ()
+    | Some (BlackForward _, _) when false -> ()
     | _ -> Hashtbl.replace state node (Gray, chosen_lid)
 
   (* Visit a given node in the graph, modifying [pending] to append in reverse
-   * order declarations as they are needed. *)
+   * order declarations as they are needed. We now keep a depth parameter: it
+   allows optimizing code-gen for the following case:
+   
+     type T = { ... }
+
+     let f (_: T* ) = ()
+
+   Because the use of T is under a pointer, we would normally be "smart" and
+   generate:
+
+     typedef struct T_s T;
+     void f(T* x) {}
+
+   But this is silly since we really have no recursion to break here. So, when
+   `depth = 0`, we don't bother with a forward declaration and actually
+   monomorphize the type.
+   *)
   method private visit_node ((depth, under_ref): int * bool) (n: node) =
+    let lid, args, cgs = n in
+
+    if Options.debug "data-types-traversal" then
+      KPrint.bprintf "visit_node %a %a %d\n" ptyp (fold_tapp n) plid (fst3 n) depth;
+
     (* We normalize the type arguments by pre-allocating names. This avoids
        inconsistencies where the map would previously record both t<u<v>> and
        t<u__v> which then required renormalizations and didn't work anyhow.
@@ -365,11 +390,6 @@ let monomorphize_data_types map = object(self)
 
        This has the side-effect of filling the pending_monomorphizations map for
        all names that have been allocated in the process. *)
-    let lid, args, cgs = n in
-
-    if Options.debug "data-types-traversal" then
-      KPrint.bprintf "visit_node %a %a %d\n" ptyp (fold_tapp n) plid (fst3 n) depth;
-
     let n = lid, List.map self#allocate_names args, cgs in
 
     if Options.debug "data-types-traversal" then
@@ -383,7 +403,7 @@ let monomorphize_data_types map = object(self)
 
     match under_ref, depth > 0, Hashtbl.find_opt state n with
     | false, _, Some (Black, chosen_lid)
-    | true, _, Some ((BlackForward | Black), chosen_lid) ->
+    | true, _, Some ((BlackForward _ | Black), chosen_lid) ->
         (* A reference to a `node` under a pointer type means that we must
            ensure that the name is in scope. If either a forward declaration or
            a complete declaration were inserted, we have nothing to do. *)
@@ -391,15 +411,16 @@ let monomorphize_data_types map = object(self)
           KPrint.bprintf "skipping %a: Black or (BlackForward under ref)\n" ptyp (fold_tapp n);
         chosen_lid
 
-    | _, _, Some (Gray, chosen_lid)
-    | true, true, Some (White, chosen_lid) ->
+    | _, _, Some (Gray as color, chosen_lid)
+    | true, true, Some (White _ as color, chosen_lid) ->
+        let flags = flags_of_color color in
         (* Otherwise, we must do something to make sure this name is in scope.
            We do not attempt to reorder the definition. This is the case where
            the type recurses with itself, or the name has been chosen already. *)
         if Options.debug "data-types-traversal" then
           KPrint.bprintf "forward %a: Gray or (White under ref)\n" ptyp (fold_tapp n);
         self#insert_forward chosen_lid (self#forward_kind lid);
-        Hashtbl.replace state n (BlackForward, chosen_lid);
+        Hashtbl.replace state n (BlackForward flags, chosen_lid);
         chosen_lid
 
     | true, true, None ->
@@ -416,7 +437,7 @@ let monomorphize_data_types map = object(self)
         if Options.debug "data-types-traversal" then
           KPrint.bprintf "forward %a: None under ref (%b)\n" ptyp (fold_tapp n) (k = None);
         self#insert_forward chosen_lid k;
-        Hashtbl.replace state n (BlackForward, chosen_lid);
+        Hashtbl.replace state n (BlackForward flag, chosen_lid);
         chosen_lid
 
     (* Now on to the cases where we are not under a pointer type. Two cases are
@@ -433,9 +454,9 @@ let monomorphize_data_types map = object(self)
        the declaration, and insert it here to compute a suitable order.
      *)
 
-    | _, _, (None | Some (White, _) | Some (BlackForward, _) as entry) ->
+    | _, _, (None | Some (White _, _) | Some (BlackForward _, _) as entry) ->
         (* We have something to do *)
-        let chosen_lid, flag = match entry with None -> self#lid_of n | Some (_, lid) -> lid, [] in
+        let chosen_lid, flag = match entry with None -> self#lid_of n | Some (c, lid) -> lid, flags_of_color c in
         if Options.debug "data-types-traversal" then
           KPrint.bprintf "visiting %a: chosen_lid %a lid %a\n" ptyp (fold_tapp n) plid chosen_lid plid lid;
 
@@ -451,7 +472,7 @@ let monomorphize_data_types map = object(self)
         if lid = tuple_lid then begin
           assert (args <> []);
           let fields = List.mapi (fun i arg -> Some (self#field_at i), (arg, false)) args in
-          record_and_visit (DType (chosen_lid, [ Common.Private ], 0, 0, Flat fields));
+          record_and_visit (DType (chosen_lid, flag @ [ Common.Private ], 0, 0, Flat fields));
 
         end else begin
           let subst fields = List.map (fun (field, (t, m)) ->
@@ -503,21 +524,27 @@ let monomorphize_data_types map = object(self)
             (* We have already picked a name. Just roll with it. *)
             let d = self#visit_decl (0, false) d in
             self#clear () @ [ d ]
+
           else begin
-            Hashtbl.add state node_key (White, lid);
+            (* We optimize the case `type t = v u` and emit
+                 `typedef struct ... t;`
+               instead of the more verbose
+                 `typedef struct ... v__u; typedef v__u t`.
+
+               We do so by anticipating on the graph traversal and pre-filling
+               the entry with `White` to indicate that the name for this
+               monomorphization has been settled already.
+            *)
+            Hashtbl.add state node_key (White [], lid);
             assert (self#visit_node (0, false) node_arg = lid);
 
             (* We drop the abbreviation since now the correct type has been
-               emitted with that very name. *)
+               emitted with that very name. (As in: no `@ [ d ]` here.) *)
             self#clear ()
           end
 
       | DType (lid, _, 0, 0, Abbrev ((TApp _ | TCgApp _) as t)) ->
-          (* We have not yet monomorphized this type, and conveniently, we have
-             a type abbreviation that provides us with a name hint! We simply
-             ditch the type abbreviation and replace it with a monomorphization
-             of the same name. *)
-
+          (* Same as above, except for the non-tuple case. *)
           let node_arg = flatten_tapp t in
           let node_key = fst3 node_arg, List.map self#allocate_names (snd3 node_arg), thd3 node_arg in
 
@@ -543,7 +570,7 @@ let monomorphize_data_types map = object(self)
               else
                 lid
             in
-            Hashtbl.add state node_key (White, chosen_lid);
+            Hashtbl.add state node_key (White [], chosen_lid);
 
             assert (self#visit_node (0, false) node_arg = chosen_lid);
 
@@ -566,6 +593,7 @@ let monomorphize_data_types map = object(self)
               []
           | _ ->
               self#mark_if_need_be node lid;
+              (* We are within a type declaration, so we start at depth 1. *)
               let d = self#visit_decl (1, false) d in
               Hashtbl.replace state node (Black, lid);
               self#clear () @ [ d ]
@@ -603,8 +631,6 @@ let monomorphize_data_types map = object(self)
       super#visit_TTuple under_ref ts
 
   method! visit_TQualified under_ref lid =
-    (* FORWARD DECLARATIONS: we force a visit of this node, as it may have a side-effect of
-       inserting a forward declaration *)
     TQualified (self#visit_node under_ref (lid, [], []))
 
   method! visit_TApp under_ref lid ts =

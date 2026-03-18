@@ -10,14 +10,14 @@ type node = lident * typ list * cg list
 
 (* Our graph traversal is complicated! *)
 type color =
-  | White
+  | White of flag list
     (* We have allocated a name for this node, and done nothing else. It should
-       be traversed. *)
+       be traversed. We remember the comment that was generated. *)
   | Gray
     (* We are in the midst of a traversal and we are hitting a node that appears
        in our call stack. If we we are not under a reference (pointer), then
        this may be a cycle. *)
-  | BlackForward
+  | BlackForward of flag list
     (* We have visited this node, but all we have done is emit a forward
        declaration for it. It should be visited again (via the
        `pending_declarations` table) when we see the polymorphic declaration. *)
@@ -25,6 +25,10 @@ type color =
     (* We have visited this node and have emitted a full declaration for it.
        Nothing left to do. *)
 [@@ deriving show]
+
+let flags_of_color = function
+  | White flags | BlackForward flags -> flags
+  | _ -> []
 
 (* Each polymorphic type `lid` applied to types `ts` and const generics `ts`
    appears in `state`, and maps to `monomorphized_lid`, the name of its
