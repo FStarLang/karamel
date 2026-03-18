@@ -169,11 +169,9 @@ jobs:
 
       # NOTE: we use `git checkout` instead of actions/checkout,
       # because of `git pull` below
-      # TODO: remove --branch line once project-everest#244 is merged
       - name: Clone EverParse if it does not exist
         run: |
           if ! [[ -d everparse ]] ; then git clone \
-            --branch _nik_smt_univs_2025 \
             https://github.com/project-everest/everparse ; fi
 
       # Need to build Karamel only at the last minute, since `opam
