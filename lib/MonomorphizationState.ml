@@ -75,8 +75,10 @@ let resolve_deep mem = (object(self)
     let ts = List.map (self#visit_typ ()) ts in
     resolve mem (TApp (t, ts))
 
-  method! visit_TCgApp () t ts =
-    resolve mem (TCgApp (t, ts))
+  method! visit_TCgApp () t cgs =
+    let t, ts, cgs = flatten_tapp (TCgApp (t, cgs)) in
+    let ts = List.map (self#visit_typ ()) ts in
+    resolve mem (fold_tapp (t, ts, cgs))
 
   method! visit_TTuple () ts =
     let ts = List.map (self#visit_typ ()) ts in

@@ -282,6 +282,7 @@ let monomorphize_data_types map = object(self)
 
   (* Compute the name of a given node in the graph. *)
   method private lid_of (n: node) =
+    assert (not (Hashtbl.mem state n));
     let lid, ts, cgs = n in
     if ts = [] && cgs = [] then
       lid, []
@@ -304,7 +305,10 @@ let monomorphize_data_types map = object(self)
         false
       else begin
         if not (Hashtbl.mem state node) then begin
-          Hashtbl.add state node (White, fst (self#lid_of node))
+          let lid = fst (self#lid_of node) in
+          if Options.debug "data-types-traversal" then
+            KPrint.bprintf "lid_of %a: %a\n" ptyp (fold_tapp node) plid lid;
+          Hashtbl.add state node (White, lid)
         end;
         true
       end
@@ -362,10 +366,14 @@ let monomorphize_data_types map = object(self)
        This has the side-effect of filling the pending_monomorphizations map for
        all names that have been allocated in the process. *)
     let lid, args, cgs = n in
-    let n = lid, List.map self#allocate_names args, cgs in
 
     if Options.debug "data-types-traversal" then
       KPrint.bprintf "visit_node %a %a %d\n" ptyp (fold_tapp n) plid (fst3 n) depth;
+
+    let n = lid, List.map self#allocate_names args, cgs in
+
+    if Options.debug "data-types-traversal" then
+      KPrint.bprintf "name allocation: %a\n" ptyp (fold_tapp n);
 
     (* Subtle: args now refers to the (non-normalized) arguments with type
        applications inside, but n is in normalized form to avoid
@@ -432,8 +440,7 @@ let monomorphize_data_types map = object(self)
           KPrint.bprintf "visiting %a: chosen_lid %a lid %a\n" ptyp (fold_tapp n) plid chosen_lid plid lid;
 
         (* Prevent loops and multiple forward declarations *)
-        if Hashtbl.mem map lid then
-          self#mark_if_need_be n chosen_lid;
+        self#mark_if_need_be n chosen_lid;
         if Options.debug "data-types-traversal" then
           KPrint.bprintf "now %s\n" (match Hashtbl.find_opt state n with Some (c, _) -> show_color c | None -> "no color");
 
