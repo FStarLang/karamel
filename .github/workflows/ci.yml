@@ -167,7 +167,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: everparse
-          key: everparse-${{ runner.os }}-${{ runner.arch }}
+          key: everparse-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          restore-keys: |
+            everparse-${{ runner.os }}-${{ runner.arch }}-
 
       # NOTE: we use `git checkout` instead of actions/checkout,
       # because of `git pull` below
@@ -193,7 +195,7 @@ jobs:
 
       - name: Delete EverParse cache if it already existed
         run: |
-          gh cache delete everparse-${{ runner.os }}-${{ runner.arch }} || true
+          gh cache delete everparse-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }} || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -203,7 +205,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: everparse
-          key: everparse-${{ runner.os }}-${{ runner.arch }}
+          key: everparse-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
 
       - name: Generate CBOR snapshot with Karamel
         run: |
