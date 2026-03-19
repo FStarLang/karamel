@@ -325,18 +325,21 @@ let monomorphize_data_types map = object(self)
     | _ -> Printf.sprintf "f%d" i
 
   method forward_kind lid =
-    match Hashtbl.find map lid with
-    | exception Not_found ->
-        if Options.debug "data-types-traversal" then
-          KPrint.bprintf "Cannot determine forward kind for %a\n" plid lid;
-        None
-    | flags, Union _ ->
-        Some (flags, Common.FUnion)
-    | flags, Flat _
-    | flags, Variant _ ->
-        Some (flags, FStruct)
-    | _ ->
-        None
+    if lid = tuple_lid then
+      Some ([], Common.FStruct)
+    else
+      match Hashtbl.find map lid with
+      | exception Not_found ->
+          if Options.debug "data-types-traversal" then
+            KPrint.bprintf "Cannot determine forward kind for %a\n" plid lid;
+          None
+      | flags, Union _ ->
+          Some (flags, Common.FUnion)
+      | flags, Flat _
+      | flags, Variant _ ->
+          Some (flags, FStruct)
+      | _ ->
+          None
 
   (* Insert a forward struct declaration, with name `chosen_lid` *)
   method private insert_forward chosen_lid forward_kind =
