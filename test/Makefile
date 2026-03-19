@@ -47,7 +47,7 @@ endif
 FILES		= \
   $(patsubst %.fst,%.test,$(filter-out Unused_A.fst StaticHeaderAPI.fst \
     StaticHeaderLib.fst NameCollisionHelper.fst ML16Externals.fst MemCpyModel.fst \
-    Lowlevel.fst PrivateInclude1.fst $(BROKEN),$(wildcard *.fst))) \
+    Lowlevel.fst PrivateInclude1.fst EnumAliasHelper.fst $(BROKEN),$(wildcard *.fst))) \
   $(CRYPTO_FILES) \
   $(patsubst %.fst,%.test,$(wildcard ../book/*.fst ../book/notfslit/*.fst))
 
