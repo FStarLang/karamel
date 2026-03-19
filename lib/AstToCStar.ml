@@ -395,11 +395,11 @@ and mk_expr env in_stmt under_initializer_list e =
   | EApp ({ node = ETApp (e0, cgs, cgs', ts); _ }, es) when !Options.allow_tapps || whitelisted_tapp e0 ->
       (* Return type is oftentimes very useful when having to build a return value using e.g. a
          compound literal *)
-      let ret_t = if return_type_not_needed e0 then [] else [ CStar.Type (mk_type env (MonomorphizationState.resolve e.typ)) ] in
+      let ret_t = if return_type_not_needed e0 then [] else [ CStar.Type (mk_type env (MonomorphizationState.normalize e.typ)) ] in
       unit_to_void env e0 (cgs @ cgs' @ es) (List.map (fun t -> CStar.Type (mk_type env t)) ts @ ret_t)
 
   | ETApp (e0, cgs, cgs', ts) when !Options.allow_tapps || whitelisted_tapp e0 ->
-      let ret_t = CStar.Type (mk_type env (MonomorphizationState.resolve e.typ)) in
+      let ret_t = CStar.Type (mk_type env (MonomorphizationState.normalize e.typ)) in
       unit_to_void env e0 (cgs @ cgs') (List.map (fun t -> CStar.Type (mk_type env t)) ts @ [ ret_t ])
 
   | EApp ({ node = EOp (op, w); _ }, [ _; _ ]) when is_integer_arith op w ->

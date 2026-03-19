@@ -19,8 +19,7 @@ and object1 = {
   object1_payload: object1_tagged;
 }
 
-(*
-// FAIL to compile: struct types are generated in the wrong order, leading to the compiler complaining about `object2_tagged` being an incomplete type
+// NOW COMPILES \o/
 
 // The order of mutually recursive type
 // definitions should match that of C, in the sense that types that
@@ -37,7 +36,7 @@ and object2_tagged = {
   object2_tagged_payload: ref object2;
 }
 
-// FAIL to compile: same here
+// NOW COMPILES \o/
 noeq
 type object3 = {
   object3_type: U8.t;
@@ -53,7 +52,6 @@ and object3_map = {
 }
 
 // The proper order of `object3` above is `object4` below:
-*)
 
 noeq
 type object4_map = {
@@ -69,8 +67,7 @@ and object4_pair = {
   object4_pair_payload: object4;
 }
 
-(*
-// FAIL to compile: incomplete type, this time because the monomorphized type instance for `object6_map (ref object6_pair)` is not generated
+// NOW COMPILES: previously: incomplete type, this time because the monomorphized type instance for `object6_map (ref object6_pair)` is not generated
 noeq
 type object6_map ([@@@strictly_positive] param: Type0) = {
   object6_map_entry_count: U64.t;
@@ -85,7 +82,6 @@ and object6_pair = {
   object6_pair_key: object6;
   object6_pair_payload: object6;
 }
-*)
 
 // This test extracts and compiles.
 
@@ -140,7 +136,7 @@ and object8_map_entry = {
 
 let f8 (x: object8_map) : Tot bool = true
 
-// This test extracts, but has failed to compile since #664
+// This test extracts and compiles.
 
 [@@no_auto_projectors]
 noeq
