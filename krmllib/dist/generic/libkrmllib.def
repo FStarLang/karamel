@@ -9,12 +9,6 @@ EXPORTS
   FStar_UInt16_gte_mask
   FStar_UInt8_eq_mask
   FStar_UInt8_gte_mask
-  WasmSupport_align_64
-  WasmSupport_check_buffer_size
-  WasmSupport_betole16
-  WasmSupport_betole32
-  WasmSupport_betole64
-  WasmSupport_memzero
   FStar_Order_uu___is_Lt
   FStar_Order_uu___is_Eq
   FStar_Order_uu___is_Gt

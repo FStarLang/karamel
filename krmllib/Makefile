@@ -40,14 +40,23 @@ endif
 
 FSTAR = $(RUNLIM) $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_dir obj \
   $(addprefix --include , $(INCLUDE_PATHS)) \
-  --already_cached 'Prims FStar -FStar.Krml.Endianness LowStar -LowStar.Lib'
+  --already_cached 'Prims FStar -FStar.Krml.Endianness'
 
 # Note: not compatible with the OPAM layout until fstar can be queried for the
 # location of ulib.
-ROOTS = $(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst) \
+# Files that depend on LowStar.Buffer / FStar.HyperStack.* (removed in F* 2)
+FSTAR2_INCOMPATIBLE = \
+  C.Endianness.fst C.Failure.fst C.fst C.Loops.fst C.String.fst C.String.fsti \
+  FStar.Krml.Endianness.fst \
+  LowStar.Lib.AssocList.fst LowStar.Lib.AssocList.fsti \
+  LowStar.Lib.LinkedList.fst LowStar.Lib.LinkedList2.fst \
+  TestLib.fsti \
+  ../runtime/WasmSupport.fst
+
+ROOTS = $(filter-out $(FSTAR2_INCOMPATIBLE),$(wildcard *.fst) $(wildcard *.fsti) $(wildcard ../runtime/*.fst)) \
   FStar.UInt128.fst FStar.Date.fsti \
     FStar.IO.fsti FStar.Int.Cast.Full.fst \
-    FStar.Bytes.fsti FStar.Dyn.fsti LowStar.Printf.fst LowStar.Endianness.fst
+    FStar.Bytes.fsti FStar.Dyn.fsti
 
 .PHONY: clean clean-c
 clean: clean-c
@@ -120,9 +129,8 @@ $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c
 	  -warn-error +9+11 \
 	  $(MACHINE_INTS) \
 	  $(addprefix -add-include ,'<inttypes.h>' '"krmllib.h"' '"krml/internal/compat.h"' '"krml/internal/target.h"') \
-	  -bundle LowStar.Endianness= \
 	  -bundle FStar.Endianness,FStar.Range \
-	  -library C,C.Endianness,C.Failure,C.Loops,FStar.BitVector,FStar.Bytes,FStar.Char,FStar.Int,FStar.Krml.Endianness,FStar.Math.Lib,FStar.ModifiesGen,FStar.Monotonic.Heap,FStar.Monotonic.HyperStack,FStar.Mul,FStar.Pervasives,FStar.Pervasives.Native,FStar.ST,FStar.UInt,FStar.UInt63,LowStar.Printf \
+	  -library C,C.Endianness,C.Failure,C.Loops,FStar.BitVector,FStar.Bytes,FStar.Char,FStar.Int,FStar.Krml.Endianness,FStar.Math.Lib,FStar.ModifiesGen,FStar.Monotonic.Heap,FStar.Monotonic.HyperStack,FStar.Mul,FStar.Pervasives,FStar.Pervasives.Native,FStar.ST,FStar.UInt,FStar.UInt63 \
 	  -bundle FStar.BV \
 	  $(filter-out fstar_uint128_msvc.c,$(notdir $(wildcard c/*.c))) \
 	  -o libkrmllib.a \
@@ -141,7 +149,6 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar
 	    '"krml/lowstar_endianness.h"' \
 	    '"krml/internal/types.h"' \
 	    '"krml/internal/target.h"') \
-	  -bundle LowStar.Endianness= \
 	  -bundle '*,WindowsWorkaroundSigh' \
 	  fstar_uint128.c \
 	  -o libkrmllib.a \
