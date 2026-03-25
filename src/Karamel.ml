@@ -821,6 +821,7 @@ Supported options:|}
       | Options.C99 -> InitializeLocals.initialize_files InitializeLocals.C99 headers files
       | Options.C89 -> InitializeLocals.initialize_files InitializeLocals.C89 headers files
     in
+    let files = if !Options.hoist_locals then MarkMaybeUnused.mark_maybe_unused_files files else files in
     let files = List.filter (fun (_, decls) -> List.length decls > 0) files in
     tick_print true "CStarToC";
 
