@@ -1294,16 +1294,16 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
       let env0 = env in
 
       (* b is in scope for e_test, e_incr, e_body! *)
-      let e_end = match e_test.node, e_incr.node with
+      let e_end, inclusive = match e_test.node, e_incr.node with
         (* If we have `i < e_end; i := i + 1`, then this is a range-loop and we can
            lift `e_end` by 1. *)
-        | EApp ({ node = EOp (Lt, _); _ }, [ { node = EBound 0; _ }; e_end ]),
+        | EApp ({ node = EOp (Lt | Lte as op, _); _ }, [ { node = EBound 0; _ }; e_end ]),
         EAssign ({ node = EBound 0; _ },
           { node = EApp ({ node = EOp ((Add | AddW), _); _ }, [
             { node = EBound 0; _ };
             { node = EConstant (_, "1"); _ } ]); _ }) ->
               (* Assuming that b does not occur in e_end *)
-              DeBruijn.subst Helpers.eunit 0 e_end
+              DeBruijn.subst Helpers.eunit 0 e_end, op = Lte
         | _ ->
             Warn.failwith "Unsupported loop:\n e_test=%a\n e_incr=%a\n"
               PrintAst.Ops.pexpr e_test
@@ -1322,7 +1322,7 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
       let env, e_start = translate_expr env fn_t_ret e_start in
       let env, e_end = translate_expr env fn_t_ret e_end in
       let _, e_body = translate_expr (push env binding) fn_t_ret e_body in
-      env0, For (binding, Range (Some e_start, Some e_end, false), e_body)
+      env0, For (binding, Range (Some e_start, Some e_end, inclusive), e_body)
   | ECast (e, t) ->
       begin match t with
       | TInt _ | TBool ->
