@@ -69,6 +69,8 @@ _install:
 	cp -r include/* $(PREFIX)/include/krml
 	mkdir -p $(PREFIX)/lib/krml
 	cp -r krmllib/* $(PREFIX)/lib/krml
+	echo 'obj' >> $(PREFIX)/lib/krml/fstar.include
+	@# ^ So users can just --include lib/krml and also see the checked files.
 	mkdir -p $(PREFIX)/share/krml/examples
 	cp -r test/*.fst $(PREFIX)/share/krml/examples
 	mkdir -p $(PREFIX)/share/krml/misc
