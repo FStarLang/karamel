@@ -7,11 +7,12 @@
 
 include Makefile.include
 
-ifeq (,$(KRML_HOME))
-  $(error please define KRML_HOME to point to the root of your KaRaMeL git checkout)
-endif
+KRML_EXE ?= krml
 
-CFLAGS 	+= -I. -I $(KRML_HOME)/include -I $(KRML_HOME)/krmllib/dist/minimal
+KRML_INCLUDE != $(KRML_EXE) -locate-include
+KRML_LIB     != $(KRML_EXE) -locate-krmllib
+
+CFLAGS 	+= -I. -I $(KRML_INCLUDE) -I $(KRML_LIB)/dist/minimal
 CFLAGS 	+= -Wall -Wextra -Werror -std=c11 \
   -Wno-unknown-warning-option \
   -Wno-infinite-recursion \
@@ -39,7 +40,7 @@ AR ?= ar
 	$(AR) cr $@ $^
 
 %.exe:
-	$(CC) $(CFLAGS) -o $@ $^ $(KRML_HOME)/krmllib/dist/generic/libkrmllib.a
+	$(CC) $(CFLAGS) -o $@ $^ $(KRML_LIB)/dist/generic/libkrmllib.a
 
 %.so:
 	$(CC) $(CFLAGS) -shared -o $@ $^

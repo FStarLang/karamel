@@ -22,6 +22,7 @@ FSTAR_EXE ?= fstar.exe
 # Default to ../krml, make sure to export it to children invocations (e.g. the
 # Makefiles in dist/*)
 KRML_EXE ?= ../krml
+KRML_EXE := $(abspath $(KRML_EXE))
 export KRML_EXE
 
 EXTRACT_DIR = .extract
@@ -115,19 +116,13 @@ $(MINI_DIR):
 $(GENERIC_DIR):
 	mkdir -p $@
 
-local_krml_home := $(realpath $(CURDIR)/..)
-ifeq ($(OS),Windows_NT)
-  local_krml_home := $(shell cygpath -m "$(local_krml_home)")
-endif
-
 # Note the use &: in the rules below, this is a *grouped target*. Make then
 # knows that running the command (once) builds both files. This works since GNU
 # Make 4.3 (Jan 2020). The makefiles check that we are not in version 3.81
 # (which is what MacOS defaults to) so we should have something recent.
 
 # Everything in the universe.
-$(GENERIC_DIR)/Makefile.include $(GENERIC_DIR)/Makefile.basic &: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) ../_build/default/src/Karamel.exe
-	KRML_HOME="$(local_krml_home)" \
+$(GENERIC_DIR)/Makefile.include $(GENERIC_DIR)/Makefile.basic &: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) $(KRML_EXE)
 	$(KRML_EXE) $(KRML_ARGS) -tmpdir $(GENERIC_DIR) \
 	  -warn-error +9+11 \
 	  $(MACHINE_INTS) \
@@ -142,9 +137,8 @@ $(GENERIC_DIR)/Makefile.include $(GENERIC_DIR)/Makefile.basic &: $(ALL_KRML_FILE
 	cp c/*.c c/*.h $(dir $@)
 
 # Minimalistic build (just machine integers and endianness)
-$(MINI_DIR)/Makefile.include $(MINI_DIR)/Makefile.basic &: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar_uint128*.h) ../_build/default/src/Karamel.exe
+$(MINI_DIR)/Makefile.include $(MINI_DIR)/Makefile.basic &: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar_uint128*.h) $(KRML_EXE)
 	mkdir -p $(dir $@)
-	KRML_HOME="$(local_krml_home)" \
 	$(KRML_EXE) $(KRML_ARGS) -tmpdir $(MINI_DIR) \
 	  $(MACHINE_INTS) \
 	  $(addprefix -add-include , \
@@ -163,8 +157,7 @@ $(MINI_DIR)/Makefile.include $(MINI_DIR)/Makefile.basic &: $(ALL_KRML_FILES) | $
 # Extracted (and verified) uint128s; copied into generic and minimal. Note that
 # FStar.UInt64 shares the same bundle name, meaning that
 # FStar_UInt128_Verified.h can be dropped in any of the two krmllibs above.
-$(UINT128_DIR)/Makefile.include $(UINT128_DIR)/Makefile.basic &: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) ../_build/default/src/Karamel.exe
-	KRML_HOME="$(local_krml_home)" \
+$(UINT128_DIR)/Makefile.include $(UINT128_DIR)/Makefile.basic &: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) $(KRML_EXE)
 	$(KRML_EXE) $(KRML_ARGS) -tmpdir $(UINT128_DIR) \
 	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"krml/internal/types.h"' '"krml/internal/target.h"') \
 	  -bundle FStar.UInt64[rename=FStar_UInt_8_16_32_64] \
@@ -189,5 +182,4 @@ compile-all: compile-dist-generic $(MINI_DIR)/Makefile.include $(UINT128_DIR)/Ma
 
 .PHONY: compile-dist-%
 compile-dist-%: dist/%/Makefile.include
-	KRML_HOME="$(local_krml_home)" \
 	$(MAKE) -C dist/$* -f Makefile.basic

@@ -18,8 +18,7 @@ ifeq (3.81,$(MAKE_VERSION))
     install make, then invoke gmake instead of make)
 endif
 
-
-
+KRML_EXE ?= ../../../krml
 
 # Main entry points (first one is default)
 # ----------------------------------------
@@ -138,7 +137,7 @@ obj/%.krml:
 # F* --> C
 # --------
 
-KRML=$(KRML_HOME)/krml -fstar $(FSTAR_EXE)
+KRML=$(KRML_EXE) -fstar $(FSTAR_EXE)
 
 # Note: the implementation of the intrinsic uses external linkage, but you could
 # easily turn this file into a .h, use -add-include '"Impl_Bignum_Intrinsics.h"'

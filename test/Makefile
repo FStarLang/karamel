@@ -25,7 +25,12 @@ ifneq ($(CRYPTO),)
   CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 endif
 TEST_OPTS	= -warn-error @4 -skip-makefiles
+
+# Make sure children invocations use the same KRML.
 KRML_EXE	= ../out/bin/krml
+KRML_EXE	:= $(abspath $(KRML_EXE))
+export KRML_EXE
+
 KRML		= $(KRML_EXE) -fstar $(FSTAR_EXE) $(KOPTS) $(TEST_OPTS)
 
 # TODO: disambiguate between broken tests that arguably should work (maybe
