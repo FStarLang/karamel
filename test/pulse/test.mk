@@ -106,14 +106,14 @@ $(OUTPUT_DIR)/%.c: $(OUTPUT_DIR)/%.krml $(OUTPUT_DIR)/Pulse_Lib_Pervasives.krml
 	$(KRML_EXE) $(KRML_FLAGS) -skip-compilation -header=krmlheader -bundle $*=* -skip-linking $+ -tmpdir $(OUTPUT_DIR)
 
 ### Checking expected output for any kind of file
-$(OUTPUT_DIR)/%.diff: $(OUTPUT_DIR)/% %.expected
+$(OUTPUT_DIR)/%.diff: $(OUTPUT_DIR)/%.c %.expected.c
 	$(call msg, "DIFF", $<)
 	bash ./diff.sh $^
 	touch $@
 
-$(OUTPUT_DIR)/%.accept: $(OUTPUT_DIR)/%
+$(OUTPUT_DIR)/%.accept: $(OUTPUT_DIR)/%.c
 	$(call msg, "ACCEPT", $<)
-	cp $< ./$*.expected
+	cp $< ./$*.expected.c
 	touch $(OUTPUT_DIR)/$*.diff # touch so subsequent test skips
 
 
@@ -130,7 +130,7 @@ clean:
 extract: $(patsubst %.fst,$(OUTPUT_DIR)/%.ml,$(EXTRACT))
 all: extract
 
-diff: $(patsubst %.expected,$(OUTPUT_DIR)/%.diff,$(wildcard *.expected))
+diff: $(patsubst %.expected.c,$(OUTPUT_DIR)/%.diff,$(wildcard *.expected.c))
 ifeq ($(NODIFF),)
 ifeq ($(ACCEPT),1)
 all: accept
@@ -139,4 +139,4 @@ all: diff
 endif
 endif
 
-accept: $(patsubst %.expected,$(OUTPUT_DIR)/%.accept,$(wildcard *.expected))
+accept: $(patsubst %.expected.c,$(OUTPUT_DIR)/%.accept,$(wildcard *.expected.c))
