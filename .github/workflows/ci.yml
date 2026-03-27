@@ -112,8 +112,6 @@ jobs:
         with:
           node-version: 16
 
-      - run: echo "KRML_HOME=$(pwd)/karamel" >> $GITHUB_ENV
-
       - name: Karamel CI
         working-directory: karamel
         run: |
@@ -241,7 +239,6 @@ jobs:
       - uses: actions/checkout@master
       - name: Build the checked-in krmllib
         run: |
-          export KRML_HOME=$(pwd)
           export CC=${{matrix.cc}}
           make -kj$(nproc) -C krmllib/dist/generic -f Makefile.basic
 
