@@ -64,6 +64,7 @@ jobs:
           # and so far no Karamel regression test suite for EverParse
           # requires 3d
 
+      # Paranoid delete before saving. Note: run_id is constant across reruns.
       - name: Delete OPAM state if it already existed
         run: |
           gh cache delete opam-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }} || true
@@ -103,7 +104,7 @@ jobs:
       - name: Restore OPAM state
         uses: actions/cache/restore@v4
         with:
-          fail-on-cache-miss: true
+          fail-on-cache-miss: true # should never happen, cache was filled by build-deps
           path: _opam
           key: opam-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
 
@@ -153,7 +154,7 @@ jobs:
       - name: Restore OPAM state
         uses: actions/cache/restore@v4
         with:
-          fail-on-cache-miss: true
+          fail-on-cache-miss: true # should never happen, cache was filled by build-deps
           path: _opam
           key: opam-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
 
@@ -193,6 +194,7 @@ jobs:
         run: |
           git pull && make cbor-extract-krml cose-extract-krml -kj$(nproc)
 
+      # Paranoid delete before saving. Note: run_id is constant across reruns.
       - name: Delete EverParse cache if it already existed
         run: |
           gh cache delete everparse-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }} || true
