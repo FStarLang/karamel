@@ -18,7 +18,7 @@ FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --ext optimize_let_vc \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
   --trivial_pre_for_unannotated_effectful_fns false \
-  --cmi --warn_error -274
+  --warn_error -274
 SED=$(shell which gsed >/dev/null 2>&1 && echo gsed || echo sed)
 
 all: derived.rust-test

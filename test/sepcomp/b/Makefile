@@ -36,13 +36,11 @@ include Makefile.include
 # - 241: stale dependencies, almost always a sign that the build is incorrect
 #
 # But also:
-# - --cmi, for cross-module inlining, a must-have for anyone who relies on
-#   inline_for_extraction in the presence of interfaces
 # - --cache_dir, to place checked files there
 
 FSTAR_EXE ?= fstar.exe
 FSTAR_NO_FLAGS = $(FSTAR_EXE) \
-  --odir obj $(FSTAR_INCLUDES) --cmi \
+  --odir obj $(FSTAR_INCLUDES) \
   --already_cached 'Prims FStar LowStar C Spec.Loops TestLib WasmSupport A' --warn_error '+241@247+285' \
   --cache_dir obj
 
