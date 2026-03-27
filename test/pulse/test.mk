@@ -116,57 +116,27 @@ $(OUTPUT_DIR)/%.accept: $(OUTPUT_DIR)/%
 	cp $< ./$*.expected
 	touch $(OUTPUT_DIR)/$*.diff # touch so subsequent test skips
 
-# Subrules for descending into subdirectories (coallesce with a define?)
 
-%.__depend: # Make sure to sequeantlize the .depend for each subdir, to avoid duplication and races
-	$(MAKE) -C $* depend
-
-%.__all:
-	$(MAKE) -C $* all
-
-%.__verify:
-	$(MAKE) -C $* verify
-
-%.__clean:
-	$(MAKE) -C $* clean
-
-%.__accept:
-	$(MAKE) -C $* accept
-
-SUBDIRS_ALL += $(SUBDIRS)
-all: $(addsuffix .__all, $(SUBDIRS_ALL))
-# __verify: check all files here and in subdirectories (SUBDIRS / SUBDIRS_VERIFY)
-# Implied by 'all' for each directory, but we cannot write 'all: verify' or we
-# will get duplicate invocations for all/verify on a same subdir, and they overlap.
-SUBDIRS_VERIFY += $(SUBDIRS)
-__verify: $(ALL_CHECKED_FILES)
-verify: $(addsuffix .__verify, $(SUBDIRS_VERIFY))
-verify: __verify
+# verify: check all files here
+verify: $(ALL_CHECKED_FILES)
 ifeq ($(NOVERIFY),)
-all: __verify
+all: verify
 endif
 
 # clean
-SUBDIRS_CLEAN += $(SUBDIRS)
-clean: $(addsuffix .__clean, $(SUBDIRS_CLEAN))
-__clean:
+clean:
 	rm -rf $(OUTPUT_DIR) $(CACHE_DIR) .depend
-clean: __clean
 
-__extract: $(patsubst %.fst,$(OUTPUT_DIR)/%.ml,$(EXTRACT))
-extract: __extract
-all: __extract
+extract: $(patsubst %.fst,$(OUTPUT_DIR)/%.ml,$(EXTRACT))
+all: extract
 
-__diff: $(patsubst %.expected,$(OUTPUT_DIR)/%.diff,$(wildcard *.expected))
-diff: __diff
+diff: $(patsubst %.expected,$(OUTPUT_DIR)/%.diff,$(wildcard *.expected))
 ifeq ($(NODIFF),)
 ifeq ($(ACCEPT),1)
-all: __accept
+all: accept
 else
-all: __diff
+all: diff
 endif
 endif
 
-accept: $(addsuffix .__accept,$(SUBDIRS))
-__accept: $(patsubst %.expected,$(OUTPUT_DIR)/%.accept,$(wildcard *.expected))
-accept: __accept
+accept: $(patsubst %.expected,$(OUTPUT_DIR)/%.accept,$(wildcard *.expected))
