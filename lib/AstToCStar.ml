@@ -409,6 +409,24 @@ and mk_expr env in_stmt under_initializer_list e =
       else
         e'
 
+  | EApp ({ node = EOp (op, w); _ }, [ e1; e2 ])
+      when Constant.is_comp_op op && (w = K.UInt8 || w = K.UInt16) ->
+      (* Comparisons on narrow unsigned types: only widen+mask operands that
+         contain arithmetic. Atomic operands (variables, field accesses, etc.)
+         are compared at their native width without unnecessary casts. *)
+      let needs_arith e = match e.node with
+        | EApp ({ node = EOp (op, w); _ }, _) -> is_integer_arith op w
+        | _ -> false
+      in
+      let mk_cmp_operand e =
+        if needs_arith e then
+          let e', a, _ = mk_arith env e in
+          if a then e' else mask w e'
+        else
+          mk_expr env false e
+      in
+      CStar.Call (Op op, [ mk_cmp_operand e1; mk_cmp_operand e2 ])
+
   | EApp (e, es) ->
       (* Functions that only take a unit take no argument. *)
       let t, _ = flatten_arrow e.typ in
