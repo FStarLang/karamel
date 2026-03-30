@@ -47,7 +47,7 @@ ifneq ($(RESOURCEMONITOR),)
 endif
 
 FSTAR = $(RUNLIM) $(FSTAR_EXE) $(FSTAR_OPTIONS) --cache_dir obj \
-  $(addprefix --include , $(INCLUDE_PATHS)) --cmi \
+  $(addprefix --include , $(INCLUDE_PATHS)) \
   --already_cached 'Prims FStar -FStar.Krml.Endianness LowStar -LowStar.Lib'
 
 # Note: not compatible with the OPAM layout until fstar can be queried for the

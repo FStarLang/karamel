@@ -88,7 +88,7 @@ FSTAR		= $(FSTAR_EXE) \
   $(INCLUDE_CRYPTO) --include ../book --include ../book/notfslit --ext optimize_let_vc \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
   --trivial_pre_for_unannotated_effectful_fns false \
-  --cmi --warn_error -274
+  --warn_error -274
 
 all: $(FILES) rust $(WASM_FILES) $(CUSTOM) ctypes-test sepcomp-test rust-val-test bundle-test rust-propererasure-bundle-test
 
