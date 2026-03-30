@@ -311,7 +311,8 @@ and mask w e =
 and is_integer_arith op w =
   w <> K.Bool && not (Constant.is_float w) && K.is_unsigned w && match op with
   | K.Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
-  | BOr | BAnd | BXor | BShiftL | BShiftR | BNot ->
+  | BOr | BAnd | BXor | BShiftL | BShiftR | BNot
+  | Eq | Neq | Lt | Lte | Gt | Gte ->
       true
   | _ ->
       false
@@ -342,6 +343,8 @@ and mk_arith env e =
           CStar.Call (Op op, [ mask_if a1 w e1; mask_if a2 w e2 ])
       | BShiftR ->
           CStar.Call (Op op, [ mask_if a1 w e1; e2 ])
+      | Eq | Neq | Lt | Lte | Gt | Gte ->
+          CStar.Call (Op op, [ mask_if a1 w e1; mask_if a2 w e2 ])
       | _ ->
           assert false
       end, false, w1 || w2
