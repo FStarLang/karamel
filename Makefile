@@ -19,6 +19,7 @@ minimal: lib/Version.ml
 	dune build
 	ln -sf _build/default/src/Karamel.exe krml
 
+ifneq ($(LOWSTAR),false)
 krmllib: minimal
 	@# Make sure krml can find its relevant directories, since
 	@# it is not yet installed with them.
@@ -27,6 +28,9 @@ krmllib: minimal
 	  KRML_INCLUDEDIR=$(CURDIR)/include \
 	  KRML_MISCDIR=$(CURDIR)/misc \
 	  $(MAKE) -C krmllib
+else
+krmllib: minimal
+endif
 
 # A full local install. out/ will contain essentially the same directory
 # as an OPAM install or binary package.
