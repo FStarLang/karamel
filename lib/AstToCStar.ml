@@ -311,7 +311,8 @@ and mask w e =
 and is_integer_arith op w =
   w <> K.Bool && not (Constant.is_float w) && K.is_unsigned w && match op with
   | K.Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
-  | BOr | BAnd | BXor | BShiftL | BShiftR | BNot ->
+  | BOr | BAnd | BXor | BShiftL | BShiftR | BNot
+  | Eq | Neq | Lt | Lte | Gt | Gte ->
       true
   | _ ->
       false
@@ -336,15 +337,22 @@ and mk_arith env e =
       let e1, a1, w1 = mk_arith env e1 in
       let e2, a2, w2 = mk_arith env e2 in
       begin match op with
-      | Add | AddW | Sub | SubW | Mult | MultW | BOr | BAnd | BXor | BNot | BShiftL ->
+      | Add | AddW | Sub | SubW | Mult | MultW | BOr | BAnd | BXor | BShiftL ->
           CStar.Call (Op op, [ e1; e2 ])
       | Mod | Div | DivW ->
           CStar.Call (Op op, [ mask_if a1 w e1; mask_if a2 w e2 ])
       | BShiftR ->
           CStar.Call (Op op, [ mask_if a1 w e1; e2 ])
+      | Eq | Neq | Lt | Lte | Gt | Gte ->
+          CStar.Call (Op op, [ mask_if a1 w e1; mask_if a2 w e2 ])
       | _ ->
           assert false
       end, false, w1 || w2
+  | EApp ({ node = EOp (BNot, w); _ }, [ e1 ]) when is_integer_arith BNot w ->
+      (* BNot is unary. Complement always corrupts upper bits for UInt8/UInt16
+         (~(uint8_t)0x0F promotes to int 0xFFFFFFF0), so we must mask. *)
+      let e1, _, w1 = mk_arith env e1 in
+      mask w (CStar.Call (Op BNot, [ e1 ])), true, w1
   | EConstant _ ->
       (* Constants are emitted with the U suffix which preserves the invariant
          that every subexpression operates over unsigned int until the final
