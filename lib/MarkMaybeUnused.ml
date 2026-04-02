@@ -117,53 +117,64 @@ let ifdef_common_vars (ss1: C.stmt list) (elifs: (C.expr * C.stmt list) list) (s
     SSet.inter branch_vars (vars_of_stmts ss2)
 
 (* Given a statement list (function body), insert KRML_MAYBE_UNUSED_VAR calls
-   for variables that are not used in all branches of an IfDef. *)
+   inside each branch of an IfDef for variables that branch does not use. *)
 let mark_maybe_unused_in_body (stmts: C.stmt list): C.stmt list =
-  let maybe_unused_vars =
+  (* Collect declared variable names at function top *)
+  let declared_vars =
     List.fold_left (fun acc (s: C.stmt) ->
       match s with
-      | IfDef (_, ss1, elifs, ss2) ->
-          let all_vars = SSet.union (vars_of_stmts ss1)
-            (List.fold_left (fun acc (_, ss) ->
-              SSet.union acc (vars_of_stmts ss)
-            ) (vars_of_stmts ss2) elifs)
-          in
-          let common = ifdef_common_vars ss1 elifs ss2 in
-          SSet.union acc (SSet.diff all_vars common)
+      | Decl (_, _, _, _, _, decl_inits) ->
+          List.fold_left (fun acc (d, _, _) ->
+            match name_of_declarator d with
+            | Some n -> SSet.add n acc
+            | None -> acc
+          ) acc decl_inits
       | _ -> acc
     ) SSet.empty stmts
   in
-  if SSet.is_empty maybe_unused_vars then
+  if SSet.is_empty declared_vars then
     stmts
   else
-    (* Find declared variable names at function top that need marking *)
-    let declared_maybe_unused =
-      List.fold_left (fun acc (s: C.stmt) ->
-        match s with
-        | Decl (_, _, _, _, _, decl_inits) ->
-            List.fold_left (fun acc (d, _, _) ->
-              match name_of_declarator d with
-              | Some n when SSet.mem n maybe_unused_vars -> SSet.add n acc
-              | _ -> acc
-            ) acc decl_inits
-        | _ -> acc
-      ) SSet.empty stmts
+    let mk_unused_stmts vars =
+      SSet.fold (fun n acc ->
+        (C.Expr (C.Call (C.Name "KRML_MAYBE_UNUSED_VAR", [C.Name n])) : C.stmt) :: acc
+      ) vars []
     in
-    if SSet.is_empty declared_maybe_unused then
-      stmts
-    else
-      (* Insert KRML_MAYBE_UNUSED_VAR calls right after the declarations,
-         before the first non-Decl statement *)
-      let rec insert_after_decls = function
-        | ((Decl _ : C.stmt) as d) :: rest ->
-            d :: insert_after_decls rest
-        | rest ->
-            let ignore_stmts = SSet.fold (fun n acc ->
-              (C.Expr (C.Call (C.Name "KRML_MAYBE_UNUSED_VAR", [C.Name n])) : C.stmt) :: acc
-            ) declared_maybe_unused [] in
-            ignore_stmts @ rest
-      in
-      insert_after_decls stmts
+    let mark_branch (branch_vars: SSet.t) (ss: C.stmt list): C.stmt list =
+      let unused = SSet.diff declared_vars branch_vars in
+      (* Only mark variables that are declared and unused in this branch *)
+      let to_mark = SSet.inter unused declared_vars in
+      if SSet.is_empty to_mark then ss
+      else mk_unused_stmts to_mark @ ss
+    in
+    List.map (fun (s: C.stmt) ->
+      match s with
+      | IfDef (e, ss1, elifs, ss2) ->
+          let all_branches_vars =
+            let v = vars_of_stmts ss1 in
+            let v = List.fold_left (fun acc (_, ss) ->
+              SSet.union acc (vars_of_stmts ss)
+            ) v elifs in
+            SSet.union v (vars_of_stmts ss2)
+          in
+          let common = ifdef_common_vars ss1 elifs ss2 in
+          let maybe_unused = SSet.inter declared_vars (SSet.diff all_branches_vars common) in
+          if SSet.is_empty maybe_unused then s
+          else
+            let vars1 = vars_of_stmts ss1 in
+            let ss1' = mark_branch vars1 ss1 in
+            let elifs' = List.map (fun (e, ss) ->
+              let vars = vars_of_stmts ss in
+              (e, mark_branch vars ss)
+            ) elifs in
+            let ss2' = if ss2 = [] then ss2
+              else
+                let vars2 = vars_of_stmts ss2 in
+                mark_branch vars2 ss2
+            in
+            (IfDef (e, ss1', elifs', ss2') : C.stmt)
+      | other -> other
+    ) stmts
 
 let mark_maybe_unused_stmts (s: C.stmt): C.stmt =
   match s with
