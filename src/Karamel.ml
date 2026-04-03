@@ -119,6 +119,7 @@ The default is %s and the available warnings are:
       let-bindings, rewriting to an if-then-else
   21: cannot translate to macro
   22: dropping declaration at ctypes bindings generation time
+  29: non-constant size stack-allocated array cannot be hoisted past statements
 
 The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
 The Api= part is optional and Api is made up of a non-empty list of modules
@@ -339,6 +340,8 @@ Supported options:|}
         prefix restricts merges to variables that share a common prefix; \
         aggressive always merges";
     "-fc89-scope", Arg.Set Options.c89_scope, "  use C89 scoping rules";
+    "-fhoist-locals", Arg.Set Options.hoist_locals, "  hoist all local variable \
+      declarations to the beginning of the function";
     "-fcast-allocations", Arg.Set Options.cast_allocations, "  cast allocations (for C89, or for C++)";
     "-fc++-compat", Arg.Set Options.cxx_compat, "  make the \
       generated code compile both as C11 and C++20";
@@ -702,6 +705,7 @@ Supported options:|}
 
   let files = if Options.rust () then SimplifyRust.simplify_ast files else files in
   let files = Simplify.simplify2 ifdefs files in
+  let files = if !Options.hoist_locals then HoistLocals.hoist_locals files else files in
   let files = Inlining.mark_possibly_unused ifdefs files in
   let files = if Options.(!merge_variables <> No) then SimplifyMerge.simplify files else files in
   if !arg_print_structs then

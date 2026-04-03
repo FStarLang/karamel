@@ -45,7 +45,7 @@ let failwith fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 29 CError;;
+let flags = Array.make 30 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -110,6 +110,8 @@ let errno_of_error = function
       27
   | UnrecognizedCCompiler _ ->
       28
+  | HoistLocalsVla _ ->
+      29
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -220,6 +222,9 @@ let rec perr buf (loc, raw_error) =
       below:\n%a" plid lid pexpr e
   | UnrecognizedCCompiler cc ->
       p "Unrecognized C compiler: %s" cc
+  | HoistLocalsVla id ->
+      p "%s is a non-constant size, stack-allocated array that cannot be \
+        hoisted past statements by -fhoist-locals; leaving declaration in place" id
 
 let maybe_fatal_error error =
   flush stdout;
