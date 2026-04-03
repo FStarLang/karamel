@@ -29,14 +29,18 @@ KRML = $(KRML_BIN) -fstar $(FSTAR_EXE) $(TEST_OPTS)
 comma := ,
 
 # Tests where output must be identical with and without -fhoist-locals
-TESTS = HoistInt HoistArray HoistScope HoistVlaNoWarn
+TESTS = HoistInt HoistArray HoistScope HoistVlaNoWarn HoistComment
 
 # Tests that exercise the VLA warning (compiled with -warn-error -29)
 WARN_TESTS = HoistVlaWarn
 
+# Tests that verify comment/declaration ordering in the generated C source
+ORDER_TESTS = HoistComment
+
 ALL_TESTS = $(TESTS) $(WARN_TESTS)
 
-all: $(addsuffix .compare,$(TESTS)) $(addsuffix .warn-test,$(WARN_TESTS))
+all: $(addsuffix .compare,$(TESTS)) $(addsuffix .warn-test,$(WARN_TESTS)) \
+     $(addsuffix .order-test,$(ORDER_TESTS))
 
 .PRECIOUS: %.krml $(OUTPUT_DIR)/%.krml
 
@@ -126,6 +130,26 @@ $(OUTPUT_DIR)/HoistVlaWarn.hoist.exe: EXTRA = -warn-error -6-29
 # VLA no-warn tests: verify that -fhoist-locals does NOT produce warning 29
 $(OUTPUT_DIR)/HoistVlaNoWarn.nohoist.exe: EXTRA = -warn-error -6
 $(OUTPUT_DIR)/HoistVlaNoWarn.hoist.exe: EXTRA = -warn-error -6
+
+# Order test: verify that comments and initialisers/assignments appear in the
+# same relative order with and without -fhoist-locals.  We normalise the
+# generated C by stripping the type prefix from declarations (so that
+# "int32_t x = 1;" and "x = 1;" both become "x = 1;") and compare.
+%.order-test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).nohoist.exe $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).hoist.exe
+	@echo "Checking comment/init order for $*..."
+	@grep -E 'MARKER|int32_t [a-z_][a-z0-9_]* = |^ +[a-z_][a-z0-9_]* = ' \
+	  $(subst .exe,.out,$(word 1,$^))/$*.c \
+	  | sed 's/int32_t //; s/^ *//' > $(OUTPUT_DIR)/$*.nohoist.order
+	@grep -E 'MARKER|int32_t [a-z_][a-z0-9_]* = |^ +[a-z_][a-z0-9_]* = ' \
+	  $(subst .exe,.out,$(word 2,$^))/$*.c \
+	  | sed 's/int32_t //; s/^ *//' > $(OUTPUT_DIR)/$*.hoist.order
+	@if diff -u $(OUTPUT_DIR)/$*.nohoist.order $(OUTPUT_DIR)/$*.hoist.order > /dev/null 2>&1; then \
+	  echo -e "\033[01;32m✔\033[00m [ORDER,$*] comment/init order preserved"; \
+	else \
+	  echo -e "\033[01;31m✘\033[00m [ORDER,$*] comment/init order differs:"; \
+	  diff -u $(OUTPUT_DIR)/$*.nohoist.order $(OUTPUT_DIR)/$*.hoist.order; \
+	  false; \
+	fi
 
 clean:
 	rm -rf $(CACHE_DIR) $(OUTPUT_DIR) .depend *.cmd *.output *.err *.time *~

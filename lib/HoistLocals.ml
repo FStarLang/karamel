@@ -32,11 +32,11 @@ let is_vla e1 =
       (match size.node with EConstant _ -> false | _ -> true)
   | _ -> false
 
-(* An opened binder + its initializer (or EAny if split). *)
-type hoisted = {
-  b: binder;
-  init: expr;
-}
+(* A hoisted item: either a local variable declaration (opened binder + its
+   initializer, or EAny if split) or a standalone comment. *)
+type hoisted =
+  | HDecl of binder * expr
+  | HComment of string
 
 (* Prepend a statement before a body, flattening into ESequence. *)
 let prepend stmt body typ =
@@ -67,40 +67,69 @@ let rec hoist ~only_decls (e: expr) : hoisted list * expr =
       if only_decls && not init_has_stmts then begin
         (* Still in the declaration zone. Keep the initializer. *)
         let rest_h, rest_body = hoist ~only_decls:true e2_o in
-        (init_h @ [{ b = b_o; init = e1_r }] @ rest_h, rest_body)
-      end else if is_vla e1 && not only_decls then begin
-        (* VLA that would need to cross real statements: warn, leave in place. *)
+        (init_h @ [HDecl (b_o, e1_r)] @ rest_h, rest_body)
+      end else if is_vla e1 then begin
+        (* VLA: emit warning, leave the declaration in place. *)
         Warn.(maybe_fatal_error ("", Error.HoistLocalsVla b_o.node.name));
         let rest_h, rest_body = hoist ~only_decls:false e2_o in
         let residual =
           { node = ELet (b_o, e1_r, close_binder b_o rest_body);
             typ = e.typ; meta = e.meta } in
         (init_h @ rest_h, residual)
-      end else if is_bufcreate e1 then begin
-        (* Buffer creation must remain under its let-binding (required by
-           later passes). Leave the declaration in place. *)
-        let rest_h, rest_body = hoist ~only_decls:false e2_o in
-        let residual =
-          { node = ELet (b_o, e1_r, close_binder b_o rest_body);
-            typ = e.typ; meta = e.meta } in
-        (init_h @ rest_h, residual)
       end else begin
-        (* Past the declaration zone: separate declaration from initializer. *)
-        let b_mut = mark_mut b_o in
-        let decl = { b = b_mut;
-                     init = { node = EAny; typ = b_o.typ; meta = [] } } in
-        let rest_h, rest_body = hoist ~only_decls:false e2_o in
-        (* If the init is already EAny, no assignment is needed. *)
-        if e1_r.node = EAny then
-          (init_h @ [decl] @ rest_h, rest_body)
-        else
-          let assign =
-            { node = EAssign (
-                { node = EOpen (b_o.node.name, b_o.node.atom);
-                  typ = b_o.typ; meta = [] },
-                e1_r);
-              typ = TUnit; meta = [] } in
-          (init_h @ [decl] @ rest_h, prepend assign rest_body e.typ)
+        match e1_r.node with
+        | EBufCreate (l, init, size) ->
+            (* Constant-size buffer: hoist the declaration with EAny init,
+               emit EBufFill at original location. *)
+            let decl_init =
+              { e1_r with node = EBufCreate (l,
+                  { node = EAny; typ = init.typ; meta = [] }, size) } in
+            let buf_ref =
+              { node = EOpen (b_o.node.name, b_o.node.atom);
+                typ = b_o.typ; meta = [] } in
+            let fill =
+              { node = EBufFill (buf_ref, init, size);
+                typ = TUnit; meta = [] } in
+            let rest_h, rest_body = hoist ~only_decls:false e2_o in
+            (init_h @ [HDecl (b_o, decl_init)] @ rest_h,
+             prepend fill rest_body e.typ)
+        | EBufCreateL (l, inits) ->
+            (* Buffer from literal list: hoist the declaration with EAny
+               elements, emit individual EBufWrite for each element at
+               original location. *)
+            let any_init = { node = EAny; typ = (List.hd inits).typ; meta = [] } in
+            let decl_init =
+              { e1_r with node = EBufCreateL (l,
+                  List.map (fun _ -> any_init) inits) } in
+            let buf_ref =
+              { node = EOpen (b_o.node.name, b_o.node.atom);
+                typ = b_o.typ; meta = [] } in
+            let writes = List.mapi (fun i ei ->
+                let idx = { node = EConstant (K.UInt32, string_of_int i);
+                            typ = TInt K.UInt32; meta = [] } in
+                { node = EBufWrite (buf_ref, idx, ei);
+                  typ = TUnit; meta = [] }
+            ) inits in
+            let rest_h, rest_body = hoist ~only_decls:false e2_o in
+            let body' = List.fold_right
+              (fun w acc -> prepend w acc e.typ) writes rest_body in
+            (init_h @ [HDecl (b_o, decl_init)] @ rest_h, body')
+        | _ ->
+            (* Non-buffer: separate declaration from initializer. *)
+            let b_mut = mark_mut b_o in
+            let decl = HDecl (b_mut,
+                         { node = EAny; typ = b_o.typ; meta = [] }) in
+            let rest_h, rest_body = hoist ~only_decls:false e2_o in
+            if e1_r.node = EAny then
+              (init_h @ [decl] @ rest_h, rest_body)
+            else
+              let assign =
+                { node = EAssign (
+                    { node = EOpen (b_o.node.name, b_o.node.atom);
+                      typ = b_o.typ; meta = [] },
+                    e1_r);
+                  typ = TUnit; meta = [] } in
+              (init_h @ [decl] @ rest_h, prepend assign rest_body e.typ)
       end
 
   (* Push/pop frame markers: these are structural, not real statements.
@@ -119,6 +148,13 @@ let rec hoist ~only_decls (e: expr) : hoisted list * expr =
   | EPopFrame ->
       ([], e)
 
+  (* MetaSequence binding whose expression is a standalone comment: in the
+     declaration zone, hoist the comment and keep collecting declarations. *)
+  | ELet (b, { node = EStandaloneComment s; _ }, e2) when only_decls ->
+      let _, e2_o = open_binder b e2 in
+      let rest_h, rest_body = hoist ~only_decls:true e2_o in
+      (HComment s :: rest_h, rest_body)
+
   (* MetaSequence binding: a sequencing construct, not a variable declaration.
      This marks the transition from decl zone to statement zone. *)
   | ELet (b, e1, e2) ->
@@ -130,9 +166,43 @@ let rec hoist ~only_decls (e: expr) : hoisted list * expr =
   | ESequence es ->
       hoist_seq ~only_decls e.typ e.meta es
 
-  (* Comments don't affect only_decls status. *)
+  (* In the declaration zone, hoist comments along with declarations so
+     they maintain their position relative to initialised declarations. *)
+  | EStandaloneComment s when only_decls ->
+      ([HComment s], { node = ESequence []; typ = e.typ; meta = [] })
+
+  (* Outside the declaration zone, leave comments in place. *)
   | EStandaloneComment _ ->
       ([], e)
+
+  (* Branching constructs: recurse into their sub-bodies to hoist any
+     local declarations up to the function level. *)
+  | EIfThenElse (e1, e2, e3) ->
+      let h2, e2' = hoist ~only_decls:false e2 in
+      let h3, e3' = hoist ~only_decls:false e3 in
+      (h2 @ h3, { e with node = EIfThenElse (e1, e2', e3') })
+
+  | ESwitch (e1, branches) ->
+      let hs, branches' = List.split (List.map (fun (c, body) ->
+        let h, body' = hoist ~only_decls:false body in
+        (h, (c, body'))
+      ) branches) in
+      (List.flatten hs, { e with node = ESwitch (e1, branches') })
+
+  | EWhile (e1, e2) ->
+      let h2, e2' = hoist ~only_decls:false e2 in
+      (h2, { e with node = EWhile (e1, e2') })
+
+  | EFor (b, e1, e2, e3, e4) ->
+      let h4, e4' = hoist ~only_decls:false e4 in
+      (h4, { e with node = EFor (b, e1, e2, e3, e4') })
+
+  | EMatch (flav, e1, branches) ->
+      let hs, branches' = List.split (List.map (fun (bs, pat, body) ->
+        let h, body' = hoist ~only_decls:false body in
+        (h, (bs, pat, body'))
+      ) branches) in
+      (List.flatten hs, { e with node = EMatch (flav, e1, branches') })
 
   (* Any other expression is a "real statement" — nothing to hoist from it. *)
   | _ ->
@@ -174,11 +244,21 @@ and flatten_seq e1 e2 typ meta =
   | [e] -> e
   | es -> { node = ESequence es; typ; meta }
 
-(* Rebuild: place hoisted declarations at the top, then the residual body. *)
+(* Rebuild: place hoisted declarations and comments at the top, then the
+   residual body.  Comments are emitted as EStandaloneComment nodes inside
+   ESequence wrappers so that AstToCStar processes them as proper statement-
+   level comments, preserving their individual identity and source order. *)
 and rebuild hoisted body =
-  List.fold_right (fun { b; init } acc ->
-    { node = ELet (b, init, close_binder b acc);
-      typ = acc.typ; meta = [] }
+  List.fold_right (fun h acc ->
+    match h with
+    | HDecl (b, init) ->
+        { node = ELet (b, init, close_binder b acc);
+          typ = acc.typ; meta = [] }
+    | HComment s ->
+        let c = { node = EStandaloneComment s; typ = TUnit; meta = [] } in
+        match acc.node with
+        | ESequence es -> { acc with node = ESequence (c :: es) }
+        | _ -> { node = ESequence [c; acc]; typ = acc.typ; meta = [] }
   ) hoisted body
 
 (* Entry point: transform all function declarations. *)
