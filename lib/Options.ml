@@ -46,7 +46,7 @@ let add_include: (include_ * string) list ref = ref [ ]
 let add_include_tmh = ref false
 let add_early_include: (include_ * string) list ref = ref [ ]
 let add_very_early_include: (include_ * string) list ref = ref [ ]
-let warn_error = ref "+1@2@3+4..8@9+10@11+12..18@19+20..22+24..25@26..28@29"
+let warn_error = ref "+1@2@3+4..8@9+10@11+12..18@19+20..22+24..25@26..30"
 let tmpdir = ref "."
 let includes: string list ref = ref []
 let verbose = ref false
@@ -100,6 +100,9 @@ let no_return_else = ref false
 (* TODO: remove this *)
 type merge = No | Prefix | Aggressive
 let merge_variables = ref No
+
+type initialize_locals = No | C23 | C99 | C89
+let initialize_locals = ref No
 
 let linux_ints = ref false
 let microsoft = ref false

@@ -45,7 +45,7 @@ let failwith fmt =
 
 (* The main error printing function. *)
 
-let flags = Array.make 30 CError;;
+let flags = Array.make 31 CError;;
 
 (* When adding a new user-configurable error, there are *several* things to
  * update:
@@ -112,6 +112,8 @@ let errno_of_error = function
       28
   | HoistLocalsVla _ ->
       29
+  | InitializerUnknownType _ ->
+      30
   | _ ->
       (** Things that cannot be silenced! *)
       0
@@ -225,6 +227,8 @@ let rec perr buf (loc, raw_error) =
   | HoistLocalsVla id ->
       p "%s is a non-constant size, stack-allocated array that cannot be \
         hoisted past statements by -fhoist-locals; leaving declaration in place" id
+  | InitializerUnknownType name ->
+      p "Cannot generate type-aware initializer for unknown type %s, using { 0 } as fallback" name
 
 let maybe_fatal_error error =
   flush stdout;

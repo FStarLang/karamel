@@ -37,6 +37,7 @@ and raw_error =
   | LibraryPointerAmbiguity of lident * expr
   | UnrecognizedCCompiler of string
   | HoistLocalsVla of ident
+  | InitializerUnknownType of string
 
 and location =
   string

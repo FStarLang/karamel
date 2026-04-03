@@ -120,6 +120,7 @@ The default is %s and the available warnings are:
   21: cannot translate to macro
   22: dropping declaration at ctypes bindings generation time
   29: non-constant size stack-allocated array cannot be hoisted past statements
+  30: cannot generate type-aware initializer for an unknown type
 
 The [-bundle] option takes an argument of the form Api=Pattern1,...,Patternn
 The Api= part is optional and Api is made up of a non-empty list of modules
@@ -339,6 +340,14 @@ Supported options:|}
       "  merge variables together rather than emit shadowing let-bindings; \
         prefix restricts merges to variables that share a common prefix; \
         aggressive always merges";
+    "-finitialize-locals", Arg.String (function
+      | s when String.lowercase_ascii s = "no" -> Options.(initialize_locals := No)
+      | s when String.lowercase_ascii s = "c23" -> Options.(initialize_locals := C23)
+      | s when String.lowercase_ascii s = "c99" -> Options.(initialize_locals := C99)
+      | s when String.lowercase_ascii s = "c89" -> Options.(initialize_locals := C89)
+      | _ -> failwith "Unknown value for option -finitialize-locals (must be one of: no, c23, c99, c89)"),
+      "  initialize all local variable declarations with zero values; \
+        c23 uses = {}; c99 uses designated initializers; c89 uses positional initializers";
     "-fc89-scope", Arg.Set Options.c89_scope, "  use C89 scoping rules";
     "-fhoist-locals", Arg.Set Options.hoist_locals, "  hoist all local variable \
       declarations to the beginning of the function";
@@ -806,6 +815,12 @@ Supported options:|}
     (* Bundles.debug_deps deps; *)
     let ml_files  = GenCtypes.mk_ocaml_bindings files c_name_map file_of_map in
     let files = CStarToC11.mk_files c_name_map files in
+    let files = match !Options.initialize_locals with
+      | Options.No -> files
+      | Options.C23 -> InitializeLocals.initialize_files InitializeLocals.C23 headers files
+      | Options.C99 -> InitializeLocals.initialize_files InitializeLocals.C99 headers files
+      | Options.C89 -> InitializeLocals.initialize_files InitializeLocals.C89 headers files
+    in
     let files = List.filter (fun (_, decls) -> List.length decls > 0) files in
     tick_print true "CStarToC";
 
