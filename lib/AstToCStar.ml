@@ -343,6 +343,11 @@ and mk_arith env e =
           CStar.Call (Op op, [ mask_if a1 w e1; mask_if a2 w e2 ])
       | BShiftR ->
           CStar.Call (Op op, [ mask_if a1 w e1; e2 ])
+      | Eq | Neq | Lt | Lte | Gt | Gte when a1 && a2 ->
+          (* Both operands are atomic (no arithmetic widening) — compare at
+             native width without redundant upcasts. *)
+          let strip e = match e with CStar.Cast (inner, _) -> inner | _ -> e in
+          CStar.Call (Op op, [ strip e1; strip e2 ])
       | Eq | Neq | Lt | Lte | Gt | Gte ->
           CStar.Call (Op op, [ mask_if a1 w e1; mask_if a2 w e2 ])
       | _ ->

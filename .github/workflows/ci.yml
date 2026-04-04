@@ -304,6 +304,23 @@ jobs:
           export OCAMLRUNPARAM=b
           make -kj$(nproc) test-pulse
 
+  test-eurydice:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: hacl
+
+      - name: Build and test Eurydice against this Karamel
+        run: |
+          nix build -L --no-link \
+            "github:AeneasVerif/eurydice#checks.x86_64-linux.default" \
+            --override-input karamel "github:FStarLang/karamel/$GITHUB_SHA"
+
   # A single no-op job to use for branch protection
   ciok:
     runs-on: ubuntu-latest
@@ -312,6 +329,7 @@ jobs:
       - build-and-test
       - build-and-test-pulse
       - build-krmllib
+      - test-eurydice
     steps:
       # Note: this only runs when a dependency fails. If they all succeed,
       # this jobs is skipped, which counts as a success.

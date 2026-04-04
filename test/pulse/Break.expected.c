@@ -42,17 +42,17 @@ void Break_break_continue_and_return(uint8_t which)
   while (cond)
   {
     bool _continue = false;
-    if ((uint32_t)which == 0U)
+    if (which == 0U)
       _break = true;
     bool _break1 = _break;
     if (!_break1)
     {
-      if ((uint32_t)which == 1U)
+      if (which == 1U)
         _continue = true;
       bool _continue1 = _continue;
       if (!_continue1)
       {
-        if ((uint32_t)which == 2U)
+        if (which == 2U)
           _return = true;
         bool _return1 = _return;
         if (!_return1)
