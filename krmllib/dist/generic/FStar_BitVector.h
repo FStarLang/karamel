@@ -71,20 +71,6 @@ extern Prims_list__bool
   krml_checked_int_t s
 );
 
-extern Prims_list__bool
-*FStar_BitVector_rotate_left_vec(
-  krml_checked_int_t n,
-  Prims_list__bool *a,
-  krml_checked_int_t s
-);
-
-extern Prims_list__bool
-*FStar_BitVector_rotate_right_vec(
-  krml_checked_int_t n,
-  Prims_list__bool *a,
-  krml_checked_int_t s
-);
-
 
 #define FStar_BitVector_H_DEFINED
 #endif /* FStar_BitVector_H */
