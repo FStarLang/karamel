@@ -18,11 +18,11 @@ ready to be merged:
 
 ```bash
 $ cd eurydice
-$ (cd karamel && git fetch && git checkout <<the pr branch>> && git merge)
+$ (cd karamel && git fetch && git checkout my-pr-branch && git merge)
 $ (cd out/ && git clean -fdx)
 $ make test -j
 $ nix flake update karamel --override-input karamel "github:fstarlang/karamel/$(cd karamel && git rev-parse head)"
-$ git commit -am "Update krml to latest revision on branch <<the pr branch>>"
+$ git commit -am "Update krml to latest revision on branch my-pr-branch"
 ```
 
 If the PR is being submitted from a *fork* of krml, then you must replicate the
