@@ -25,7 +25,7 @@ ifeq ($(KRML_LIBDIR),)
  KRML_EXE ?= krml
  KRML_LIBDIR != $(KRML_EXE) -locate-krmllib
  ifeq ($(KRML_LIBDIR),)
-  $(error "Could not find a proper include directory for karamel. Either set KRML_LIBDIR to it, or add krml to the PATH, or set KRML_EXE.")
+  $(error "Could not find a proper library directory for karamel. Either set KRML_LIBDIR to it, or add krml to the PATH, or set KRML_EXE.")
  endif
 endif
 
