@@ -5,7 +5,7 @@ include visitors.mk
 
 FSTAR_EXE ?= fstar.exe
 
-all: local-install krmllib
+all: local-install
 
 # If we are just trying to do a minimal build, we don't need F*.
 # Note: lazy assignment so this does not warn if fstar.exe is not there
