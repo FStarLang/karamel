@@ -39,8 +39,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          key: opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }}
           restore-keys: |
+            opam-${{ runner.os }}-${{ runner.arch }}-fstar1-
             opam-${{ runner.os }}-${{ runner.arch }}-
 
       # Build F*, from the fstar1 branch.
@@ -67,7 +68,7 @@ jobs:
       # Paranoid delete before saving. Note: run_id is constant across reruns.
       - name: Delete OPAM state if it already existed
         run: |
-          gh cache delete opam-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }} || true
+          gh cache delete opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }} || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -77,7 +78,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          key: opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }}
 
   build-and-test:
     needs: build-deps
@@ -106,7 +107,7 @@ jobs:
         with:
           fail-on-cache-miss: true # should never happen, cache was filled by build-deps
           path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          key: opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }}
 
       - uses: actions/setup-node@v4
         with:
@@ -156,7 +157,7 @@ jobs:
         with:
           fail-on-cache-miss: true # should never happen, cache was filled by build-deps
           path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          key: opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }}
 
       - name: Setup environment
         run: |
