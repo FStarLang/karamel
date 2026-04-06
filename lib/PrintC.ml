@@ -62,6 +62,11 @@ let p_or p x =
   | Some x -> p x
   | None -> empty
 
+  (* Negative power of two, to check for minimum integers. *)
+  let npow2 x = Z.neg (Z.pow (Z.of_int 2) x)
+  let npow2_31 = npow2 31
+  let npow2_63 = npow2 63
+
 let rec p_type_spec = function
   | Int w -> print_width w
   | Void -> string "void"
@@ -223,13 +228,27 @@ and defeat_Wparentheses op e prec =
   | _ ->
       prec
 
-and p_constant w s =
-  let suffix = match w with
-    | K.UInt64 -> string "ULL"
-    | UInt32 | UInt16 | UInt8 | SizeT -> string "U"
-    | _ -> empty
-  in
-  string s ^^ suffix
+and p_constant w (s : string) : document =
+  let open Constant in
+  (* Special case the minimum integer in the larger widths.
+     In C, -123 is not a negative literal but the unary minus applied to the 123
+     literal. This means that for the minimum integer, e.g. -2147483648, the
+     literal may overflow (it won't fit in a signed 32 bit int). In practice
+     this is benign, but we get warnings about it. The C idiom to represent the
+     minimum integer is (-2147483647 - 1), but since we have stdint we can use
+     the custom macros.  Int8 and Int16 are guaranteed to fit in a plain `int`
+     so there is no problem there. *)
+  match w with
+  | Int64 when Z.of_string s = npow2_63 -> string "INT64_MIN"
+  | Int32 when Z.of_string s = npow2_31 -> string "INT32_MIN"
+  | _ ->
+    let suffix = match w with
+      | UInt64 -> string "ULL"
+      | UInt32 | UInt16 | UInt8 | SizeT -> string "U"
+      | Int64 -> string "LL"
+      | _ -> empty
+    in
+    string s ^^ suffix
 
 and p_expr' curr = function
   | Op1 (op, e1) ->
