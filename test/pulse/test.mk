@@ -55,7 +55,7 @@ FSTAR_ARGS += $(OTHERFLAGS)
 # Set ADMIT=1 to admit queries
 FSTAR_ARGS += $(if $(ADMIT),--admit_smt_queries true)
 
-KRML_EXE ?= ../../krml
+KRML_EXE ?= $(abspath ../../krml)
 _ := $(shell $(KRML_EXE) -help)
 ifneq ($(.SHELLSTATUS),0)
 _: $(error "Cannot run krml, aborting (KRML_EXE = $(KRML_EXE))")

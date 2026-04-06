@@ -18,7 +18,7 @@ ifeq (3.81,$(MAKE_VERSION))
     install make, then invoke gmake instead of make)
 endif
 
-KRML_EXE ?= ../../../krml
+KRML_EXE ?= $(abspath ../../../krml)
 
 # Main entry points (first one is default)
 # ----------------------------------------
