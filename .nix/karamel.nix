@@ -65,7 +65,7 @@ in
           # the library is named `krml` rather than `karamel`
           mv karamel.opam krml.opam
           sed -i '/name krml/a (public_name krml)' lib/dune
-          make lib/Version.ml lib/AutoConfig.ml
+          make lib/Version.ml
         '';
         src = ../.;
       };

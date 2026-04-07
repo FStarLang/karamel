@@ -12,10 +12,11 @@ fstar-mode.el
 lib/Version.ml
 *.runlim
 karamel-nofstar.opam
-lib/AutoConfig.ml
 *.orig
 .exrc
 *.cmd
 *.err
 *.output
 *.time
+out
+krml.tar.gz

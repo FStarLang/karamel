@@ -75,7 +75,7 @@ let invocation (): string =
 |}
     (String.concat " " (Array.to_list Sys.argv))
     !Driver.fstar_rev
-    !Driver.krml_rev
+    Version.version
 
 let header (): string =
   let default = invocation () in
