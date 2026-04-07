@@ -50,6 +50,10 @@ extern int64_t FStar_Int64_shift_right(int64_t a, uint32_t s);
 
 extern int64_t FStar_Int64_shift_left(int64_t a, uint32_t s);
 
+extern int64_t FStar_Int64_rotate_right(int64_t a, uint32_t s);
+
+extern int64_t FStar_Int64_rotate_left(int64_t a, uint32_t s);
+
 extern bool FStar_Int64_eq(int64_t a, int64_t b);
 
 extern bool FStar_Int64_ne(int64_t a, int64_t b);
