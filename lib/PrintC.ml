@@ -474,6 +474,10 @@ and p_stmt (s: stmt) =
      string "break" ^^ semi
   | Continue ->
      string "continue" ^^ semi
+  | Goto label ->
+     group (string "goto" ^^ space ^^ string label ^^ semi)
+  | Label label ->
+     group (string label ^^ colon ^^ space ^^ semi)
 
 and p_stmts stmts = separate_map hardline p_stmt stmts
 

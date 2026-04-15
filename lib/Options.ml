@@ -164,3 +164,5 @@ let allow_tapps = ref false
 (* Rust only: foo_bar_baz.fst gets emitted as foo/bar_baz.fst with depth=1 and
    foo/bar/baz.fst with depth = 2 (you get the idea). *)
 let depth = ref 1
+
+let goto_for_early_return = ref false
