@@ -1626,7 +1626,7 @@ let mk_headers (map: GlobalNames.mapping)
     (* List.iter (fun d -> *)
     (*   KPrint.bprintf "  %a\n" PrintAst.Ops.plid (lid_of_decl d)) program; *)
     let h = mk_public_header map program in
-    let acc = if List.length h > 0 then (name, Public h) :: acc else acc in
+    let acc = if true || List.length h > 0 then (name, Public h) :: acc else acc in
     let h = mk_internal_header map program in
     let acc = if List.length h > 0 then (name, C.Internal h) :: acc else acc in
     acc
