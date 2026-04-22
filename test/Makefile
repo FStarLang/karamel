@@ -25,8 +25,13 @@ ifneq ($(CRYPTO),)
   CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 endif
 TEST_OPTS	= -warn-error @4 -skip-makefiles
-KRML_BIN	= ../_build/default/src/Karamel.exe
-KRML		= $(KRML_BIN) -fstar $(FSTAR_EXE) $(KOPTS) $(TEST_OPTS)
+
+# Make sure children invocations use the same KRML.
+KRML_EXE	= ../out/bin/krml
+KRML_EXE	:= $(abspath $(KRML_EXE))
+export KRML_EXE
+
+KRML		= $(KRML_EXE) -fstar $(FSTAR_EXE) $(KOPTS) $(TEST_OPTS)
 
 # TODO: disambiguate between broken tests that arguably should work (maybe
 # HigherOrder6?) and helper files that are required for multiple-module tests
@@ -57,7 +62,7 @@ endif
 
 CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased \
   check-right-file count-deref check-global-init check-useless-alias check-inline-let \
-  check-comment check-ignore check-aggressive-inline check-malloca
+  check-comment check-ignore check-aggressive-inline check-malloca check-folding
 
 ifneq ($(CRYPTO),)
   CRYPTO_WASM_FILES=Crypto.Symmetric.Chacha20.wasm-test
@@ -79,7 +84,7 @@ endif
 FSTAR		= $(FSTAR_EXE) \
   --cache_dir $(CACHE_DIR) --odir $(OUTPUT_DIR) \
   --include hello-system --include ../krmllib/compat --include ../krmllib/obj \
-  --include ../krmllib --include ../runtime \
+  --include ../krmllib --include ../krmllib/runtime \
   $(INCLUDE_CRYPTO) --include ../book --include ../book/notfslit --ext optimize_let_vc \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
   --trivial_pre_for_unannotated_effectful_fns false \
@@ -114,7 +119,7 @@ ifndef NODEPEND
 .depend: .FORCE
 	$(call run-with-log, \
 	  $(FSTAR) --dep full $(subst .wasm-test,.fst,$(WASM_FILES)) $(subst .test,.fst,$(FILES)) \
-	    $(BROKEN) ../runtime/WasmSupport.fst --extract 'krml:*$(comma)-Prims' -o $@ \
+	    $(BROKEN) ../krmllib/runtime/WasmSupport.fst --extract 'krml:*$(comma)-Prims' -o $@ \
 	  ,[DEPEND],\
 	  .depend)
 
@@ -141,7 +146,7 @@ $(OUTPUT_DIR)/%.krml: | .depend
 # Regular (C) #
 ###############
 
-$(OUTPUT_DIR)/Ctypes2.exe: $(ALL_KRML_FILES) $(KRML_BIN)
+$(OUTPUT_DIR)/Ctypes2.exe: $(ALL_KRML_FILES) $(KRML_EXE)
 	$(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) \
 	  -o $@ $(filter %.krml,$^) \
         -skip-compilation $(filter %.krml,$^) \
@@ -150,7 +155,7 @@ $(OUTPUT_DIR)/AggressiveInline.exe: EXTRA := $(EXTRA) -faggressive-inlining
 $(OUTPUT_DIR)/Malloca.exe: EXTRA := $(EXTRA) -warn-error -6 # Uses VLAs
 
 .PRECIOUS: $(OUTPUT_DIR)/%.exe
-$(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_BIN)
+$(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_EXE)
 	$(call run-with-log, \
 	  $(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
 	    -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack$(comma)\* \
@@ -269,6 +274,11 @@ check-malloca: $(OUTPUT_DIR)/Malloca.exe
 	N=$$(grep 'f()' $(OUTPUT_DIR)/Malloca.out/Malloca.c | wc -l) && \
 	  if [[ $$N -ne 1 ]]; then echo "Malloca.c seems to have several calls to f" >&2; false; fi
 
+check-folding: $(OUTPUT_DIR)/BadFolding.exe
+	# Check that all 5 calls (+ definition) remain
+	N=$$(grep 'side_effect_fn' $(OUTPUT_DIR)/BadFolding.out/BadFolding.c | wc -l) && \
+	  if [[ $$N -ne 6 ]]; then echo "BadFolding.c c seems to have dropped some effectful calls" >&2; false; fi
+
 check-comment: $(OUTPUT_DIR)/Comment.exe
 	grep -q XXX1 $(OUTPUT_DIR)/Comment.out/Comment.c && \
 	grep -q XXX2 $(OUTPUT_DIR)/Comment.out/Comment.c && \
@@ -328,7 +338,7 @@ $(LOWLEVEL_DIR)/Client.native: $(OUTPUT_DIR)/Ctypes2.exe $(addprefix $(LOWLEVEL_
 # All WASM targets get the -wasm flag; some specific targets may override
 # NEGATIVE for negative tests.
 .PRECIOUS: $(OUTPUT_DIR)/%.wasm
-$(OUTPUT_DIR)/%.wasm: $(ALL_KRML_FILES) $(KRML_BIN)
+$(OUTPUT_DIR)/%.wasm: $(ALL_KRML_FILES) $(KRML_EXE)
 	$(call run-with-log,$(KRML) -minimal -bundle WasmSupport= -bundle 'FStar.*' -bundle Prims \
 	  -bundle C -bundle C.Endianness -bundle C.Nullity -bundle C.String \
 	  -bundle TestLib \
@@ -352,7 +362,7 @@ WasmTrap.wasm-test: NEGATIVE = true
 ########
 
 .PRECIOUS: %.rs
-%.rs: $(ALL_KRML_FILES) $(KRML_BIN)
+%.rs: $(ALL_KRML_FILES) $(KRML_EXE)
 	$(call run-with-log,$(KRML) -minimal -bundle $(notdir $(subst rust,Rust,$*))=\* \
 	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)\
 	  ,[KRML-RS] $(basename $*),$*)

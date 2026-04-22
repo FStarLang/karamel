@@ -416,6 +416,9 @@ let wrapping_arithmetic = object (self)
 end
 
 let constant_fold = object (self)
+  (* Below, we do some optimizations like 0*x ~> 0. But those are only valid
+     if x is side-effect free, hence the `is_readonly_c_expression` guards. See
+     #709. *)
 
   inherit [_] map
 
@@ -468,8 +471,8 @@ let constant_fold = object (self)
         | EConstant (w1, s1), EConstant (w2, s2) when w = w1 && w1 = w2 ->
           EConstant (w1, op_on_strings Z.mul w s1 s2)
         (* 0*x, x*0 ~> 0 *)
-        | EConstant (w1, "0"), _ when w = w1 -> EConstant(w1, "0");
-        | _, EConstant (w2, "0") when w = w2 -> EConstant(w2, "0");
+        | EConstant (w1, "0"), _ when w = w1 && is_readonly_c_expression e2 -> EConstant(w1, "0");
+        | _, EConstant (w2, "0") when w = w2 && is_readonly_c_expression e1 -> EConstant(w2, "0");
         (* 1*x, x*1 ~> x *)
         | EConstant (w1, "1"), e2 when w = w1 -> e2
         | e1, EConstant (w2, "1") when w = w2 -> e1
@@ -483,8 +486,8 @@ let constant_fold = object (self)
         (* Division of literals. Note, ZArith div/rem coincides with C semantics. *)
         | EConstant (w1, s1), EConstant (w2, s2) when w = w1 && w1 = w2 ->
           EConstant (w1, op_on_strings Z.div w s1 s2)
-        (* 0/x ~> x *)
-        | EConstant (w2, "0"), _ when w = w2 -> EConstant(w2, "0")
+        (* 0/x ~> 0 *)
+        | EConstant (w2, "0"), _ when w = w2 && is_readonly_c_expression e2 -> EConstant(w2, "0")
         (* x/1 ~> x *)
         | _, EConstant (w2, "1") when w = w2 -> e1.node
         | _ -> EApp (e, [ e1; e2 ])
@@ -498,9 +501,9 @@ let constant_fold = object (self)
         | EConstant (w1, s1), EConstant (w2, s2) when w = w1 && w1 = w2 ->
           EConstant (w1, op_on_strings Z.rem w s1 s2)
         (* 0 % x ~> 0 *)
-        | EConstant (w2, "0"), _ when w = w2 -> EConstant(w2, "0")
+        | EConstant (w2, "0"), _ when w = w2 && is_readonly_c_expression e2 -> EConstant(w2, "0")
         (* x % 1 ~> 0 *)
-        | _, EConstant (w2, "1") when w = w2 -> EConstant(w2, "0")
+        | _, EConstant (w2, "1") when w = w2 && is_readonly_c_expression e1 -> EConstant(w2, "0")
         | _ -> EApp (e, [ e1; e2 ])
     )
 
