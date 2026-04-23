@@ -10,7 +10,7 @@ ifeq (3.81,$(MAKE_VERSION))
 endif
 
 FSTAR_EXE ?= fstar.exe
-KRML_BIN = ../../_build/default/src/Karamel.exe
+KRML_BIN = ../../out/bin/krml
 TEST_OPTS = -warn-error @4 -skip-makefiles
 
 CACHE_DIR = .cache
