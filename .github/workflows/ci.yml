@@ -39,13 +39,14 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          key: opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }}
           restore-keys: |
+            opam-${{ runner.os }}-${{ runner.arch }}-fstar1-
             opam-${{ runner.os }}-${{ runner.arch }}-
 
-      # Build F* master.
+      # Build F*, from the fstar1 branch.
       - run: opam update
-      - run: opam pin -n fstar --dev-repo
+      - run: opam pin -n fstar git+https://github.com/FStarLang/FStar#fstar1
       - run: opam install fstar
 
       # Install karamel deps
@@ -64,9 +65,10 @@ jobs:
           # and so far no Karamel regression test suite for EverParse
           # requires 3d
 
+      # Paranoid delete before saving. Note: run_id is constant across reruns.
       - name: Delete OPAM state if it already existed
         run: |
-          gh cache delete opam-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }} || true
+          gh cache delete opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }} || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -76,7 +78,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          key: opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }}
 
   build-and-test:
     needs: build-deps
@@ -94,7 +96,7 @@ jobs:
       - name: Setup ocaml
         uses: ocaml/setup-ocaml@v3
         with:
-           ocaml-compiler: 4.14.2
+           ocaml-compiler: 5.3.0
 
       - uses: actions/checkout@master
         with:
@@ -103,15 +105,13 @@ jobs:
       - name: Restore OPAM state
         uses: actions/cache/restore@v4
         with:
-          fail-on-cache-miss: true
+          fail-on-cache-miss: true # should never happen, cache was filled by build-deps
           path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          key: opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }}
 
       - uses: actions/setup-node@v4
         with:
           node-version: 16
-
-      - run: echo "KRML_HOME=$(pwd)/karamel" >> $GITHUB_ENV
 
       - name: Karamel CI
         working-directory: karamel
@@ -144,7 +144,7 @@ jobs:
       - name: Setup ocaml
         uses: ocaml/setup-ocaml@v3
         with:
-           ocaml-compiler: 4.14.2
+           ocaml-compiler: 5.3.0
 
       - uses: actions/checkout@master
         with:
@@ -153,9 +153,9 @@ jobs:
       - name: Restore OPAM state
         uses: actions/cache/restore@v4
         with:
-          fail-on-cache-miss: true
+          fail-on-cache-miss: true # should never happen, cache was filled by build-deps
           path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          key: opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }}
 
       - name: Setup environment
         run: |
@@ -193,6 +193,7 @@ jobs:
         run: |
           git pull && make cbor-extract-krml cose-extract-krml -kj$(nproc)
 
+      # Paranoid delete before saving. Note: run_id is constant across reruns.
       - name: Delete EverParse cache if it already existed
         run: |
           gh cache delete everparse-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }} || true
@@ -239,9 +240,86 @@ jobs:
       - uses: actions/checkout@master
       - name: Build the checked-in krmllib
         run: |
-          export KRML_HOME=$(pwd)
           export CC=${{matrix.cc}}
+          export KRML_INCLUDEDIR=$(pwd)/include
+          export KRML_LIBDIR=$(pwd)/krmllib
           make -kj$(nproc) -C krmllib/dist/generic -f Makefile.basic
+
+  build-and-test-pulse:
+    runs-on: ubuntu-latest
+    needs: build-deps
+    steps:
+      - name: Setup ocaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+           ocaml-compiler: 5.3.0
+
+      # Note, we prefer to restore the -master cache, but if it doesn't exist,
+      # we restore the latest normal one.
+      - name: Restore OPAM state
+        uses: actions/cache/restore@v4
+        with:
+          fail-on-cache-miss: true
+          path: _opam
+          key: opam-${{ runner.os }}-${{ runner.arch }}-master-${{ github.run_id }}
+          restore-keys: |
+            opam-${{ runner.os }}-${{ runner.arch }}-master-
+            opam-${{ runner.os }}-${{ runner.arch }}-
+
+      # Build F*, master branch
+      - run: opam update
+      - run: opam pin -n fstar git+https://github.com/FStarLang/FStar#master
+      - run: opam install fstar
+
+      # Save OPAM state, note master- in key.
+      - name: Save OPAM state
+        uses: actions/cache/save@v4
+        with:
+          path: _opam
+          key: opam-${{ runner.os }}-${{ runner.arch }}-master-${{ github.run_id }}
+
+      - name: Install Z3 with script
+        run: |
+          wget https://raw.githubusercontent.com/FStarLang/FStar/refs/heads/master/.scripts/get_fstar_z3.sh -O get_fstar_z3.sh
+          chmod +x get_fstar_z3.sh
+          ./get_fstar_z3.sh /usr/local/bin
+       # If these fail, stop right now.
+      - run: which z3-4.8.5
+      - run: which z3-4.13.3
+
+      - uses: actions/checkout@master
+        with:
+          path: karamel
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 16
+
+      - run: echo "KRML_HOME=$(pwd)/karamel" >> $GITHUB_ENV
+
+      - name: Karamel CI (test-pulse)
+        working-directory: karamel
+        run: |
+          eval $(opam env)
+          export OCAMLRUNPARAM=b
+          make -kj$(nproc) test-pulse
+
+  test-eurydice:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: hacl
+
+      - name: Build and test Eurydice against this Karamel
+        run: |
+          nix build -L --no-link \
+            "github:AeneasVerif/eurydice#checks.x86_64-linux.default" \
+            --override-input karamel "github:FStarLang/karamel/$GITHUB_SHA"
 
   # A single no-op job to use for branch protection
   ciok:
@@ -249,7 +327,9 @@ jobs:
     if: ${{ cancelled() || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'failure') }}
     needs:
       - build-and-test
+      - build-and-test-pulse
       - build-krmllib
+      - test-eurydice
     steps:
       # Note: this only runs when a dependency fails. If they all succeed,
       # this jobs is skipped, which counts as a success.

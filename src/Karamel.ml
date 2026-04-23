@@ -383,6 +383,8 @@ Supported options:|}
     "-d", Arg.String (csv (prepend Options.debug_modules)), " debug the specific \
       comma-separated list of values; currently supported: \
       inline,bundle,reachability,c-calls,c-names,wasm-calls,wasm-memory,wasm,force-c,cflat";
+    "-locate-krmllib", Arg.Set Options.locate_krmllib, "  print the path to krmllib and exit";
+    "-locate-include", Arg.Set Options.locate_include, "  print the path to include and exit";
     "", Arg.Unit (fun _ -> ()), " ";
 
       (* General utilities *)
@@ -432,6 +434,20 @@ Supported options:|}
 
   if !arg_version then begin
     Printf.printf "KaRaMeL version: %s\n" Version.version;
+    exit 0
+  end;
+
+  if !Options.locate_krmllib then begin
+    Options.silent := true;
+    Driver.detect_karamel ();
+    Printf.printf "%s\n" !Driver.krmllib_dir;
+    exit 0
+  end;
+
+  if !Options.locate_include then begin
+    Options.silent := true;
+    Driver.detect_karamel ();
+    Printf.printf "%s\n" !Driver.include_dir;
     exit 0
   end;
 
