@@ -85,7 +85,7 @@ and vars_of_stmt (s: C.stmt): SSet.t =
         SSet.union acc (vars_of_stmt s)
       ) acc cases in
       SSet.union acc (vars_of_stmt default)
-  | Comment _ -> SSet.empty
+  | Comment _ | Goto _ | Label _ -> SSet.empty
 
 and vars_of_decl ((_, _, _, _, _, decl_inits): C.declaration): SSet.t =
   List.fold_left (fun acc (_, _, init) ->
