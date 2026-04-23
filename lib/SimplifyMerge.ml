@@ -54,7 +54,6 @@ let replace_atom (a: Atom.t) (a': Atom.t) (e: expr) =
 let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
   let w = with_type e.typ in
   match e.node with
-  | ETApp _
   | ETuple _
   | EMatch _
   | ECons _
@@ -62,6 +61,10 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
   | EFun _
   | EBound _ ->
       failwith "impossible (simplified before)"
+
+  | ETApp (e, cgs, cgs', ts) ->
+      let d, u, e = merge env u e in
+      d, u, w (ETApp (e, cgs, cgs', ts))
 
   | EQualified _
   | EConstant _

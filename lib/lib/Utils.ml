@@ -25,8 +25,9 @@ let with_open_out_bin file_path f =
   )
 
 
-let cp dst src = with_open_out_bin dst (fun oc ->
+let cp dst src =
   with_open_in src (fun ic ->
+  with_open_out_bin dst (fun oc ->
     let buf = Bytes.create 2048 in
     while
       let l = input ic buf 0 2048 in

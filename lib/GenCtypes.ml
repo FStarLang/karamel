@@ -5,47 +5,31 @@
 
 open CStar
 
+(* Ppxlib also has modules called Ast and Driver which shadow karamel's *)
 module D = Driver
-
-(* Ppxlib_ast also has a module called Ast which shadows the src/Ast.ml module
- *)
 module A = Ast
 
-open Ppxlib_ast
-open Parsetree
+open Ppxlib
+open Ast_builder.Default
 
 module Driver = D
 
-open Lexing
-open Pprintast
-open Ast_helper
-open Asttypes
-open Location
-open Longident
 open PrintAst.Ops
 
+let loc = Location.none
 
 (* helper functions for generating names and paths *)
-let no_position : Lexing.position =
-  {pos_fname = ""; pos_lnum = 0; pos_bol = 0; pos_cnum = 0}
-
-let no_location : Location.t =
-  {loc_start = no_position; loc_end = no_position; loc_ghost = false}
-
 let no_attrs: attributes = []
 
-let mk_sym s: string Location.loc = {txt=s; loc=no_location}
+let mk_sym s: string Location.loc = {txt=s; loc}
 
-let mk_sym_opt s: string option Location.loc = {txt=Some s; loc=no_location}
+let mk_sym_opt s: string option Location.loc = {txt=Some s; loc}
 
-let mk_sym_ident s: Longident.t Location.loc = {txt=s; loc=no_location}
+let mk_ident name: Longident.t Location.loc = {txt = Lident name; loc}
 
-let mk_ident name = Lident name |> mk_sym_ident
+let exp_ident n = evar ~loc n
 
-let exp_ident n = Exp.ident (mk_ident n)
-
-let exp_module_pack id =
-  Exp.pack { pmod_desc = Pmod_ident id; pmod_loc = no_location; pmod_attributes = [] ;}
+let exp_module_pack id = pexp_pack ~loc (pmod_ident ~loc id)
 
 let warn_drop_declaration loc lid_decl lid_type =
   if not (KString.starts_with (snd lid_decl) "__proj__") &&
@@ -55,23 +39,23 @@ let warn_drop_declaration loc lid_decl lid_type =
 
 (* generic AST helpers *)
 let mk_const c =
-  Exp.constant (Const.string c)
+  estring ~loc c
 
 let mk_decl ?t p e =
   let binder =
     match t with
-    | Some typ -> Pat.mk (Ppat_constraint (p, typ))
+    | Some typ -> ppat_constraint ~loc p typ
     | None -> p
   in
-  [Vb.mk binder e] |> Str.value Nonrecursive
+  pstr_value ~loc Nonrecursive [value_binding ~loc ~pat:binder ~expr:e]
 
 let mk_app e args =
-  Exp.apply e (List.map (fun a -> (Nolabel, a)) args)
+  eapply ~loc e args
 
 let mk_simple_app_decl (name: ident) (typ: ident option) (head: ident)
   (args: expression list): structure_item =
-  let p = Pat.mk (Ppat_var (mk_sym name)) in
-  let t = Option.map (fun x -> Typ.mk (Ptyp_constr (mk_ident x, []))) typ in
+  let p = ppat_var ~loc (mk_sym name) in
+  let t = Option.map (fun x -> ptyp_constr ~loc (mk_ident x) []) typ in
   let e = mk_app (exp_ident head) args in
   mk_decl ?t p e
 
@@ -139,11 +123,11 @@ let mk_struct_manifest (k: structured) t =
   let row_field_desc = Rtag(mk_sym tag, false, []) in
   let row_field = {
     prf_desc= row_field_desc;
-    prf_loc=no_location;
+    prf_loc=loc;
     prf_attributes=no_attrs
   } in
-  let row = Typ.variant [row_field] Closed None in
-  Typ.mk (Ptyp_constr (mk_ident (structured_kw k), [row]))
+  let row = ptyp_variant ~loc [row_field] Closed None in
+  ptyp_constr ~loc (mk_ident (structured_kw k)) [row]
 
 let mk_qualified_type m (typ: A.lident) =
   (* m is for debug only *)
@@ -157,7 +141,7 @@ let rec mk_typ ?(bytes=false) m = function
       (* special handling for functions which take uint8_t* as arguments in order to pass OCaml Bytes.t directly *)
       exp_ident "ocaml_bytes"
     else
-      Exp.apply (exp_ident "ptr") [(Nolabel, mk_typ m t)]
+      mk_app (exp_ident "ptr") [mk_typ m t]
   | Void -> exp_ident "void"
   | Qualified l -> mk_qualified_type m l
   | Bool -> exp_ident "bool"
@@ -193,9 +177,9 @@ and mk_struct_decl ?(sealed=true) m (k: structured) (name: A.lident) fields: str
           mk_struct_name name
     in
     let struct_name = GlobalNames.to_c_name m (struct_name, Type) in
-    let t = Typ.mk (Ptyp_constr (mk_ident "typ", [tm])) in
+    let t = ptyp_constr ~loc (mk_ident "typ") [tm] in
     let e = mk_app (exp_ident (structured_kw k)) [mk_const struct_name] in
-    let p = Pat.mk (Ppat_var (mk_sym unqual_name)) in
+    let p = ppat_var ~loc (mk_sym unqual_name) in
     mk_decl ~t p e
   in
   let suffix (m, n) suffix = m, n ^ "_" ^ suffix in
@@ -215,26 +199,26 @@ and mk_struct_decl ?(sealed=true) m (k: structured) (name: A.lident) fields: str
     | _ ->
       begin match f_name with
       | Some name ->
-        let p = Pat.mk (Ppat_var (mk_sym (unqual_name ^ "_" ^ name))) in
+        let p = ppat_var ~loc (mk_sym (unqual_name ^ "_" ^ name)) in
         let c_name = if anon then  "" else name in
         let e = mk_app (exp_ident "field") [exp_ident unqual_name; mk_const c_name; mk_typ m f_typ] in
-        [[Vb.mk p e] |> Str.value Nonrecursive]
+        [pstr_value ~loc Nonrecursive [value_binding ~loc ~pat:p ~expr:e]]
       | None -> Warn.fatal_error "Unreachable" (* only unions can be anonymous *)
       end
   in
-  let type_decl = Str.type_ Recursive [Type.mk ?manifest:(Some tm) (mk_sym unqual_name)] in
-  let seal_decl = mk_decl (Pat.any ()) (mk_app (exp_ident "seal") [exp_ident unqual_name]) in
+  let type_decl = pstr_type ~loc Recursive [type_declaration ~loc ~name:(mk_sym unqual_name) ~params:[] ~cstrs:[] ~kind:Ptype_abstract ~private_:Public ~manifest:(Some tm)] in
+  let seal_decl = mk_decl (ppat_any ~loc) (mk_app (exp_ident "seal") [exp_ident unqual_name]) in
   [type_decl; ctypes_structure] @ (List.concat_map (mk_field false) fields) @ (if sealed then [seal_decl] else [])
 
 and mk_typedef m name typ =
   let type_const = match typ with
-    | Int Constant.UInt8 -> Typ.mk (Ptyp_constr (mk_ident "Unsigned.UInt8.t", []))
-    | Qualified t -> Typ.mk (Ptyp_constr (mk_ident (mk_unqual_name m (t, Type)), []))
+    | Int Constant.UInt8 -> ptyp_constr ~loc (mk_ident "Unsigned.UInt8.t") []
+    | Qualified t -> ptyp_constr ~loc (mk_ident (mk_unqual_name m (t, Type))) []
     | _ -> Warn.fatal_error "Unreachable"
   in
   let typ_name = mk_unqual_name m name in
   let name = GlobalNames.to_c_name m name in
-  [ Str.type_ Recursive [Type.mk ?manifest:(Some type_const) (mk_sym typ_name)]
+  [ pstr_type ~loc Recursive [type_declaration ~loc ~name:(mk_sym typ_name) ~params:[] ~cstrs:[] ~kind:Ptype_abstract ~private_:Public ~manifest:(Some type_const)]
   ; mk_simple_app_decl typ_name None "typedef" [mk_typ m typ; mk_const name] ]
 
 and build_foreign_fun m return_type parameters : expression =
@@ -258,9 +242,9 @@ let build_binding m name return_type parameters : structure_item =
     match return_type with
     | Qualified ([ "C"; "String" ], "t") ->
         (* C_String_t is `const char *` and requires the function returning it to be marked as constant *)
-        Pat.mk (Ppat_var (mk_sym ("constant " ^ func_name)))
+        ppat_var ~loc (mk_sym ("constant " ^ func_name))
     | _ ->
-        Pat.mk (Ppat_var (mk_sym func_name))
+        ppat_var ~loc (mk_sym func_name)
   in
   mk_decl p e
 
@@ -271,7 +255,7 @@ let mk_enum_tags m name tags =
     | t :: ts ->
       let tag_name = String.concat "_" [mk_unqual_name m name; t] in
       (mk_simple_app_decl tag_name None "Unsigned.UInt8.of_int"
-         [Exp.constant (Const.int n)]) :: (mk_tags (n+1) ts)
+         [eint ~loc n]) :: (mk_tags (n+1) ts)
   in
   mk_tags 0 tags
 
@@ -309,25 +293,25 @@ let mk_ctypes_decl m (d: decl): structure =
   | TypeForward _ -> []
 
 let mk_include name =
-  let module_app = Mod.apply (Mod.ident (mk_ident (name ^ "_bindings.Bindings"))) (Mod.ident (mk_ident (name ^ "_stubs"))) in
-  let module_def = Str.module_ (Mb.mk (mk_sym_opt (name ^ "_applied")) module_app) in
+  let module_app = pmod_apply ~loc (pmod_ident ~loc (mk_ident (name ^ "_bindings.Bindings"))) (pmod_ident ~loc (mk_ident (name ^ "_stubs"))) in
+  let module_def = pstr_module ~loc (module_binding ~loc ~name:(mk_sym_opt (name ^ "_applied")) ~expr:module_app) in
   [
     module_def;
-    Str.open_ (Opn.mk (Mod.ident (mk_ident (name ^ "_applied"))));
+    pstr_open ~loc (open_infos ~loc ~override:Fresh ~expr:(pmod_ident ~loc (mk_ident (name ^ "_applied"))));
   ]
 
 let mk_ocaml_bind deps decls =
-  let open_f = Str.open_ (Opn.mk ?override:(Some Fresh) (Mod.ident (mk_ident "F"))) in
+  let open_f = pstr_open ~loc (open_infos ~loc ~override:Fresh ~expr:(pmod_ident ~loc (mk_ident "F"))) in
   let includes = List.concat_map mk_include deps in
-  let module_exp = Mod.mk (Pmod_structure (open_f::(includes@decls))) in
-  let functor_type = Mty.mk (Pmty_ident (mk_ident "Cstubs.FOREIGN")) in
-  let functor_exp = Mod.functor_ (Named (mk_sym_opt "F", functor_type)) module_exp in
-  Str.module_ (Mb.mk (mk_sym_opt "Bindings") functor_exp)
+  let module_exp = pmod_structure ~loc (open_f::(includes@decls)) in
+  let functor_type = pmty_ident ~loc (mk_ident "Cstubs.FOREIGN") in
+  let functor_exp = pmod_functor ~loc (Named (mk_sym_opt "F", functor_type)) module_exp in
+  pstr_module ~loc (module_binding ~loc ~name:(mk_sym_opt "Bindings") ~expr:functor_exp)
 
 let build_module deps program: structure =
   let m = mk_ocaml_bind deps program in
   let open_decls = List.map (fun m ->
-    Str.open_ (Opn.mk ?override:(Some Fresh) (Mod.ident (mk_ident m)))) ["Ctypes"] in
+    pstr_open ~loc (open_infos ~loc ~override:Fresh ~expr:(pmod_ident ~loc (mk_ident m)))) ["Ctypes"] in
   open_decls @ [m]
 
 type t =
@@ -537,7 +521,7 @@ let mk_gen_decls ~public:public_headers ~internal:internal_headers module_name =
       [(mk_app (exp_ident "open_out_bin") [mk_const n])]
   in
   let mk_cstubs_write typ n =
-    Exp.apply
+    pexp_apply ~loc
       (exp_ident ("Cstubs.write_" ^ typ))
       [ (Nolabel, exp_ident "Format.std_formatter")
       ; (Labelled "prefix", mk_const "")
@@ -563,12 +547,12 @@ let mk_gen_decls ~public:public_headers ~internal:internal_headers module_name =
     ; mk_printf (Printf.sprintf "%s%s" public_include internal_include)
     ; mk_cstubs_write "c" module_name ]
   in
-  mk_decl (Pat.any ()) (KList.reduce Exp.sequence decls)
+  mk_decl (ppat_any ~loc) (KList.reduce (pexp_sequence ~loc) decls)
 
 
 let write_ml (path: string) (m: structure_item list) =
   Format.set_formatter_out_channel (open_out_bin path);
-  structure Format.std_formatter m;
+  Pprintast.structure Format.std_formatter m;
   Format.pp_print_flush Format.std_formatter ()
 
 let write_gen_module ~public:public_headers ~internal:internal_headers files =

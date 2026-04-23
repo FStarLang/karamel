@@ -10,6 +10,8 @@ all: verify-all compile-all
 
 .PHONY: all verify-all compile-all
 
+# Make sure to delete failing targets.
+.DELETE_ON_ERROR:
 
 ################################################################################
 # Verification & extraction                                                    #
@@ -113,8 +115,13 @@ ifeq ($(OS),Windows_NT)
   local_krml_home := $(shell cygpath -m "$(local_krml_home)")
 endif
 
-# Everything in the universe
-$(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) ../_build/default/src/Karamel.exe
+# Note the use &: in the rules below, this is a *grouped target*. Make then
+# knows that running the command (once) builds both files. This works since GNU
+# Make 4.3 (Jan 2020). The makefiles check that we are not in version 3.81
+# (which is what MacOS defaults to) so we should have something recent.
+
+# Everything in the universe.
+$(GENERIC_DIR)/Makefile.include $(GENERIC_DIR)/Makefile.basic &: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c/*.c) $(wildcard c/*.h) ../_build/default/src/Karamel.exe
 	KRML_HOME="$(local_krml_home)" \
 	../krml $(KRML_ARGS) -tmpdir $(GENERIC_DIR) \
 	  -warn-error +9+11 \
@@ -130,7 +137,7 @@ $(GENERIC_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(wildcard c
 	cp c/*.c c/*.h $(dir $@)
 
 # Minimalistic build (just machine integers and endianness)
-$(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar_uint128*.h) ../_build/default/src/Karamel.exe
+$(MINI_DIR)/Makefile.include $(MINI_DIR)/Makefile.basic &: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar_uint128*.h) ../_build/default/src/Karamel.exe
 	mkdir -p $(dir $@)
 	KRML_HOME="$(local_krml_home)" \
 	../krml $(KRML_ARGS) -tmpdir $(MINI_DIR) \
@@ -151,7 +158,7 @@ $(MINI_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(MINI_DIR) $(wildcard c/fstar
 # Extracted (and verified) uint128s; copied into generic and minimal. Note that
 # FStar.UInt64 shares the same bundle name, meaning that
 # FStar_UInt128_Verified.h can be dropped in any of the two krmllibs above.
-$(UINT128_DIR)/Makefile.include: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) ../_build/default/src/Karamel.exe
+$(UINT128_DIR)/Makefile.include $(UINT128_DIR)/Makefile.basic &: $(ALL_KRML_FILES) | $(GENERIC_DIR) $(MINI_DIR) ../_build/default/src/Karamel.exe
 	KRML_HOME="$(local_krml_home)" \
 	../krml $(KRML_ARGS) -tmpdir $(UINT128_DIR) \
 	  $(addprefix -add-include ,'<inttypes.h>' '<stdbool.h>' '"krml/internal/types.h"' '"krml/internal/target.h"') \

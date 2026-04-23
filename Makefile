@@ -56,6 +56,11 @@ clean:
 test: all
 	$(MAKE) -C test
 
+# This depends on minimal since fstar2 (with Pulse) is not expected
+# to be able to build krmllib.
+test-pulse: minimal
+	$(MAKE) -C test/pulse
+
 # Auto-detection
 pre:
 	@eval "$(FSTAR_OCAMLENV)" && \

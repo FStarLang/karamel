@@ -522,7 +522,7 @@ and print_expr env ?(lbrace_conflict=Fine) (context: int) (e: expr): document =
       let e1 = Option.value ~default:empty (Option.map (print_expr env mine) e1) in
       let e2 = Option.value ~default:empty (Option.map (print_expr env mine) e2) in
       let inclusive = if inclusive then equals else empty in
-      e1 ^^ dot ^^ dot ^^ e2 ^^ inclusive
+      e1 ^^ dot ^^ dot ^^ inclusive ^^ e2
   | ConstantString s ->
       dquotes (string (CStarToC11.escape_string s))
 

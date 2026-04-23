@@ -87,6 +87,16 @@ FSTAR		= $(FSTAR_EXE) \
 
 all: $(FILES) rust $(WASM_FILES) $(CUSTOM) ctypes-test sepcomp-test rust-val-test bundle-test rust-propererasure-bundle-test goto-return-test
 
+all: hoist-locals-test initialize-locals-test
+
+.PHONY: hoist-locals-test initialize-locals-test
+
+hoist-locals-test:
+	+$(MAKE) -C hoist-locals
+
+initialize-locals-test:
+	+$(MAKE) -C initialize-locals
+
 # Needs node
 wasm: $(WASM_FILES)
 
@@ -190,6 +200,7 @@ $(OUTPUT_DIR)/Ctypes2.exe: EXTRA = -ctypes 'Ctypes2,Ctypes4' \
   -no-prefix 'Ctypes4' -skip-compilation
 $(OUTPUT_DIR)/Failwith.exe: EXTRA = -ccopts -Wno-deprecated-declarations,-Wno-infinite-recursion
 $(OUTPUT_DIR)/VariableMerge.exe: EXTRA = -fmerge aggressive
+$(OUTPUT_DIR)/SimplifyMergeETApp.exe: EXTRA = -fmerge aggressive
 $(OUTPUT_DIR)/NameCollision.exe: EXTRA = -no-prefix NameCollisionHelper
 $(OUTPUT_DIR)/Intro.exe $(OUTPUT_DIR)/MemCpy.exe: EXTRA = -rst-snippets
 $(OUTPUT_DIR)/StaticHeader.exe: EXTRA = -static-header StaticHeaderLib -bundle StaticHeaderAPI=StaticHeaderLib -warn-error @7@8
