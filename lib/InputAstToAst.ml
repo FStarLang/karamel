@@ -64,7 +64,8 @@ and mk_binders bs =
 
 and mk_binder { I.name; typ; mut; meta } =
   let attempt_inline = List.mem Inline meta in
-  Helpers.fresh_binder ~mut ~attempt_inline name (mk_typ typ)
+  let no_inline = List.mem NoInline meta in
+  Helpers.fresh_binder ~mut ~attempt_inline ~no_inline name (mk_typ typ)
 
 and mk_tfields fields =
   List.map (fun (name, (field, mut)) -> name, (mk_typ field, mut)) fields

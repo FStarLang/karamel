@@ -134,7 +134,7 @@ let use_mark_to_inline_temporaries = object (self)
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
     let _, v = !(b.node.mark) in
-    if (!Options.aggressive_inlining ||
+    if ((!Options.aggressive_inlining && not (List.mem NoInline b.node.meta)) ||
         List.mem AttemptInline b.node.meta ||
         Helpers.is_uu b.node.name ||
         b.node.name = "scrut" ||

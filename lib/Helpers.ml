@@ -148,8 +148,10 @@ let mk_deref t ?(const=false) e =
 
 (* Binder nodes ***************************************************************)
 
-let fresh_binder ?(mut=false) ?(attempt_inline=false) name typ =
-  with_type typ { name; mut; mark = ref Mark.default; meta = (if attempt_inline then [ AttemptInline ] else []); atom = Atom.fresh () }
+let fresh_binder ?(mut=false) ?(attempt_inline=false) ?(no_inline=false) name typ =
+  if attempt_inline && no_inline then
+    Warn.fatal_error "Cannot have both AttemptInline and NoInline on the same binder: %s" name;
+  with_type typ { name; mut; mark = ref Mark.default; meta = (if attempt_inline then [ AttemptInline ] else if no_inline then [ NoInline ] else []); atom = Atom.fresh () }
 
 let mark_mut b =
   { b with node = { b.node with mut = true }}
