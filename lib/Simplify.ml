@@ -142,7 +142,7 @@ let safe_pure_use lvalue e =
 
 (* Do we *want* to inline b? Safety of the inlining must be checked separately. *)
 let should_inline b =
-  !Options.aggressive_inlining ||
+  (!Options.aggressive_inlining && not (List.mem NoInline b.node.meta)) ||
   List.mem AttemptInline b.node.meta ||
   Helpers.is_uu b.node.name ||
   b.node.name = "scrut" ||
