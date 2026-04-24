@@ -177,6 +177,21 @@ void GotoReturn_unit_return(void)
 
 }
 
+int32_t GotoReturn_pulse_early_return(int32_t x)
+{
+  int32_t _return;
+  bool _return1 = false;
+  if (x == (int32_t)0)
+  {
+    _return = (int32_t)42;
+    _return1 = true;
+  }
+  bool _return2 = _return1;
+  if (!_return2)
+    _return = (int32_t)99;
+  return _return;
+}
+
 int32_t GotoReturn_main(void)
 {
   GotoReturn_early_return_int((int32_t)0);
@@ -190,6 +205,7 @@ int32_t GotoReturn_main(void)
   GotoReturn_early_return_void((int32_t)0);
   GotoReturn_early_return_struct((int32_t)0);
   GotoReturn_unit_return();
+  GotoReturn_pulse_early_return((int32_t)0);
   return (int32_t)0;
 }
 
