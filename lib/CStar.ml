@@ -174,3 +174,60 @@ let iter_decl f = function
       iter_typ f t
   | _ ->
       ()
+
+module S = Set.Make(String)
+
+(* Collect all identifier names (variable references, declaration names, binder
+   names) appearing in a block. Unlike CStarToC11.vars_of, this collects ALL
+   names including bound ones, and does not require a c_name_map — it is
+   suitable for fresh-name generation at the CStar level. *)
+let names_of_block (body: block): S.t =
+  let names = ref S.empty in
+  let add n = names := S.add n !names in
+  let rec collect_expr (e: expr) =
+    match e with
+    | Var v -> add v
+    | Qualified (_, n) | Macro (_, n) -> add n
+    | Constant _ | Bool _ | StringLiteral _ | Any | EAbort _ | Type _
+    | BufNull | Op _ -> ()
+    | Cast (e, _) | Field (e, _) | AddrOf e | InlineComment (_, e, _) ->
+        collect_expr e
+    | BufRead (e1, e2) | BufSub (e1, e2) | Comma (e1, e2)
+    | BufCreate (_, e1, e2) ->
+        collect_expr e1; collect_expr e2
+    | Call (e, es) -> collect_expr e; List.iter collect_expr es
+    | BufCreateL (_, es) -> List.iter collect_expr es
+    | Struct (_, fes) -> List.iter (fun (_, e) -> collect_expr e) fes
+    | Stmt ss -> List.iter collect_stmt ss
+  and collect_stmt (s: stmt) =
+    match s with
+    | Abort _ | Break | Continue | Comment _ | Goto _ | Label _ -> ()
+    | Return (Some e) -> collect_expr e
+    | Return None -> ()
+    | Ignore e | BufFree (_, e) -> collect_expr e
+    | Decl (b, e) -> add b.name; collect_expr e
+    | Assign (e1, _, e2) -> collect_expr e1; collect_expr e2
+    | BufWrite (e1, e2, e3) ->
+        collect_expr e1; collect_expr e2; collect_expr e3
+    | BufBlit (_, e1, e2, e3, e4, e5) ->
+        List.iter collect_expr [e1; e2; e3; e4; e5]
+    | BufFill (_, e1, e2, e3) ->
+        List.iter collect_expr [e1; e2; e3]
+    | IfThenElse (_, e, b1, b2) ->
+        collect_expr e; collect_block b1; collect_block b2
+    | While (e, b) -> collect_expr e; collect_block b
+    | For (init, e, iter, b) ->
+        (match init with
+         | `Decl (bi, e') -> add bi.name; collect_expr e'
+         | `Stmt s -> collect_stmt s
+         | `Skip -> ());
+        collect_expr e; collect_stmt iter; collect_block b
+    | Switch (e, branches, default) ->
+        collect_expr e;
+        List.iter (fun (_, b) -> collect_block b) branches;
+        Option.iter collect_block default
+    | Block b -> collect_block b
+  and collect_block b = List.iter collect_stmt b
+  in
+  collect_block body;
+  !names

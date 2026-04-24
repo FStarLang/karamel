@@ -85,7 +85,7 @@ FSTAR		= $(FSTAR_EXE) \
   --trivial_pre_for_unannotated_effectful_fns false \
   --cmi --warn_error -274
 
-all: $(FILES) rust $(WASM_FILES) $(CUSTOM) ctypes-test sepcomp-test rust-val-test bundle-test rust-propererasure-bundle-test goto-return-test
+all: $(FILES) rust $(WASM_FILES) $(CUSTOM) ctypes-test sepcomp-test rust-val-test bundle-test rust-propererasure-bundle-test
 
 all: hoist-locals-test initialize-locals-test
 
@@ -313,10 +313,6 @@ rust-val-test:
 rust-propererasure-bundle-test:
 	+$(MAKE) -C rust-propererasure-bundle
 .PHONY: rust-propererasure-bundle-test
-
-goto-return-test:
-	+$(MAKE) -C goto_return
-.PHONY: goto-return-test
 
 CTYPES_HAND_WRITTEN_FILES=Client.ml Makefile
 

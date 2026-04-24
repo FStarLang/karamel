@@ -15,3 +15,6 @@ $(OUTPUT_DIR)/Example_Slice.c: $(addprefix $(OUTPUT_DIR)/,\
 $(OUTPUT_DIR)/Example_Unreachable.c: $(addprefix $(OUTPUT_DIR)/,\
 	FStar_Pervasives.krml \
 	FStar_Pervasives_Native.krml)
+
+# GotoReturn needs -goto_for_early_return and -fnoreturn-else flags.
+$(OUTPUT_DIR)/GotoReturn.c: KRML_FLAGS += -goto_for_early_return -fnoreturn-else
