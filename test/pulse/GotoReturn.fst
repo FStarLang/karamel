@@ -70,6 +70,20 @@ let early_return_struct (x: Int32.t) : point =
 let unit_return (x: unit) : FStar.All.ML unit =
   if true then x else ()
 
+(* Pulse function with early return *)
+open Pulse
+#lang-pulse
+fn pulse_early_return (x: Int32.t)
+  returns r: Int32.t
+  ensures pure (x = 0l ==> r = 42l)
+  ensures pure (x <> 0l ==> r = 99l)
+{
+  if (x = 0l) {
+    return 42l;
+  };
+  99l
+}
+
 let main () : FStar.All.ML FStar.Int32.t =
   let _ = early_return_int 0l in
   let _ = no_early_return 1l in
@@ -82,4 +96,5 @@ let main () : FStar.All.ML FStar.Int32.t =
   early_return_void 0l;
   let _ = early_return_struct 0l in
   unit_return ();
+  let _ = pulse_early_return 0l in
   0l
