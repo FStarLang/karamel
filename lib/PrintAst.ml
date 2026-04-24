@@ -188,6 +188,8 @@ and print_meta = function
       string "aligned" ^^ parens (int i)
   | AttemptInline ->
       string "inline"
+  | NoInline ->
+      string "noinline"
 
 and print_typ_paren = function
   | TArrow _ as t ->
