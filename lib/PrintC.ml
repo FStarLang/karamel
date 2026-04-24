@@ -363,6 +363,12 @@ and p_expr' curr = function
   | CxxInitializerList init ->
       p_init init
   | ESkip -> empty
+  | Ternary (c, t, e) ->
+      let mine = 14 in
+      let c = p_expr' mine c in
+      let t = p_expr' mine t in
+      let e = p_expr' mine e in
+      paren_if curr mine (group (c ^^ space ^^ qmark ^^ space ^^ t) ^^ space ^^ colon ^^ space ^^ e)
 
 (* statement-level comment *)
 and p_comment s =

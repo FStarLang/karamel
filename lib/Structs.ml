@@ -784,6 +784,7 @@ let to_addr is_struct =
     | ECons _
     | EFun _ ->
         Warn.fatal_error "impossible: %a" pexpr e
+    | ETernary _ -> failwith "GGG TODO"
   in
   object
     inherit [_] map

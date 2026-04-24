@@ -100,6 +100,8 @@ let rec vars_of m = function
       KList.reduce S.union (List.map (fun (_, e) -> vars_of m e) fieldexprs)
   | Stmt stmts ->
       vars_of_block m stmts
+  | Ternary (e1, e2, e3) ->
+      S.union (vars_of m e1) (S.union (vars_of m e2) (vars_of m e3))
 
 and vars_of_block m stmts =
   KList.reduce S.union (List.map (vars_of_stmt m) stmts)
@@ -677,6 +679,9 @@ and mk_stmt m (stmt: stmt): C.stmt list =
           | Any ->
             true
 
+          | Ternary (c, t, e) ->
+            is_pure c && is_pure t && is_pure e
+
           (* Calls in general we take as impure, but operators
              are pure. *)
           | Call (Op _, args) -> List.for_all is_pure args
@@ -1182,6 +1187,8 @@ and mk_expr m (e: expr): C.expr =
   | Type t ->
       Type (mk_type m t)
 
+  | Ternary (c, t, e) ->
+      Ternary (mk_expr m c, mk_expr m t, mk_expr m e)
 
 and mk_compound_literal m name fields =
   let name = to_c_name m (name, Type) in

@@ -1012,6 +1012,8 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EBufNull ->
       locals, CF.Constant (K.UInt32, "0")
 
+  | ETernary _ -> failwith "GGG TODO"
+
 
 (* See digression for [dup32] in CFlatToWasm *)
 let scratch_locals =

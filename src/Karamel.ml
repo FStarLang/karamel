@@ -203,6 +203,7 @@ Supported options:|}
         Options.cc_flavor := Some flav), " C compiler flavor; normally autodetected, \
         can be set to 'gcc', 'clang', 'compcert', 'msvc' or 'generic'";
     "-cuda", Arg.Set Options.cuda, " CUDA mode";
+    "-fternary", Arg.Set Options.ternary, " enable C ternary expressions in output";
     "-m32", Arg.Set Options.m32, " turn on 32-bit cross-compiling";
     "-fsopt", Arg.String (prepend Options.fsopts), " option to pass to F* (use \
       -fsopts to pass a comma-separated list of values)";

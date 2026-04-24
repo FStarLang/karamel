@@ -480,6 +480,9 @@ and mk_expr env in_stmt under_initializer_list e =
   | EBufNull ->
       CStar.BufNull
 
+  | ETernary (e1, e2, e3) ->
+      CStar.Ternary (mk_expr env false e1, mk_expr env false e2, mk_expr env false e3)
+
   | _ ->
       Warn.maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, NotLowStar e);
       CStar.Any

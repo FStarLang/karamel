@@ -679,6 +679,9 @@ let let_if_to_assign = object (self)
 
   method! visit_EAssign _ e1 e2 =
     match e2.node with
+    | EIfThenElse (c, t, e) when !Options.ternary ->
+        EAssign (e1, with_type e2.typ (ETernary (c, t, e)))
+
     | (EIfThenElse _ | ESwitch _) ->
         (self#make_assignment e1 e2).node
 
@@ -1355,6 +1358,8 @@ and hoist_expr tbl loc pos e =
        * let_if_to_assign will know how to deal with this. *)
       if pos = UnderStmtLet || pos = UnderConditional then
         lhs1, mk (EIfThenElse (e1, e2, e3))
+      else if !Options.ternary then
+        lhs1, with_type t (ETernary (e1, e2, e3))
       else
         let b, body, cont = mk_named_binding "ite" t (EIfThenElse (e1, e2, e3)) in
         lhs1 @ [ b, body ], cont
@@ -1596,6 +1601,17 @@ and hoist_expr tbl loc pos e =
         [], mk EContinue
       else
         Warn.fatal_error "%a: %s" Loc.ploc loc "[continue] expressions should only appear in statement position"
+
+  | ETernary (e1, e2, e3) ->
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
+      let lhs2, e2 = hoist_expr loc Unspecified e2 in
+      let lhs3, e3 = hoist_expr loc Unspecified e3 in
+      let lhs = lhs1 @ lhs2 @ lhs3 in
+      if pos = UnderStmtLet || pos = UnderConditional then
+        lhs, mk (ETernary (e1, e2, e3))
+      else
+        let b, body, cont = mk_named_binding "ternary" e.typ (ETernary (e1, e2, e3)) in
+        lhs @ [ b, body ], cont
 
 (* TODO: figure out if we want to ignore the other cases for performance
  * reasons. *)

@@ -318,6 +318,12 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
       let d, u, e = merge env u e in
       d, u, w (EAddrOf e)
 
+  | ETernary (e1, e2, e3) ->
+      let d2, u2, e2 = merge env u e2 in
+      let d3, u3, e3 = merge env u e3 in
+      let d1, u, e1 = merge env (S.union u2 u3) e1 in
+      S.inter (S.inter d1 d2) d3, u, w (ETernary (e1, e2, e3))
+
 and merge (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
   let d, u, e = merge' env u e in
   if debug then

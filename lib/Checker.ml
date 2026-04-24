@@ -507,6 +507,10 @@ and check' env t e =
   | EAddrOf e ->
       check env (assert_tbuf t) e
 
+  | ETernary (c, th, el) ->
+      check env TBool c;
+      check env t th;
+      check env t el
 
 and check_case env c t =
   match c, t with
@@ -888,6 +892,13 @@ and infer' env e =
       assert (e.typ <> TAny);
       (* e.typ is the type of the whole node, so it's already of the form TBuf _ *)
       e.typ
+
+  | ETernary (c, t, e) ->
+      check env TBool c;
+      let t1 = infer env t in
+      let t2 = infer env e in
+      check_eqtype env t1 t2;
+      t1
 
 and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =
   fun env f l ->

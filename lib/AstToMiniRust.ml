@@ -1355,6 +1355,8 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
         (* POSSIBLE FIX (if we care): insert slice::from_ref, since the expected
            Rust type for this is a slice (and maybe ditch possibly_convert) *)
 
+  | ETernary _ -> failwith "TODO: ETernary"
+
 and translate_pat env (p: Ast.pattern): MiniRust.pat =
   match p.node with
   | PBound v -> VarP v

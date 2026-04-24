@@ -375,6 +375,10 @@ and print_expr env { node; typ; meta } =
       string "NULL" ^^ langle ^^ print_typ typ ^^ rangle
   | EContinue ->
       string "continue"
+  | ETernary (c, t, e) ->
+      print_expr env c ^^ space ^^ string "?" ^^ space ^^
+      print_expr env t ^^ space ^^ string ":" ^^ space ^^
+      print_expr env e
 
 and print_poly_comp = function
   | PEq -> equals
