@@ -368,6 +368,7 @@ and meta =
   | MetaSequence
   | AttemptInline
   | Align of int (* in bytes *)
+  | NoInline
 
 and match_flavor = | Checked | Unchecked
 
