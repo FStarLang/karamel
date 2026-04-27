@@ -17,7 +17,6 @@ int32_t GotoReturn_early_return_int(int32_t x)
     goto exit;
   }
   result = (int32_t)44;
-  goto exit;
   exit:
     return result;
 }
@@ -36,7 +35,6 @@ int32_t GotoReturn_early_return_two_args(int32_t x, int32_t y)
     goto exit;
   }
   result = y;
-  goto exit;
   exit:
     return result;
 }
@@ -56,7 +54,6 @@ int32_t GotoReturn_collision_test(int32_t x)
     goto exit;
   }
   result0 = (int32_t)44;
-  goto exit;
   exit:
     return result0;
 }
@@ -75,7 +72,6 @@ bool GotoReturn_early_return_bool(int32_t x)
     goto exit;
   }
   result = true;
-  goto exit;
   exit:
     return result;
 }
@@ -94,7 +90,6 @@ uint32_t GotoReturn_early_return_uint32(uint32_t x)
     goto exit;
   }
   result = 44U;
-  goto exit;
   exit:
     return result;
 }
@@ -113,7 +108,6 @@ uint64_t GotoReturn_early_return_uint64(uint64_t x)
     goto exit;
   }
   result = 44ULL;
-  goto exit;
   exit:
     return result;
 }
@@ -132,7 +126,6 @@ int64_t GotoReturn_early_return_int64(int64_t x)
     goto exit;
   }
   result = (int64_t)44LL;
-  goto exit;
   exit:
     return result;
 }
@@ -168,7 +161,6 @@ GotoReturn_point GotoReturn_early_return_struct(int32_t x)
     goto exit;
   }
   result = ((GotoReturn_point){ .px = (int32_t)5, .py = (int32_t)6 });
-  goto exit;
   exit:
     return result;
 }
