@@ -140,7 +140,9 @@ and stmt =
   | Comment of string
     (** note: this is not in the C grammar *)
   | Goto of ident
-  | Label of ident
+  | Label of ident * stmt
+    (** In C, a label must be followed by a statement: [ident : stmt].
+     *  The payload is that successor statement. *)
 
 and program =
   declaration_or_function list
