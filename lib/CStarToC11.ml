@@ -642,8 +642,9 @@ and mk_stmt m (stmt: stmt): C.stmt list =
   | Goto label ->
       [ Goto label ]
 
-  | Label label ->
-      [ Label label ]
+  | Label _label ->
+      (* Label merging with successor is handled in mk_stmts *)
+      assert false
 
   | Break ->
       [ Break ]
@@ -946,7 +947,22 @@ and mk_stmt m (stmt: stmt): C.stmt list =
 
 
 and mk_stmts m stmts: C.stmt list =
-  let stmts = List.concat_map (mk_stmt m) stmts in
+  (* Translate CStar stmts to C11, merging Label nodes with their successors.
+     In C, a label must be followed by a statement, so we pair them here. *)
+  let rec translate = function
+    | [] -> []
+    | CStar.Label label :: rest ->
+        let rest_c = translate rest in
+        let payload = match rest_c with
+          | s :: tl -> s, tl
+          | [] -> C.Return None, []  (* label at end of void function *)
+        in
+        let s, tl = payload in
+        C.Label (label, s) :: tl
+    | s :: rest ->
+        mk_stmt m s @ translate rest
+  in
+  let stmts = translate stmts in
   let rec fixup_c89 in_decls (stmts: C.stmt list) =
     match stmts with
     | C.Decl _ as stmt :: stmts ->

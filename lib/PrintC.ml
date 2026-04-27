@@ -495,8 +495,8 @@ and p_stmt (s: stmt) =
      string "continue" ^^ semi
   | Goto label ->
      group (string "goto" ^^ space ^^ string label ^^ semi)
-  | Label label ->
-     group (string label ^^ colon ^^ space ^^ semi)
+  | Label (label, stmt) ->
+     group (string label ^^ colon) ^^ nest 2 (hardline ^^ p_stmt stmt)
 
 and p_stmts stmts = separate_map hardline p_stmt stmts
 
