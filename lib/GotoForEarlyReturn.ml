@@ -92,6 +92,20 @@ let rewrite_block (ret_var: ident) (ret_typ: typ) (label: ident) (is_void: bool)
   in
   rewrite_stmts body
 
+(* Remove a Goto that immediately precedes its target Label at the top level
+   of a block. This is a narrow peephole: it only catches the case where the
+   goto falls through to the very next statement. *)
+let remove_trailing_goto (label: ident) (body: block): block =
+  let rec go = function
+    | [Goto l; Label l'] when l = label && l' = label ->
+        [Label l']
+    | [Goto l; Label l'; ret] when l = label && l' = label ->
+        [Label l'; ret]
+    | s :: rest -> s :: go rest
+    | [] -> []
+  in
+  go body
+
 (* Rewrite a single CStar declaration if it has early returns. *)
 let rewrite_decl (d: decl): decl =
   match d with
@@ -111,6 +125,7 @@ let rewrite_decl (d: decl): decl =
           @ rewritten
           @ [Label label; Return (Some (Var ret_var))]
       in
+      let new_body = remove_trailing_goto label new_body in
       Function (cc, flags, ret_typ, lid, binders, new_body)
   | d -> d
 
