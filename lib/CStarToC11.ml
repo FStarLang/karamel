@@ -1094,9 +1094,14 @@ and mk_expr m (e: expr): C.expr =
       (* See discussion in AstToCStar.ml, around mk_arith. *)
       if not (Constant.is_float w) && K.is_unsigned w && w <> SizeT then
         Constant (w, c)
+      else if not (Constant.is_float w) && K.is_signed w && w <> PtrdiffT then
+        (* No point in casting a constant to a signed integer type. Either it
+           appears directly under an assignment, in argument position, etc. and
+           will be cast directly to the correct type, or *)
+        Constant (w, c)
       else
-        (* Not sure what to do with signed integer types. TBD. Mostly trying to
-           avoid them being upcast into an unsigned type. *)
+        (* Floats: no known suffix. Cast.
+           size_t, ptrdiff_t: still no suffix. Cast. *)
         Cast (([], Int w, Ident ""), Constant (w, c))
 
   | BufCreate _ | BufCreateL _ ->
