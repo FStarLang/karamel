@@ -357,6 +357,8 @@ Supported options:|}
       one of the included system headers";
     "-faggressive-inlining", Arg.Set Options.aggressive_inlining, " attempt to inline \
       every variable for more compact code-generation";
+    "-fblank-lines", Arg.Set Options.blank_lines, "  insert blank lines between \
+      declaration blocks, macro invocations, and if/else blocks for readability";
     "-goto_for_early_return", Arg.Set Options.goto_for_early_return, " replace early \
       returns with assignments to a return variable and gotos to a label at the end \
       of the function";

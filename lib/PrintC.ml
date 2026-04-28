@@ -422,7 +422,7 @@ and p_stmt (s: stmt) =
   (* [p_stmt] is responsible for appending [semi] and calling [group]! *)
   match s with
   | Compound stmts ->
-      lbrace ^^ nest 2 (hardline ^^ separate_map hardline p_stmt stmts) ^^
+      lbrace ^^ nest 2 (hardline ^^ p_stmts stmts) ^^
       hardline ^^ rbrace
   | Expr expr ->
       group (p_expr expr ^^ semi)
@@ -498,7 +498,40 @@ and p_stmt (s: stmt) =
   | Label (label, stmt) ->
      group (string label ^^ colon) ^^ nest 2 (hardline ^^ p_stmt stmt)
 
-and p_stmts stmts = separate_map hardline p_stmt stmts
+and p_stmts stmts =
+  if !Options.blank_lines then
+    p_stmts_with_blanks stmts
+  else
+    separate_map hardline p_stmt stmts
+
+and is_decl_stmt (s: stmt) = match s with Decl _ -> true | _ -> false
+
+and is_if_like (s: stmt) = match s with If _ | IfElse _ -> true | _ -> false
+
+and is_macro_call (s: stmt) = match s with
+  | Expr (Call (Name n, _)) ->
+      String.length n > 0
+      && String.contains n '_'
+      && n = String.uppercase_ascii n
+  | _ -> false
+
+and needs_blank_line_between (a: stmt) (b: stmt) =
+  (is_decl_stmt a && not (is_decl_stmt b)) ||
+  (is_macro_call a && not (is_macro_call b)) ||
+  is_if_like a ||
+  is_if_like b
+
+and p_stmts_with_blanks = function
+  | [] -> empty
+  | [s] -> p_stmt s
+  | s :: (next :: _ as rest) ->
+      let sep =
+        if needs_blank_line_between s next then
+          hardline ^^ hardline
+        else
+          hardline
+      in
+      p_stmt s ^^ sep ^^ p_stmts_with_blanks rest
 
 (* This is for toplevel comments *)
 let p_comments cs =
