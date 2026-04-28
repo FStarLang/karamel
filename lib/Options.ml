@@ -94,6 +94,7 @@ let alloca_if_vla = ref false
 let cast_allocations = ref false
 let parentheses = ref false
 let blank_lines = ref false
+let line_comments = ref false
 let curly_braces = ref false
 let unroll_loops = ref (-1)
 let tail_calls = ref false

@@ -359,6 +359,8 @@ Supported options:|}
       every variable for more compact code-generation";
     "-fblank-lines", Arg.Set Options.blank_lines, "  insert blank lines between \
       declaration blocks, macro invocations, and if/else blocks for readability";
+    "-fline-comments", Arg.Set Options.line_comments, "  use C line comments (// ...) \
+      instead of block comments (/* ... */)";
     "-goto_for_early_return", Arg.Set Options.goto_for_early_return, " replace early \
       returns with assignments to a return variable and gotos to a label at the end \
       of the function";

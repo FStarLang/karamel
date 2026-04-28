@@ -348,8 +348,16 @@ and p_expr' curr = function
 (* statement-level comment *)
 and p_comment s =
   if s <> "" then
-    (* TODO: escape *)
-    string "/* " ^^ nest 2 (separate_map hardline string (String.split_on_char '\n' s)) ^^ string " */"
+    if !Options.line_comments then
+      let lines = String.split_on_char '\n' s in
+      let body = List.map (fun l ->
+        let l = String.trim l in
+        if l = "" then "//" else "// " ^ l
+      ) lines in
+      separate_map hardline string ("//" :: body @ ["//"])
+    else
+      (* TODO: escape *)
+      string "/* " ^^ nest 2 (separate_map hardline string (String.split_on_char '\n' s)) ^^ string " */"
   else
     empty
 
@@ -515,11 +523,15 @@ and is_macro_call (s: stmt) = match s with
       && n = String.uppercase_ascii n
   | _ -> false
 
+and is_comment (s: stmt) = match s with Comment _ -> true | _ -> false
+
 and needs_blank_line_between (a: stmt) (b: stmt) =
   (is_decl_stmt a && not (is_decl_stmt b)) ||
   (is_macro_call a && not (is_macro_call b)) ||
   is_if_like a ||
-  is_if_like b
+  is_if_like b ||
+  is_comment a ||
+  is_comment b
 
 and p_stmts_with_blanks = function
   | [] -> empty
@@ -533,7 +545,7 @@ and p_stmts_with_blanks = function
       in
       p_stmt s ^^ sep ^^ p_stmts_with_blanks rest
 
-(* This is for toplevel comments *)
+(* This is for toplevel comments — not affected by -fline-comments *)
 let p_comments cs =
   separate_map hardline (fun c -> string ("/**\n" ^ c ^ "\n*/")) cs ^^
   if List.length cs > 0 then hardline else empty
