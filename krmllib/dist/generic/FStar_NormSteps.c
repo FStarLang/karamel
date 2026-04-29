@@ -10,230 +10,97 @@
 
 bool FStar_NormSteps_uu___is_Simpl(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_Simpl)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_Simpl;
 }
 
 bool FStar_NormSteps_uu___is_Weak(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_Weak)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_Weak;
 }
 
 bool FStar_NormSteps_uu___is_HNF(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_HNF)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_HNF;
 }
 
 bool FStar_NormSteps_uu___is_Primops(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_Primops)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_Primops;
 }
 
 bool FStar_NormSteps_uu___is_Delta(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_Delta)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_Delta;
 }
 
 bool FStar_NormSteps_uu___is_Zeta(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_Zeta)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_Zeta;
 }
 
 bool FStar_NormSteps_uu___is_ZetaFull(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_ZetaFull)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_ZetaFull;
 }
 
 bool FStar_NormSteps_uu___is_Iota(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_Iota)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_Iota;
 }
 
 bool FStar_NormSteps_uu___is_NBE(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_NBE)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_NBE;
 }
 
 bool FStar_NormSteps_uu___is_Reify(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_Reify)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_Reify;
 }
 
 bool FStar_NormSteps_uu___is_NormDebug(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_NormDebug)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_NormDebug;
 }
 
 bool FStar_NormSteps_uu___is_UnfoldOnly(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_UnfoldOnly)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_UnfoldOnly;
 }
 
 bool FStar_NormSteps_uu___is_UnfoldOnce(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_UnfoldOnce)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_UnfoldOnce;
 }
 
 bool FStar_NormSteps_uu___is_UnfoldFully(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_UnfoldFully)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_UnfoldFully;
 }
 
 bool FStar_NormSteps_uu___is_UnfoldAttr(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_UnfoldAttr)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_UnfoldAttr;
 }
 
 bool FStar_NormSteps_uu___is_UnfoldQual(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_UnfoldQual)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_UnfoldQual;
 }
 
 bool FStar_NormSteps_uu___is_UnfoldNamespace(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_UnfoldNamespace)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_UnfoldNamespace;
 }
 
 bool FStar_NormSteps_uu___is_Unmeta(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_Unmeta)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_Unmeta;
 }
 
 bool FStar_NormSteps_uu___is_Unascribe(FStar_NormSteps_norm_step projectee)
 {
-  if (projectee.tag == FStar_NormSteps_Unascribe)
-  {
-    return true;
-  }
-  else
-  {
-    return false;
-  }
+  return projectee.tag == FStar_NormSteps_Unascribe;
 }
 
 FStar_NormSteps_norm_step FStar_NormSteps_simplify = { .tag = FStar_NormSteps_Simpl };

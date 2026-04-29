@@ -701,6 +701,9 @@ let to_addr is_struct =
     | EIfThenElse (e1, e2, e3) ->
         w (EIfThenElse (to_addr false e1, to_addr false e2, to_addr false e3))
 
+    | ETernary (e1, e2, e3) ->
+        w (ETernary (to_addr false e1, to_addr false e2, to_addr false e3))
+
     | EAssign (e1, e2) ->
         (* In the case of a by-copy struct assignment (for the return value of
          * an if-then-else, for instance), we do not recurse. This is morally an

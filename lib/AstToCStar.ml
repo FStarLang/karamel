@@ -480,6 +480,9 @@ and mk_expr env in_stmt under_initializer_list e =
   | EBufNull ->
       CStar.BufNull
 
+  | ETernary (e1, e2, e3) ->
+      CStar.Ternary (mk_expr env false e1, mk_expr env false e2, mk_expr env false e3)
+
   | _ ->
       Warn.maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, NotLowStar e);
       CStar.Any
@@ -726,6 +729,9 @@ and mk_stmts env e ret_type =
 
     | _ when return_pos <> Not ->
         mk_as_return env e (comment e.meta @ acc) return_pos
+
+    | ETernary _ ->
+      Warn.fatal_error "ETernary in stmt position?: %a\n" pexpr e
 
     | _ ->
         (* This is a specialized instance of `mk_as_return` when return_pos = Not *)

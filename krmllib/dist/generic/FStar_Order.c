@@ -113,13 +113,9 @@ FStar_Order_order FStar_Order_order_from_int(krml_checked_int_t i)
   {
     return FStar_Order_Lt;
   }
-  else if (i == (krml_checked_int_t)0)
-  {
-    return FStar_Order_Eq;
-  }
   else
   {
-    return FStar_Order_Gt;
+    return i == (krml_checked_int_t)0 ? FStar_Order_Eq : FStar_Order_Gt;
   }
 }
 
