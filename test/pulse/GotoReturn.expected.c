@@ -24,6 +24,10 @@ int32_t GotoReturn_early_return_int(int32_t x)
     return result;
 }
 
+/**
+This function has no early return.
+  It tests that fline-comments leaves top-level comments unchanged.
+*/
 int32_t GotoReturn_no_early_return(int32_t x)
 {
   return x;

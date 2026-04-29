@@ -7,6 +7,7 @@ let early_return_int (x: Int32.t) : Int32.t =
   else 44l
 
 (* No early return: single return at the end *)
+[@@Comment "This function has no early return.\n  It tests that fline-comments leaves top-level comments unchanged."]
 let no_early_return (x: Int32.t) : Int32.t =
   x
 
