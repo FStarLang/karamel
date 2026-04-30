@@ -115,7 +115,7 @@ and expr =
   | Var of var
   | GetGlobal of ident
   | Constant of constant
-  | EBool of bool
+  | Bool of bool
   | Assign of var * expr
   | StringLiteral of string
   | Abort of expr

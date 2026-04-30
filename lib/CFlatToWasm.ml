@@ -663,8 +663,8 @@ and mk_expr env (e: expr): W.Ast.instr list =
   | Constant (w, lit) ->
       mk_const (mk_lit w lit)
 
-  | EBool true  -> mk_const (mk_int32 Int32.one)
-  | EBool false -> mk_const (mk_int32 Int32.zero)
+  | Bool true  -> mk_const (mk_int32 Int32.one)
+  | Bool false -> mk_const (mk_int32 Int32.zero)
 
   | CallOp (o, [ e1 ]) ->
       mk_callop env o e1

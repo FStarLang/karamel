@@ -840,7 +840,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       failwith "TODO: implement manual memory management"
 
   | EBool b ->
-      locals, EBool b
+      locals, Bool b
 
   | ECast (e, TInt wt) ->
       let wf = match e.typ with TInt wf -> wf | _ -> failwith "non-int cast" in
