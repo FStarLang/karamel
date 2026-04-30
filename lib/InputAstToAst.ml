@@ -7,6 +7,7 @@ open Ast
 open Common
 
 module I = InputAst
+module IK = InputConstant
 
 let mk (type a) (node: a): a with_type =
   { node; typ = TAny; meta = [] }
@@ -25,6 +26,58 @@ let rec binders_of_pat p =
   | PUnit
   | PBool _ ->
       []
+
+let tr_width (w : IK.width) : K.width =
+  match w with
+  | IK.UInt8 -> K.UInt8
+  | IK.UInt16 -> K.UInt16
+  | IK.UInt32 -> K.UInt32
+  | IK.UInt64 -> K.UInt64
+  | IK.Int8 -> K.Int8
+  | IK.Int16 -> K.Int16
+  | IK.Int32 -> K.Int32
+  | IK.Int64 -> K.Int64
+  | IK.Bool -> K.Bool
+  | IK.CInt -> K.CInt
+  | IK.SizeT -> K.SizeT
+  | IK.PtrdiffT -> K.PtrdiffT
+  | IK.Float32 -> K.Float32
+  | IK.Float64 -> K.Float64
+
+let tr_op (op: IK.op) : K.op =
+  match op with
+  | IK.Add -> K.Add
+  | IK.AddW -> K.AddW
+  | IK.Sub -> K.Sub
+  | IK.SubW -> K.SubW
+  | IK.Div -> K.Div
+  | IK.DivW -> K.DivW
+  | IK.Mult -> K.Mult
+  | IK.MultW -> K.MultW
+  | IK.Mod -> K.Mod
+  | IK.BOr -> K.BOr
+  | IK.BAnd -> K.BAnd
+  | IK.BXor -> K.BXor
+  | IK.BShiftL -> K.BShiftL
+  | IK.BShiftR -> K.BShiftR
+  | IK.BNot -> K.BNot
+  | IK.Eq -> K.Eq
+  | IK.Neq -> K.Neq
+  | IK.Lt -> K.Lt
+  | IK.Lte -> K.Lte
+  | IK.Gt -> K.Gt
+  | IK.Gte -> K.Gte
+  | IK.And -> K.And
+  | IK.Or -> K.Or
+  | IK.Xor -> K.Xor
+  | IK.Not -> K.Not
+  | IK.Assign -> K.Assign
+  | IK.PreIncr -> K.PreIncr
+  | IK.PreDecr -> K.PreDecr
+  | IK.PostIncr -> K.PostIncr
+  | IK.PostDecr -> K.PostDecr
+  | IK.Comma -> K.Comma
+  | IK.Neg -> K.Neg
 
 let width_of_equality = function
   | TInt w -> Some w
@@ -77,6 +130,7 @@ and mk_fields fields =
 
 and mk_constant (w, s) =
   let module T = struct exception Error end in
+  let w = tr_width w in
   let rec skip_zeroes i =
     if i = String.length s then
       i
@@ -105,7 +159,7 @@ and mk_constant (w, s) =
 
 and mk_typ = function
   | I.TInt x ->
-      TInt x
+      TInt (tr_width x)
   | I.TBuf t ->
       TBuf (mk_typ t, false)
   | I.TConstBuf t ->
@@ -160,8 +214,8 @@ and mk_expr = function
 
   | I.EApp (e, es) ->
       mk (EApp (mk_expr e, List.map mk_expr es))
-  | I.ETApp (I.EOp ((K.Eq | K.Neq as op), _), [ t ]) ->
-      let c = match op with K.Eq -> K.PEq | K.Neq -> K.PNeq | _ -> assert false in
+  | I.ETApp (I.EOp ((IK.Eq | IK.Neq as op), _), [ t ]) ->
+      let c = match op with IK.Eq -> K.PEq | IK.Neq -> K.PNeq | _ -> assert false in
       mk (EPolyComp (c, mk_typ t))
   | I.ETApp (e, es) ->
       mk (ETApp (mk_expr e, [], [], List.map mk_typ es))
@@ -198,7 +252,7 @@ and mk_expr = function
   | I.EMatch (e1, bs) ->
       mk (EMatch (Checked, mk_expr e1, mk_branches bs))
   | I.EOp (op, w) ->
-      mk (EOp (op, w))
+      mk (EOp (tr_op op, tr_width w))
   | I.ECast (e1, t) ->
       mk (ECast (mk_expr e1, mk_typ t))
   | I.EPushFrame ->
