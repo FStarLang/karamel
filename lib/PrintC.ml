@@ -344,6 +344,16 @@ and p_expr' curr = function
       p_stmts stmts
   | CxxInitializerList init ->
       p_init init
+  | Ternary (c, t, e) ->
+      let mine = 13 in
+      let c = p_expr' 12 c in
+      (* "The expression in the middle of the conditional operator (between ?
+      and :) is parsed as if parenthesized: its precedence relative to ?: is
+      ignored." Hence the 15 (max) here. *)
+      let t = p_expr' 15 t in
+      let e = p_expr' 13 e in
+      paren_if curr mine @@
+      group c ^^ space ^^ align (qmark ^^ space ^^ group t ^/^ colon ^^ space ^^ group e)
 
 (* statement-level comment *)
 and p_comment s =

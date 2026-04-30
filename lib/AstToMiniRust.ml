@@ -1352,6 +1352,10 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
         (* POSSIBLE FIX (if we care): insert slice::from_ref, since the expected
            Rust type for this is a slice (and maybe ditch possibly_convert) *)
 
+  | ETernary (e1, e2, e3) ->
+      (* Rust has if-then-else expressions, go back to it and keep going. *)
+      translate_expr_with_type env ~context fn_t_ret (Ast.with_type e.typ (Ast.EIfThenElse (e1, e2, e3))) t_ret
+
 and translate_pat env (p: Ast.pattern): MiniRust.pat =
   match p.node with
   | PBound v -> VarP v
