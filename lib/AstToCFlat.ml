@@ -1003,6 +1003,9 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EBufNull ->
       locals, CF.Constant (K.UInt32, "0")
 
+  | ETernary (e1, e2, e3) ->
+      (* No need for ternary in CFlat, turn to if-then-else and recurse *)
+      mk_expr env locals (with_type e.typ (EIfThenElse (e1, e2, e3)))
 
 (* See digression for [dup32] in CFlatToWasm *)
 let scratch_locals =

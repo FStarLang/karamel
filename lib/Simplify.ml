@@ -507,8 +507,75 @@ let constant_fold = object (self)
         | _ -> EApp (e, [ e1; e2 ])
     )
 
+    | EOp (K.And, _), [e1; e2] -> (
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
+        match e1.node, e2.node with
+        | EBool false, _ -> EBool false
+        | _, EBool false -> EBool false
+        | EBool true, e2 -> e2
+        | e1, EBool true -> e1
+        | _ -> EApp (e, [e1; e2])
+    )
+
+    | EOp (K.Or, _), [e1; e2] -> (
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
+        match e1.node, e2.node with
+        | EBool true, _ -> EBool true
+        | _, EBool true -> EBool true
+        | EBool false, e2 -> e2
+        | e1, EBool false -> e1
+        | _ -> EApp (e, [e1; e2])
+    )
+
+    | EOp (K.Not, _), [e1] -> (
+        let e1 = self#visit_expr env e1 in
+        match e1.node with
+        | EBool b -> EBool (not b)
+        | _ -> EApp (e, [e1])
+    )
+
     | _ ->
         EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
+
+  method! visit_ETernary env c t e =
+    let c = self#visit_expr env c in
+    let t = self#visit_expr env t in
+    let e = self#visit_expr env e in
+    assert (c.typ = TBool);
+    (* Some of the rules below are gated with type information, to make sure we
+    don't end up rewriting something like `p ? true : 42` into `p || 42`, which
+    would booleanize the 42 into 1. Karamel's typechecker should prevent this
+    from being the case (the types of the branches should match and be either
+    TBool or TInt), but better safe than sorry. *)
+    match c.node, t.node, e.node with
+    | EBool true, _, _ ->
+      (* true ? t : e  ~>  t *)
+      t.node
+    | EBool false, _, _ ->
+      (* false ? t : e  ~>  e *)
+      e.node
+    | _, EBool false, EBool true ->
+      (* c ? false : true  ~>  !c *)
+      (mk_not c).node
+    | _, EBool true, EBool false ->
+      (* c ? true : false  ~>  c. Note, we know that c is TBool. *)
+      c.node
+    | _, EBool true, _ when e.typ = TBool ->
+      (* c ? true : e  ~>  c || e *)
+      (mk_or c e).node
+    | _, EBool false, _ when e.typ = TBool ->
+      (* c ? false : e  ~>  !c && e *)
+      (mk_and (mk_not c) e).node
+    | _, _, EBool true when t.typ = TBool ->
+      (* c ? t : true  ~>  !c || t *)
+      (mk_or (mk_not c) t).node
+    | _, _, EBool false when t.typ = TBool ->
+      (* c ? t : false  ~>  c && t *)
+      (mk_and c t).node
+    | _ ->
+      ETernary (c, t, e)
 end
 
 let remove_ignore_unit = object
@@ -643,6 +710,40 @@ let let_if_to_assign = object (self)
 
     | _ ->
         EAssign (e1, e2)
+end
+
+(* Check if an expression references any ifdef variable. If so, we must keep it
+   as EIfThenElse so that AstToCStar can compile it to #ifdef. *)
+let references_ifdef ifdefs =
+  (object
+    inherit [_] reduce
+    method private zero = false
+    method private plus = (||)
+    method! visit_EQualified _ lid = Idents.LidSet.mem lid ifdefs
+  end)#visit_expr_w ()
+
+(* Eligible for use inside a C ternary: readonly (no side effects, no function
+   calls) AND no statement constructs (ELet, EIfThenElse) anywhere in the
+   subtree. *)
+let is_ternary_eligible = (object
+  inherit [_] readonly_visitor
+  method! visit_ELet _ _ _ _ = false
+  method! visit_EIfThenElse _ _ _ _ = false
+end)#visit_expr_w ()
+
+let use_ternary_op ifdefs = object (self)
+  inherit [_] map
+
+  method! visit_EIfThenElse env c t e =
+    let c = self#visit_expr env c in
+    let t = self#visit_expr env t in
+    let e = self#visit_expr env e in
+    if is_ternary_eligible c &&
+       is_ternary_eligible t &&
+       is_ternary_eligible e &&
+       not (references_ifdef ifdefs c)
+    then ETernary (c, t, e)
+    else EIfThenElse (c, t, e)
 end
 
 (* Transform functional updates of the form x.(i) <- { x.(i) with f = e } into
@@ -1536,6 +1637,14 @@ and hoist_expr tbl loc pos e =
       else
         Warn.fatal_error "%a: %s" Loc.ploc loc "[continue] expressions should only appear in statement position"
 
+  | ETernary (e1, e2, e3) ->
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
+      let lhs2, e2 = hoist_expr loc UnderConditional e2 in
+      let e2 = nest lhs2 e2.typ e2 in
+      let lhs3, e3 = hoist_expr loc UnderConditional e3 in
+      let e3 = nest lhs3 e3.typ e3 in
+      lhs1, mk (ETernary (e1, e2, e3))
+
 (* TODO: figure out if we want to ignore the other cases for performance
  * reasons. *)
 class hoist = object
@@ -2236,6 +2345,7 @@ let simplify2 ifdefs (files: file list): file list =
   (* Quality of hoisting is WIDELY improved if we remove un-necessary
    * let-bindings. Also removes occurrences of spinlock and the like. *)
   let files = optimize_lets ~ifdefs files in
+  let files = (use_ternary_op ifdefs)#visit_files () files in
   let files = if Options.wasm () then files else fixup_while_tests#visit_files () files in
   let files = (new hoist)#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in

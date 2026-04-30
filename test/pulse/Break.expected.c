@@ -7,21 +7,8 @@ void Break_simple_break(void)
 {
   bool k = true;
   bool _break = false;
-  bool cond;
-  if (_break)
-    cond = false;
-  else
-    cond = k;
-  while (cond)
-  {
+  while (!_break && k)
     _break = true;
-    bool ite;
-    if (_break)
-      ite = false;
-    else
-      ite = k;
-    cond = ite;
-  }
 }
 
 void Break_break_continue_and_return(uint8_t which)
