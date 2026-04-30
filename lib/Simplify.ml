@@ -393,9 +393,9 @@ let wrapping_arithmetic = object (self)
   (* TODO: this is no longer exposed by F*; check and remove this pass? *)
   method! visit_EApp env e es =
     match e.node, es with
-    | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), w), [ e1; e2 ] when K.is_signed w ->
+    | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), TInt w), [ e1; e2 ] when K.is_signed w ->
         let unsigned_w = K.unsigned_of_signed w in
-        let e = mk_op (K.without_wrap op) unsigned_w in
+        let e = mk_op (K.without_wrap op) (TInt unsigned_w) in
         let e1 = self#visit_expr env e1 in
         let e2 = self#visit_expr env e2 in
         let c e = { node = ECast (e, TInt unsigned_w); typ = TInt unsigned_w; meta = [] } in
@@ -405,8 +405,8 @@ let wrapping_arithmetic = object (self)
         let unsigned_app = { node = EApp (e, [ c e1; c e2 ]); typ = TInt unsigned_w; meta = [] } in
         ECast (unsigned_app, TInt w)
 
-    | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), w), [ e1; e2 ] when K.is_unsigned w ->
-        let e = mk_op (K.without_wrap op) w in
+    | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), TInt w), [ e1; e2 ] when K.is_unsigned w ->
+        let e = mk_op (K.without_wrap op) (TInt w) in
         let e1 = self#visit_expr env e1 in
         let e2 = self#visit_expr env e2 in
         EApp (e, [ e1; e2 ])
@@ -445,7 +445,7 @@ let constant_fold = object (self)
     in
 
     match e.node, es with
-    | EOp (K.Add, w), [ e1; e2 ] -> (
+    | EOp (K.Add, TInt w), [ e1; e2 ] -> (
         let e1 = self#visit_expr env e1 in
         let e2 = self#visit_expr env e2 in
         let is_int w =
@@ -463,7 +463,7 @@ let constant_fold = object (self)
         | _ -> EApp (e, [ e1; e2 ])
     )
 
-    | EOp (K.Mult, w), [ e1; e2 ] -> (
+    | EOp (K.Mult, TInt w), [ e1; e2 ] -> (
         let e1 = self#visit_expr env e1 in
         let e2 = self#visit_expr env e2 in
         match e1.node, e2.node with
@@ -479,7 +479,7 @@ let constant_fold = object (self)
         | _ -> EApp (e, [ e1; e2 ])
     )
 
-    | EOp (K.Div, w), [ e1; e2 ] -> (
+    | EOp (K.Div, TInt w), [ e1; e2 ] -> (
         let e1 = self#visit_expr env e1 in
         let e2 = self#visit_expr env e2 in
         match e1.node, e2.node with
@@ -493,7 +493,7 @@ let constant_fold = object (self)
         | _ -> EApp (e, [ e1; e2 ])
     )
 
-    | EOp (K.Mod, w), [ e1; e2 ] -> (
+    | EOp (K.Mod, TInt w), [ e1; e2 ] -> (
         let e1 = self#visit_expr env e1 in
         let e2 = self#visit_expr env e2 in
         match e1.node, e2.node with
@@ -1207,7 +1207,7 @@ let rec flag_short_circuit tbl loc t e0 es =
   let lhs0, e0 = hoist_expr loc Unspecified e0 in
   let lhss, es = List.split (List.map (hoist_expr loc Unspecified) es) in
   match e0.node, es, lhss with
-  | EOp ((K.And | K.Or) as op, K.Bool), [ e1; e2 ], [ lhs1; lhs2 ] ->
+  | EOp ((K.And | K.Or) as op, TBool), [ e1; e2 ], [ lhs1; lhs2 ] ->
       (* In Wasm, we automatically inline functions based on their size, so we
        * can't ask the user to rewrite, but it's ok, because it's an expression
        * language, so we can have let-bindings anywhere. *)

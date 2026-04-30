@@ -948,16 +948,16 @@ let equalities files =
 
       match t with
       | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) ->
-          EOp (K.op_of_poly_comp op, K.CInt)
+          EOp (K.op_of_poly_comp op, TInt K.CInt)
 
       | TQualified lid when enum_eventually lid ->
           EPolyComp (op, t)
 
       | TInt w ->
-          EOp (K.op_of_poly_comp op, w)
+          EOp (K.op_of_poly_comp op, TInt w)
 
       | TBool ->
-          EOp (K.op_of_poly_comp op, K.Bool)
+          EOp (K.op_of_poly_comp op, TBool)
 
       | TBuf _ ->
           (* 20210205: I don't think this is allowed anymore, at all. Maybe with

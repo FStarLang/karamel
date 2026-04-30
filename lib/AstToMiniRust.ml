@@ -536,7 +536,7 @@ let has_pointer env =
 let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): MiniRust.typ =
   match t with
   | TInt w -> Constant w
-  | TBool -> Constant Bool
+  | TBool -> Bool
   | TUnit -> Unit
   | TAny -> failwith "unexpected: [type] no casts in Low* -> Rust"
   | TBuf (t, b) ->
@@ -873,7 +873,7 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
   | EUnit ->
       env, Unit
   | EBool b ->
-      env, Constant (Bool, string_of_bool b)
+      env, EBool b
   | EString s ->
       env, ConstantString s
   | EAny -> failwith "Unexpected EAny"
@@ -884,7 +884,7 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
       let env, e = translate_expr env fn_t_ret e in
       let binding: MiniRust.binding = { name = "_"; typ = t; mut = false; ref = false } in
       env, Let (binding, Some e, Unit)
-  | EApp ({ node = EOp (o, w); _ }, es) when H.is_wrapping_operator o && not (Constant.is_float w) ->
+  | EApp ({ node = EOp (o, TInt w); _ }, es) when H.is_wrapping_operator o && not (Constant.is_float w) ->
       let w = Helpers.assert_tint (List.hd es).typ in
       let env, es = translate_expr_list env fn_t_ret es in
       env, possibly_convert (MethodCall (List.hd es, [ H.wrapping_operator o ], List.tl es)) (Constant w)
@@ -955,8 +955,8 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
   | EApp ({ node = EPolyComp (op, TBuf _); _ }, ([ { node = EBufNull; _ }; _ ] | [ _; { node = EBufNull; _ }])) ->
       (* No null-checks in Rust -- function will panic. *)
       begin match op with
-      | PEq -> env, Constant (Bool, "false") (* nothing is ever null *)
-      | PNeq ->  env, Constant (Bool, "true") (* everything is always non-null *)
+      | PEq -> env, EBool false (* nothing is ever null *)
+      | PNeq -> env, EBool true (* everything is always non-null *)
       end
 
   | EApp (e0, es) ->

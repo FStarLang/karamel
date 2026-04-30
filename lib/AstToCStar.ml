@@ -309,7 +309,7 @@ and mask w e =
   | _ -> e
 
 and is_integer_arith op w =
-  w <> K.Bool && not (Constant.is_float w) && K.is_unsigned w && match op with
+  not (Constant.is_float w) && K.is_unsigned w && match op with
   | K.Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
   | BOr | BAnd | BXor | BShiftL | BShiftR | BNot
   | Eq | Neq | Lt | Lte | Gt | Gte ->
@@ -333,7 +333,7 @@ and is_integer_arith op w =
 and mk_arith env e =
   let mask_if is_atomic w e = if is_atomic then e else mask w e in
   match e.node with
-  | EApp ({ node = EOp (op, w); _ }, [ e1; e2 ]) when is_integer_arith op w ->
+  | EApp ({ node = EOp (op, TInt w); _ }, [ e1; e2 ]) when is_integer_arith op w ->
       let e1, a1, w1 = mk_arith env e1 in
       let e2, a2, w2 = mk_arith env e2 in
       begin match op with
@@ -353,7 +353,7 @@ and mk_arith env e =
       | _ ->
           assert false
       end, false, w1 || w2
-  | EApp ({ node = EOp (BNot, w); _ }, [ e1 ]) when is_integer_arith BNot w ->
+  | EApp ({ node = EOp (BNot, TInt w); _ }, [ e1 ]) when is_integer_arith BNot w ->
       (* BNot is unary. Complement always corrupts upper bits for UInt8/UInt16
          (~(uint8_t)0x0F promotes to int 0xFFFFFFF0), so we must mask. *)
       let e1, _, w1 = mk_arith env e1 in
@@ -415,7 +415,7 @@ and mk_expr env in_stmt under_initializer_list e =
       let ret_t = CStar.Type (mk_type env (MonomorphizationState.normalize e.typ)) in
       unit_to_void env e0 (cgs @ cgs') (List.map (fun t -> CStar.Type (mk_type env t)) ts @ [ ret_t ])
 
-  | EApp ({ node = EOp (op, w); _ }, [ _; _ ]) when is_integer_arith op w ->
+  | EApp ({ node = EOp (op, TInt w); _ }, [ _; _ ]) when is_integer_arith op w ->
       let e', _, widened = mk_arith env e in
       if !Options.cxx_compat && under_initializer_list && widened then
         Cast (e', mk_type env e.typ)
@@ -533,13 +533,13 @@ and mk_stmts env e ret_type =
     | EFor (binder,
       ({ node = EConstant ((K.UInt32 | K.SizeT), init as k_init); _ } as e_init),
       { node = EApp (
-        { node = EOp (K.Lt, (K.UInt32 | K.SizeT)); _ },
+        { node = EOp (K.Lt, TInt (K.UInt32 | K.SizeT)); _ },
         [{ node = EBound 0; _ };
         ({ node = EConstant ((K.UInt32 | K.SizeT), max as k_max); _ } as e_max)]); _},
       { node = EAssign (
         { node = EBound 0; _ },
         { node = EApp (
-          { node = EOp (K.Add, (K.UInt32 | K.SizeT)); _ },
+          { node = EOp (K.Add, TInt (K.UInt32 | K.SizeT)); _ },
           [{ node = EBound 0; _ };
           ({ node = EConstant ((K.UInt32 | K.SizeT), incr as k_incr); _ } as e_incr)]); _}); _},
       body)
@@ -787,7 +787,7 @@ and mk_stmts env e ret_type =
        * ill-parenthesized, or if there's B1 && B'1
        *)
       match e1.node with
-      | EApp ({ node = EOp (K.And, K.Bool); _ }, [ e1; e1' ]) when return_pos <> Not ->
+      | EApp ({ node = EOp (K.And, TBool); _ }, [ e1; e1' ]) when return_pos <> Not ->
           let cond = mk_ifcond env e1 in
           (* Can't recursively call mk_block with Must because it'll insert a
            * return in the else-branch. *)
@@ -815,9 +815,9 @@ and mk_stmts env e ret_type =
     match e.node with
     | EQualified name when LidSet.mem name env.ifdefs ->
         CStar.Macro name
-    | EApp ({ node = EOp ((K.And | K.Or) as o, K.Bool); _ }, [ e1; e2 ]) ->
+    | EApp ({ node = EOp ((K.And | K.Or) as o, TBool); _ }, [ e1; e2 ]) ->
         CStar.Call (CStar.Op o, [ mk_ifcond env e1; mk_ifcond env e2 ])
-    | EApp ({ node = EOp (K.Not as o, K.Bool); _ }, [ e1 ]) ->
+    | EApp ({ node = EOp (K.Not as o, TBool); _ }, [ e1 ]) ->
         CStar.Call (CStar.Op o, [ mk_ifcond env e1 ])
     | _ ->
         raise NotIfDef

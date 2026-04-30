@@ -306,7 +306,7 @@ and print_expr env { node; typ; meta } =
       group (c ^^ string "match" ^/^ print_expr env e ^/^ string "with") ^^
       jump ~indent:0 (print_branches env branches)
   | EOp (o, w) ->
-      string "(" ^^ print_op o ^^ string "," ^^ print_width w ^^ string ")"
+      string "(" ^^ print_op o ^^ string "," ^^ print_typ w ^^ string ")"
   | ECast (e, t) ->
       parens_with_nesting (print_expr env e ^^ langle ^^ colon ^/^ print_typ t)
   | EPopFrame ->

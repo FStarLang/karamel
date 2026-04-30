@@ -29,6 +29,7 @@ and db_index = int [@ visitors.opaque ]
 
 type typ =
   | Constant of width (* excludes cint, ptrdifft *) [@name "tconstant"]
+  | Bool
   | Ref of lifetime option * borrow_kind * typ
   | Vec of typ
   | Array of typ * int [@name "tarray"]
@@ -53,7 +54,6 @@ and lifetime =
 let box t =
   App (Name (["Box"], []), [t])
 
-let bool = Constant Bool
 let u8 = Constant UInt8
 let u16 = Constant UInt16
 let u32 = Constant UInt32
@@ -79,6 +79,7 @@ and expr =
   | Name of name
   | Borrow of borrow_kind * expr
   | Constant of constant
+  | EBool of bool
   | ConstantString of string
   | Let of binding * expr option * expr
   | Call of expr * typ list * expr list

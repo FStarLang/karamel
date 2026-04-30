@@ -37,12 +37,13 @@ let tr_width (w : IK.width) : K.width =
   | IK.Int16 -> K.Int16
   | IK.Int32 -> K.Int32
   | IK.Int64 -> K.Int64
-  | IK.Bool -> K.Bool
   | IK.CInt -> K.CInt
   | IK.SizeT -> K.SizeT
   | IK.PtrdiffT -> K.PtrdiffT
   | IK.Float32 -> K.Float32
   | IK.Float64 -> K.Float64
+  | IK.Bool ->
+      Warn.fatal_error "Unexpected Bool width in input AST."
 
 let tr_op (op: IK.op) : K.op =
   match op with
@@ -78,12 +79,6 @@ let tr_op (op: IK.op) : K.op =
   | IK.PostDecr -> K.PostDecr
   | IK.Comma -> K.Comma
   | IK.Neg -> K.Neg
-
-let width_of_equality = function
-  | TInt w -> Some w
-  | TBool -> Some K.Bool
-  | TQualified ([ "Prims" ], ("int" | "nat" | "pos")) -> Some K.CInt
-  | _ -> None
 
 let rec mk_decl = function
   | I.DFunction (cc, flags, n, t, name, binders, body) ->
@@ -252,7 +247,16 @@ and mk_expr = function
   | I.EMatch (e1, bs) ->
       mk (EMatch (Checked, mk_expr e1, mk_branches bs))
   | I.EOp (op, w) ->
-      mk (EOp (tr_op op, tr_width w))
+      (* F* generates EOp's with Bool width (remember InputConstant.width
+      includes Bool), but the internal AST doesn't have Bool as a width. We
+      translate these to EOp with TBool type. The remaining widths become TInt
+      w. *)
+      let typ =
+        match w with
+        | IK.Bool -> TBool
+        | _ -> TInt (tr_width w)
+      in
+      mk (EOp (tr_op op, typ))
   | I.ECast (e1, t) ->
       mk (ECast (mk_expr e1, mk_typ t))
   | I.EPushFrame ->
