@@ -425,7 +425,7 @@ and print_expr env ?(lbrace_conflict=Fine) (context: int) (e: expr): document =
       group (ampersand ^^ print_borrow_kind k ^^ print_expr env mine e)
   | Constant c ->
       print_constant c
-  | EBool b ->
+  | Bool b ->
       string (if b then "true" else "false")
   | Let _ ->
       (* If we reach this point with lbrace_conflict=Danger, then we get bonus

@@ -873,7 +873,7 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
   | EUnit ->
       env, Unit
   | EBool b ->
-      env, EBool b
+      env, Bool b
   | EString s ->
       env, ConstantString s
   | EAny -> failwith "Unexpected EAny"
@@ -955,8 +955,8 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
   | EApp ({ node = EPolyComp (op, TBuf _); _ }, ([ { node = EBufNull; _ }; _ ] | [ _; { node = EBufNull; _ }])) ->
       (* No null-checks in Rust -- function will panic. *)
       begin match op with
-      | PEq -> env, EBool false (* nothing is ever null *)
-      | PNeq -> env, EBool true (* everything is always non-null *)
+      | PEq -> env, Bool false (* nothing is ever null *)
+      | PNeq -> env, Bool true (* everything is always non-null *)
       end
 
   | EApp (e0, es) ->

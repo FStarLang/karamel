@@ -29,7 +29,7 @@ and db_index = int [@ visitors.opaque ]
 
 type typ =
   | Constant of width (* excludes cint, ptrdifft *) [@name "tconstant"]
-  | Bool
+  | Bool [@name "tbool"]
   | Ref of lifetime option * borrow_kind * typ
   | Vec of typ
   | Array of typ * int [@name "tarray"]
@@ -79,7 +79,7 @@ and expr =
   | Name of name
   | Borrow of borrow_kind * expr
   | Constant of constant
-  | EBool of bool
+  | Bool of bool
   | ConstantString of string
   | Let of binding * expr option * expr
   | Call of expr * typ list * expr list

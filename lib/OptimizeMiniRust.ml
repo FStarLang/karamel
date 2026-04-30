@@ -576,7 +576,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
   | VecNew _
   | Name _
   | Constant _
-  | EBool _
+  | Bool _
   | ConstantString _
   | Unit
   | Panic _
@@ -1463,8 +1463,8 @@ let simplify_trivial_branching = object
     let e1 = super#visit_expr () e1 in
     let e2 = Option.map (super#visit_expr ()) e2 in
     match cond with
-    | EBool true -> e1
-    | EBool false ->
+    | Bool true -> e1
+    | Bool false ->
         begin match e2 with
         | Some e2 -> e2
         | None -> Unit
