@@ -33,25 +33,33 @@ let uint32 = TInt K.UInt32
 let uint64 = TInt K.UInt64
 let usize = TInt K.SizeT
 
-let type_of_op op w =
+let is_TInt = function TInt _ -> true | _ -> false
+let type_of_op op (t : typ) : typ =
   let open Constant in
+  (* Very defensive asserts here. *)
   match op with
   | Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
   | BOr | BAnd | BXor ->
-      TArrow (TInt w, TArrow (TInt w, TInt w))
+      assert (is_TInt t);
+      TArrow (t, TArrow (t, t))
   | BShiftL | BShiftR ->
-      TArrow (TInt w, TArrow (uint32, TInt w))
+      assert (is_TInt t);
+      TArrow (t, TArrow (uint32, t))
   | Eq | Neq ->
-      let t = if w = Bool then TBool else TInt w in
+      assert (is_TInt t || t = TBool);
       TArrow (t, TArrow (t, TBool))
   | Lt | Lte | Gt | Gte ->
-      TArrow (TInt w, TArrow (TInt w, TBool))
+      assert (is_TInt t);
+      TArrow (t, TArrow (t, TBool))
   | And | Or | Xor ->
+      assert (t = TBool);
       TArrow (TBool, TArrow (TBool, TBool))
   | Not ->
+      assert (t = TBool);
       TArrow (TBool, TBool)
   | BNot | Neg ->
-      TArrow (TInt w, TInt w)
+      assert (is_TInt t);
+      TArrow (t, t)
   | Assign | PreIncr | PreDecr | PostIncr | PostDecr | Comma ->
       invalid_arg "type_of_op"
 
@@ -78,9 +86,10 @@ let mk_op op w =
 
 (* @0 < <finish> *)
 let mk_lt w finish =
+  let t = TInt w in
   with_type TBool (
-    EApp (mk_op K.Lt w, [
-      with_type (TInt w) (EBound 0);
+    EApp (mk_op K.Lt t, [
+      with_type t (EBound 0);
       finish ]))
 
 let mk_lt32 =
@@ -95,7 +104,7 @@ let mk_incr_e w e =
   with_type TUnit (
     EAssign (with_type t (
       EBound 0), with_type t (
-      EApp (mk_op K.Add w, [
+      EApp (mk_op K.Add t, [
         with_type t (EBound 0);
         e ]))))
 
@@ -106,19 +115,19 @@ let mk_incr32 = mk_incr K.UInt32
 let mk_incr_usize = mk_incr K.SizeT
 
 let assert_tint_or_tbool t =
-  match t with TInt w -> w | TBool -> Bool | t -> Warn.fatal_error "Not an int/bool: %a" ptyp t
+  match t with TInt w -> TInt w | TBool -> TBool | t -> Warn.fatal_error "Not an int/bool: %a" ptyp t
 
 let mk_neq e1 e2 =
   with_type TBool (EApp (mk_op K.Neq (assert_tint_or_tbool e1.typ), [ e1; e2 ]))
 
 let mk_not e1 =
-  with_type TBool (EApp (mk_op K.Not K.Bool, [ e1 ]))
+  with_type TBool (EApp (mk_op K.Not TBool, [ e1 ]))
 
 let mk_and e1 e2 =
-  with_type TBool (EApp (mk_op K.And K.Bool, [ e1; e2 ]))
+  with_type TBool (EApp (mk_op K.And TBool, [ e1; e2 ]))
 
 let mk_or e1 e2 =
-  with_type TBool (EApp (mk_op K.Or K.Bool, [ e1; e2 ]))
+  with_type TBool (EApp (mk_op K.Or TBool, [ e1; e2 ]))
 
 let mk_uint32 i =
   with_type (TInt K.UInt32) (EConstant (K.UInt32, string_of_int i))
@@ -130,7 +139,7 @@ let mk_sizet i =
 let mk_minus_one e =
   with_type uint32 (
     EApp (
-      mk_op K.Sub K.UInt32, [
+      mk_op K.Sub (TInt K.UInt32), [
       e;
       oneu32
     ]))
@@ -138,7 +147,7 @@ let mk_minus_one e =
 (* e > 0 *)
 let mk_gt_zero e =
   with_type TBool (
-    EApp (mk_op K.Gt K.UInt32, [
+    EApp (mk_op K.Gt (TInt K.UInt32), [
       e;
       zerou32]))
 
@@ -224,14 +233,14 @@ let is_ifdef ifdefs e1 =
     match e.node with
     | EQualified lid when Idents.LidSet.mem lid ifdefs ->
         true
-    | EApp ({ node = EOp ((K.And | K.Or), K.Bool); _ }, [ e1; e2 ]) ->
+    | EApp ({ node = EOp ((K.And | K.Or), TBool); _ }, [ e1; e2 ]) ->
         is_ifdef e1 && is_ifdef e2
-    | EApp ({ node = EOp (K.Not, K.Bool); _ }, [ e1 ]) ->
+    | EApp ({ node = EOp (K.Not, TBool); _ }, [ e1 ]) ->
         is_ifdef e1
     | _ -> false
   in
   match e1.node with
-  | EApp ({ node = EOp (K.And, K.Bool); _ }, [ e1; e2 ]) ->
+  | EApp ({ node = EOp (K.And, TBool); _ }, [ e1; e2 ]) ->
       (* e2 will appear underneath the #if and thus deserves special
          treatment. *)
       if is_ifdef e1 then
@@ -399,7 +408,7 @@ let rec is_int_constant e =
       | BOr | BAnd | BXor | BShiftL | BShiftR | BNot
       | Eq | Neq | Lt | Lte | Gt | Gte
       | And | Or | Xor | Not), w); _ },
-    es) when w <> CInt ->
+    es) when w <> TInt CInt ->
       List.for_all is_int_constant es
   | _ ->
       false

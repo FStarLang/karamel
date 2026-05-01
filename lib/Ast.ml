@@ -214,7 +214,7 @@ type expr' =
   | EOpen of ident * atom_t
     (** [ident] for debugging purposes only *)
 
-  | EOp of op * width
+  | EOp of op * typ_wo
   | EQualified of lident
   | EConstant of constant
   | EUnit

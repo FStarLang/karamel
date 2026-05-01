@@ -845,25 +845,23 @@ let is_special name =
   Helpers.is_uu name
 
 let rec is_trivially_true e =
-  let open Constant in
   match e.node with
   | EBool b ->
       b = true
-  | EApp ({ node = EOp (K.And, Bool); _ }, [ e1; e2 ]) ->
+  | EApp ({ node = EOp (K.And, TBool); _ }, [ e1; e2 ]) ->
       is_trivially_true e1 && is_trivially_true e2
-  | EApp ({ node = EOp (K.Or, Bool); _ }, [ e1; e2 ]) ->
+  | EApp ({ node = EOp (K.Or, TBool); _ }, [ e1; e2 ]) ->
       is_trivially_true e1 || is_trivially_true e2
   | _ ->
       false
 
 and is_trivially_false e =
-  let open Constant in
   match e.node with
   | EBool b ->
       b = false
-  | EApp ({ node = EOp (K.And, Bool); _ }, [ e1; e2 ]) ->
+  | EApp ({ node = EOp (K.And, TBool); _ }, [ e1; e2 ]) ->
       is_trivially_false e1 || is_trivially_false e2
-  | EApp ({ node = EOp (K.Or, Bool); _ }, [ e1; e2 ]) ->
+  | EApp ({ node = EOp (K.Or, TBool); _ }, [ e1; e2 ]) ->
       is_trivially_false e1 && is_trivially_false e2
   | _ ->
       false
@@ -920,9 +918,8 @@ end
 
 let union_field_of_cons = (^) "case_"
 
-let mk_eq w e1 e2 =
-  let t = if w = K.Bool then TBool else TInt w in
-  let eq = with_type (TArrow (t, TArrow (t, TBool))) (EOp (K.Eq, w)) in
+let mk_eq t e1 e2 =
+  let eq = with_type (TArrow (t, TArrow (t, TBool))) (EOp (K.Eq, t)) in
   with_type TBool (EApp (eq, [ e1; e2 ]))
 
 let mk_poly_eq t e1 e2 =
@@ -937,7 +934,7 @@ let rec compile_pattern env scrut pat expr =
       (* why generate a conditional here?? *)
       [ mk_poly_eq TUnit scrut Helpers.eunit ], expr
   | PBool b ->
-      [ mk_eq K.Bool scrut (with_type TBool (EBool b)) ], expr
+      [ mk_eq TBool scrut (with_type TBool (EBool b)) ], expr
   | PEnum lid ->
       [ mk_poly_eq pat.typ scrut (with_type pat.typ (EEnum lid)) ], expr
   | PRecord fields ->
@@ -968,7 +965,7 @@ let rec compile_pattern env scrut pat expr =
       let scrut = with_type (Helpers.assert_tbuf_or_tarray scrut.typ) (EBufRead (scrut, zerou32)) in
       compile_pattern env scrut pat expr
   | PConstant k ->
-      [ mk_eq (fst k) scrut (with_type (TInt (fst k)) (EConstant k)) ], expr
+      [ mk_eq (TInt (fst k)) scrut (with_type (TInt (fst k)) (EConstant k)) ], expr
 
 
 let rec mk_conjunction = function
@@ -977,7 +974,7 @@ let rec mk_conjunction = function
   | [ e1 ] ->
       e1
   | e1 :: es ->
-      with_type TBool (EApp (with_type (TArrow (TBool, TArrow (TBool, TBool))) (EOp (K.And, K.Bool)), [ e1; mk_conjunction es ]))
+      with_type TBool (EApp (with_type (TArrow (TBool, TArrow (TBool, TBool))) (EOp (K.And, TBool)), [ e1; mk_conjunction es ]))
 
 let compile_branch env scrut (binders, pat, expr): expr * expr =
   let _binders, pat, expr = open_branch binders pat expr in
