@@ -109,13 +109,13 @@ FStar_Order_order FStar_Order_lex(FStar_Order_order o1, FStar_Order_order (*o2)(
 
 FStar_Order_order FStar_Order_order_from_int(krml_checked_int_t i)
 {
-  if (Prims_op_LessThan(i, (krml_checked_int_t)0))
+  if (Prims_op_LessThan(i, 0))
   {
     return FStar_Order_Lt;
   }
   else
   {
-    return i == (krml_checked_int_t)0 ? FStar_Order_Eq : FStar_Order_Gt;
+    return i == 0 ? FStar_Order_Eq : FStar_Order_Gt;
   }
 }
 
@@ -125,15 +125,15 @@ krml_checked_int_t FStar_Order_int_of_order(FStar_Order_order uu___)
   {
     case FStar_Order_Lt:
       {
-        return (krml_checked_int_t)-1;
+        return -1;
       }
     case FStar_Order_Eq:
       {
-        return (krml_checked_int_t)0;
+        return 0;
       }
     case FStar_Order_Gt:
       {
-        return (krml_checked_int_t)1;
+        return 1;
       }
     default:
       {
