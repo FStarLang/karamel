@@ -3,7 +3,6 @@ module WasmSupport
 open FStar.HyperStack.ST
 
 module C = FStar.Int.Cast
-module I64 = FStar.Int64
 module U32 = FStar.UInt32
 module U64 = FStar.UInt64
 module B = LowStar.Buffer

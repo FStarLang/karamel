@@ -7,8 +7,6 @@
 open Wasm
 open CFlatToWasm
 
-module StringMap = Map.Make(String)
-
 let is_readonly = function
   | Ast.Const _
   | Ast.Load _

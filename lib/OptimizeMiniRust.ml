@@ -55,7 +55,6 @@ module DataType = struct
 end
 
 module NameMap = Map.Make(Name)
-module DataTypeMap = Map.Make(DataType)
 module VarSet = Set.Make(Atom)
 module IntSet = Set.Make(Int)
 
