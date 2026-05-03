@@ -1,0 +1,83 @@
+name: Sync krmllib/dist
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  sync-dist:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Z3 with script
+        run: |
+          wget https://raw.githubusercontent.com/FStarLang/FStar/refs/heads/master/.scripts/get_fstar_z3.sh -O get_fstar_z3.sh
+          chmod +x get_fstar_z3.sh
+          ./get_fstar_z3.sh /usr/local/bin
+
+      - name: Setup ocaml
+        uses: ocaml/setup-ocaml@v3
+        with:
+           ocaml-compiler: 5.3.0
+
+      - uses: actions/checkout@master
+        with:
+          path: karamel
+
+      - run: opam update
+      - run: opam pin -n fstar git+https://github.com/FStarLang/FStar#fstar1
+      - run: opam install fstar
+      - run: opam install --deps-only karamel/karamel.opam
+
+      - name: Build
+        working-directory: karamel
+        run: |
+          eval $(opam env)
+          export OCAMLRUNPARAM=b
+          make -kj$(nproc)
+
+      - name: Check for dist changes
+        id: diff
+        working-directory: karamel
+        run: |
+          if git diff --quiet krmllib/dist; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create or update PR if dist changed
+        if: steps.diff.outputs.changed == 'true'
+        working-directory: karamel
+        env:
+          DZOMO_GITHUB_TOKEN: ${{ secrets.DZOMO_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DZOMO_GITHUB_TOKEN }}
+        run: |
+          BRANCH="auto/sync-krmllib-dist"
+          git config user.name "Dzomo, the Everest Yak"
+          git config user.email "24394600+dzomo@users.noreply.github.com"
+          # Use the PAT for push so the resulting PR triggers CI
+          git remote set-url origin "https://$DZOMO_GITHUB_TOKEN@github.com/$GITHUB_REPOSITORY"
+
+          # Skip push if the existing branch already has identical dist contents
+          if git fetch origin "$BRANCH" 2>/dev/null &&
+             git diff --quiet "origin/$BRANCH" -- krmllib/dist; then
+            echo "Branch $BRANCH already has the same dist contents, nothing to do."
+            exit 0
+          fi
+
+          git checkout -B "$BRANCH"
+          git add krmllib/dist
+          git commit -m "Regenerate krmllib/dist"
+          git push -f origin "$BRANCH"
+          # Only create a PR if one doesn't already exist for this branch
+          if ! gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' | grep -q .; then
+            gh pr create \
+              --title "Regenerate krmllib/dist" \
+              --body "Automated update: \`make\` produced changes in \`krmllib/dist\`." \
+              --head "$BRANCH"
+          fi
