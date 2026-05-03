@@ -8,7 +8,6 @@ open Loc
 module W = Wasm
 module K = Constant
 
-module StringMap = Map.Make(String)
 module StringSet = Set.Make(String)
 
 (******************************************************************************)

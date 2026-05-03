@@ -6,7 +6,6 @@
 module CF = CFlat
 module K = Constant
 module LidMap = Idents.LidMap
-module StringMap = Map.Make(String)
 
 open CFlat.Sizes
 open Ast

@@ -8,7 +8,6 @@ open DeBruijn
 open PrintAst
 
 module S = Set.Make(Atom)
-module M = Map.Make(Atom)
 
 let debug = false
 
