@@ -32,9 +32,28 @@ let is_compoundable : K.op -> bool = function
   | BOr | BAnd | BXor | BShiftL | BShiftR -> true
   | _ -> false
 
+(* returns true when expr is definitely pure *)
+let rec is_pure : C11.expr -> bool = function
+  | Assign _ | CompoundAssign _ | Call _ | Stmt _
+  | Member _ | MemberP _ -> false (* Unsure what these are *)
+
+  | Name _ | Literal _ | Constant _ | Bool _
+  | Sizeof _ | CompoundLiteral _ | Type _
+  | CxxInitializerList _ -> true
+
+  | Op1 (_, e) -> is_pure e
+  | Op2 (_, e1, e2) -> is_pure e1 && is_pure e2
+  | Index (e1, e2) -> is_pure e1 && is_pure e2
+  | Deref e -> is_pure e
+  | Address e -> is_pure e
+  | Cast (_, e) -> is_pure e
+  | MemberAccess (e, _) -> is_pure e
+  | MemberAccessPointer (e, _) -> is_pure e
+  | InlineComment (_, e, _) -> is_pure e
+  | Ternary (e1, e2, e3) -> is_pure e1 && is_pure e2 && is_pure e3
+
 (* Tries to make compound assignments when possible.
    Assumptions:
-   - lhs is pure, so removing one occurrence has no effect on semantics.
    - The result is always used in statement context (discarded value), so
      PostIncr vs PreIncr does not matter.
 
@@ -46,6 +65,10 @@ let is_compoundable : K.op -> bool = function
      evaluation *)
 let mk_assign (lhs : C11.expr) (rhs : C11.expr) : C11.expr =
   match rhs with
+  (* We don't really generate impure LHS of assignments,
+     but it doesn't hurt to be defensive. *)
+  | _ when not (is_pure lhs) -> Assign (lhs, rhs)
+
   | Op2 (Add, e2, Cast (_, Constant (_, "1")))
   | Op2 (Add, e2, Constant (_, "1")) when e2 = lhs ->
     Op1 (PostIncr, lhs)
