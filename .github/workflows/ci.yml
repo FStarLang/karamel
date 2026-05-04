@@ -50,7 +50,6 @@ jobs:
 
       # Install karamel deps
       - run: opam install --deps-only karamel/karamel.opam
-      - run: opam install ctypes ctypes-foreign # not in deps?
 
       - name: Build EverParse opam dependencies
         run: |
