@@ -46,10 +46,13 @@ let is_compoundable : K.op -> bool = function
      evaluation *)
 let mk_assign (lhs : C11.expr) (rhs : C11.expr) : C11.expr =
   match rhs with
+  | Op2 (Add, e2, Cast (_, Constant (_, "1")))
   | Op2 (Add, e2, Constant (_, "1")) when e2 = lhs ->
     Op1 (PostIncr, lhs)
+  | Op2 (Add, Cast (_, Constant (_, "1")), e2)
   | Op2 (Add, Constant (_, "1"), e2) when e2 = lhs ->
     Op1 (PostIncr, lhs)
+  | Op2 (Sub, e2, Cast (_, Constant (_, "1")))
   | Op2 (Sub, e2, Constant (_, "1")) when e2 = lhs ->
     Op1 (PostDecr, lhs)
   | Op2 (op, e2, e3) when is_compoundable op && e2 = lhs ->
