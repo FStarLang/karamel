@@ -18,3 +18,9 @@ $(OUTPUT_DIR)/Example_Unreachable.c: $(addprefix $(OUTPUT_DIR)/,\
 
 # GotoReturn needs -goto_for_early_return and -fnoreturn-else flags.
 $(OUTPUT_DIR)/GotoReturn.c: KRML_FLAGS += -goto_for_early_return -fnoreturn-else -fblank-lines -fline-comments
+
+# CommentFusion test uses a hand-crafted .json input (no F* extraction needed).
+# This tests -fline-comments adjacent comment fusion behavior.
+$(OUTPUT_DIR)/CommentFusion.c: CommentFusion.json
+	$(call msg, "KRML", "CommentFusion")
+	$(KRML_EXE) -skip-makefiles -skip-compilation -skip-linking -header=krmlheader -fline-comments -fblank-lines -bundle CommentFusion=* -tmpdir $(OUTPUT_DIR) $<
