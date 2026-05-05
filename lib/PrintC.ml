@@ -506,25 +506,60 @@ and is_macro_call (s: stmt) = match s with
 
 and is_comment (s: stmt) = match s with Comment _ -> true | _ -> false
 
+and is_label (s: stmt) = match s with Label _ -> true | _ -> false
+
 and needs_blank_line_between (a: stmt) (b: stmt) =
   (is_decl_stmt a && not (is_decl_stmt b)) ||
   (is_macro_call a && not (is_macro_call b)) ||
   is_if_like a ||
   is_if_like b ||
-  is_comment a ||
-  is_comment b
+  is_label b ||
+  (is_comment a && not (is_comment b)) ||
+  (is_comment b && not (is_comment a))
 
-and p_stmts_with_blanks = function
-  | [] -> empty
-  | [s] -> p_stmt s
-  | s :: (next :: _ as rest) ->
-      let sep =
-        if needs_blank_line_between s next then
-          hardline ^^ hardline
-        else
-          hardline
-      in
-      p_stmt s ^^ sep ^^ p_stmts_with_blanks rest
+and p_stmts_with_blanks stmts =
+  (* Collect a run of adjacent Comment stmts *)
+  let rec collect_comments acc = function
+    | Comment s :: rest -> collect_comments (s :: acc) rest
+    | rest -> (List.rev acc, rest)
+  in
+  (* Print a fused comment block (multiple comments merged into one) *)
+  let p_fused_comments cs =
+    if !Options.line_comments then
+      let all_lines = List.concat_map (fun s ->
+        List.map (fun l ->
+          let l = String.trim l in
+          if l = "" then "//" else "// " ^ l
+        ) (String.split_on_char '\n' s)
+      ) cs in
+      separate_map hardline string ("//" :: all_lines @ ["//"])
+    else
+      separate_map hardline p_stmt (List.map (fun s -> Comment s) cs)
+  in
+  let rec go = function
+    | [] -> empty
+    | Comment s :: rest ->
+        let (comments, rest) = collect_comments [s] rest in
+        let sep = match rest with
+          | [] -> empty
+          | next :: _ ->
+              if needs_blank_line_between (Comment "") next then
+                hardline ^^ hardline
+              else
+                hardline
+        in
+        p_fused_comments comments ^^ sep ^^ go rest
+    | [s] -> p_stmt s
+    | s :: (next :: _ as rest) ->
+        let sep =
+          if needs_blank_line_between s next then
+            hardline ^^ hardline
+          else
+            hardline
+        in
+        p_stmt s ^^ sep ^^ go rest
+  in
+  go stmts
 
 (* This is for toplevel comments — not affected by -fline-comments *)
 let p_comments cs =
