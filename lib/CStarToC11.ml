@@ -21,6 +21,70 @@ let cmul x y =
   | _ -> C.Op2 (K.Mult, x, y)
 
 let is_array = function Array _ -> true | _ -> false
+
+let is_commutative : K.op -> bool = function
+  | Add | Mult
+  | BOr | BAnd | BXor -> true
+  | _ -> false
+
+let is_compoundable : K.op -> bool = function
+  | Add | Sub | Mult | Div | Mod
+  | BOr | BAnd | BXor | BShiftL | BShiftR -> true
+  | _ -> false
+
+(* returns true when expr is definitely pure *)
+let rec is_pure : C11.expr -> bool = function
+  | Assign _ | CompoundAssign _ | Call _ | Stmt _
+  | Member _ | MemberP _ -> false (* Unsure what these are *)
+
+  | Name _ | Literal _ | Constant _ | Bool _
+  | Sizeof _ | CompoundLiteral _ | Type _
+  | CxxInitializerList _ -> true
+
+  | Op1 (_, e) -> is_pure e
+  | Op2 (_, e1, e2) -> is_pure e1 && is_pure e2
+  | Index (e1, e2) -> is_pure e1 && is_pure e2
+  | Deref e -> is_pure e
+  | Address e -> is_pure e
+  | Cast (_, e) -> is_pure e
+  | MemberAccess (e, _) -> is_pure e
+  | MemberAccessPointer (e, _) -> is_pure e
+  | InlineComment (_, e, _) -> is_pure e
+  | Ternary (e1, e2, e3) -> is_pure e1 && is_pure e2 && is_pure e3
+
+(* Tries to make compound assignments when possible.
+   Assumptions:
+   - The result is always used in statement context (discarded value), so
+     PostIncr vs PreIncr does not matter.
+
+   C standard §6.5.16.2:
+     A compound assignment of the form E1 op = E2 is equivalent to the simple
+     assignment expression E1 = E1 op (E2), except that the lvalue E1 is
+     evaluated only once, and with respect to an indeterminately-sequenced
+     function call, the operation of a compound assignment is a single
+     evaluation *)
+let mk_assign (lhs : C11.expr) (rhs : C11.expr) : C11.expr =
+  match rhs with
+  (* We don't really generate impure LHS of assignments,
+     but it doesn't hurt to be defensive. *)
+  | _ when not (is_pure lhs) -> Assign (lhs, rhs)
+
+  | Op2 (Add, e2, Cast (_, Constant (_, "1")))
+  | Op2 (Add, e2, Constant (_, "1")) when e2 = lhs ->
+    Op1 (PostIncr, lhs)
+  | Op2 (Add, Cast (_, Constant (_, "1")), e2)
+  | Op2 (Add, Constant (_, "1"), e2) when e2 = lhs ->
+    Op1 (PostIncr, lhs)
+  | Op2 (Sub, e2, Cast (_, Constant (_, "1")))
+  | Op2 (Sub, e2, Constant (_, "1")) when e2 = lhs ->
+    Op1 (PostDecr, lhs)
+  | Op2 (op, e2, e3) when is_compoundable op && e2 = lhs ->
+    CompoundAssign (lhs, op, e3)
+  | Op2 (op, e2, e3) when e3 = lhs && is_compoundable op && is_commutative op ->
+    CompoundAssign (lhs, op, e2)
+  | _ ->
+    Assign (lhs, rhs)
+
 let is_var = function Var _ -> true | _ -> false
 let is_call = function
   | Call (Qualified (_, s), _) ->
@@ -816,12 +880,6 @@ and mk_stmt m (stmt: stmt): C.stmt list =
   | Assign (BufRead _, _, (Any | Cast (Any, _))) ->
       []
 
-  | Assign (Var x, _, Call (Op K.Add, [ Var y; Constant (_, "1") ])) when x = y ->
-      [ Expr (Op1 (PostIncr, Name x)) ]
-
-  | Assign (Var x, _, Call (Op K.Sub, [ Var y; Constant (_, "1") ])) when x = y ->
-      [ Expr (Op1 (PostDecr, Name x)) ]
-
   | Assign (e1, t, BufCreate (Eternal, init, size)) ->
       let v = assert_var m e1 in
       (* Evil bug:
@@ -856,13 +914,13 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       failwith "TODO"
 
   | Assign (e1, _, e2) ->
-      [ Expr (Assign (mk_expr m e1, mk_expr m e2)) ]
+      [ Expr (mk_assign (mk_expr m e1) (mk_expr m e2)) ]
 
   | BufWrite (_, _, (Any | Cast (Any, _))) ->
       []
 
   | BufWrite (e1, e2, e3) ->
-      [ Expr (Assign (mk_index m e1 e2, mk_expr m e3)) ]
+      [ Expr (mk_assign (mk_index m e1 e2) (mk_expr m e3)) ]
 
   | BufBlit (t, e1, e2, e3, e4, e5) ->
       let dest = match e4 with
