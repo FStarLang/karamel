@@ -52,6 +52,8 @@ let rec is_pure : C11.expr -> bool = function
   | InlineComment (_, e, _) -> is_pure e
   | Ternary (e1, e2, e3) -> is_pure e1 && is_pure e2 && is_pure e3
 
+  | ESkip -> true
+
 (* Tries to make compound assignments when possible.
    Assumptions:
    - The result is always used in statement context (discarded value), so
