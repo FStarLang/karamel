@@ -2,14 +2,19 @@
 
 # Refresh the outputs from F* nightly.
 
-curl -L https://aka.ms/install-fstar | bash -s -- --nightly --dest local-fstar --no-link
-cleanup () {
-	rm -rf local-fstar
-}
-trap cleanup EXIT ERR
+if ! [ -d local-fstar ]; then
+  curl -L https://aka.ms/install-fstar | bash -s -- --nightly --dest local-fstar --no-link
+fi
 
-FSTAR_EXE=$(pwd)/local-fstar/bin/fstar.exe make clean
-FSTAR_EXE=$(pwd)/local-fstar/bin/fstar.exe make -j$(nproc) accept
+# Invalidate existing karamel files
+touch -c _output/*.krml
+FSTAR_EXE=$(pwd)/local-fstar/bin/fstar.exe make -j$(nproc) accept -k
+RES=$?
 
-echo "Done!"
-exit 0
+if [ $RES -eq 0 ]; then
+  echo "Done!"
+  exit 0
+else
+  echo "error: there were some failures regenerating the expected C files" >&2
+  exit 1
+fi
