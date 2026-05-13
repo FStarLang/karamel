@@ -592,6 +592,16 @@ let constant_fold = object (self)
         let e1 = self#visit_expr env e1 in
         match e1.node with
         | EBool b -> EBool (not b)
+        | EApp ({node = EOp (K.Not, _); _}, [{node = EApp ({node = EOp (K.Not, _); _}, [e1]); _}]) ->
+          (* !!!e ~> !e *)
+          EApp (e, [e1])
+          (* (mk_not e).node *)
+        | EApp ({node = EOp (K.Eq, _); _}, [e1; e2]) ->
+          (* !(a == b) ~> a != b *)
+          (mk_neq e1 e2).node
+        | EApp ({node = EOp (K.Neq, _); _}, [e1; e2]) ->
+          (* !(a != b) ~> a == b *)
+          (mk_eq e1 e2).node
         | _ -> EApp (e, [e1])
     )
 
@@ -633,6 +643,12 @@ let constant_fold = object (self)
     | _, _, EBool false when t.typ = TBool ->
       (* c ? t : false  ~>  c && t *)
       (mk_and c t).node
+    | _, EConstant (w, "0"), EConstant (w', "1") when w = w' ->
+      (* We're generating a possibly-simplifiable !!x here, recurse. *)
+      self#visit_expr' env @@ ECast (mk_not c, TInt w)
+    | _, EConstant (w, "1"), EConstant (w', "0") when w = w' ->
+      (* idem *)
+      self#visit_expr' env @@ ECast (mk_not (mk_not c), TInt w)
     | _ ->
       ETernary (c, t, e)
 end
