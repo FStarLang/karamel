@@ -117,6 +117,9 @@ let mk_incr_usize = mk_incr K.SizeT
 let assert_tint_or_tbool t =
   match t with TInt w -> TInt w | TBool -> TBool | t -> Warn.fatal_error "Not an int/bool: %a" ptyp t
 
+let mk_eq e1 e2 =
+  with_type TBool (EApp (mk_op K.Eq (assert_tint_or_tbool e1.typ), [ e1; e2 ]))
+
 let mk_neq e1 e2 =
   with_type TBool (EApp (mk_op K.Neq (assert_tint_or_tbool e1.typ), [ e1; e2 ]))
 
