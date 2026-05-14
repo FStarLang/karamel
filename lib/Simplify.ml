@@ -91,10 +91,22 @@ class ['self] safe_use lvalue = object (self: 'self)
   (* All of the cases below could be refined with a more precise analysis that makes sure that
      *every* path in the control-flow is safe. *)
   method! visit_ESwitch env e _ = self#sequential env e None
-  method! visit_EWhile env e _ = self#sequential env e None
+  method! visit_EWhile env e b =
+    match self#visit_expr env e with
+    | SafeUse -> SafeUse
+    | Unsafe -> Unsafe
+    | Safe -> self#visit_expr env b
   method! visit_EFor env _ e _ _ _ = self#sequential env e None
-  method! visit_EMatch env _ e _ = self#sequential env e None
-  method! visit_ESequence env es = self#sequential env (List.hd es) None
+
+  method! visit_EMatch env _ e brs =
+    match self#visit_expr env e with
+    | SafeUse -> SafeUse
+    | Unsafe -> Unsafe
+    | Safe ->
+      List.fold_left self#plus Safe
+        (List.map (fun (bs, _p, e) -> self#visit_expr (fst env + List.length bs, snd env) e) brs)
+
+  method! visit_ESequence env es = self#any env es
 
   method! visit_EIfThenElse env c t e =
     match self#visit_expr env c with
