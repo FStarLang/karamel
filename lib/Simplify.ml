@@ -66,6 +66,9 @@ class ['self] safe_use lvalue = object (self: 'self)
         (* We don't know what comes after; can't conclude anything. *)
         Unsafe
 
+  method private any env es =
+    List.fold_left (fun acc e -> self#plus acc (self#visit_expr env e)) Safe es
+
   method! visit_EBound (j, _) i = if i = j then SafeUse else Safe
 
   method! visit_EBufWrite env e1 e2 e3 = self#unordered env [ e1; e2; e3 ]
@@ -87,12 +90,22 @@ class ['self] safe_use lvalue = object (self: 'self)
   method! visit_ELet env _ e1 e2 = self#sequential env e1 (Some e2)
   (* All of the cases below could be refined with a more precise analysis that makes sure that
      *every* path in the control-flow is safe. *)
-  method! visit_EIfThenElse env e _ _ = self#sequential env e None
   method! visit_ESwitch env e _ = self#sequential env e None
   method! visit_EWhile env e _ = self#sequential env e None
   method! visit_EFor env _ e _ _ _ = self#sequential env e None
   method! visit_EMatch env _ e _ = self#sequential env e None
   method! visit_ESequence env es = self#sequential env (List.hd es) None
+
+  method! visit_EIfThenElse env c t e =
+    match self#visit_expr env c with
+    | SafeUse -> SafeUse
+    | Unsafe -> Unsafe
+    | Safe -> self#any env [t; e]
+  method! visit_ETernary env c t e =
+    match self#visit_expr env c with
+    | SafeUse -> SafeUse
+    | Unsafe -> Unsafe
+    | Safe -> self#any env [t; e]
 end
 
 let safe_readonly_use lvalue e =
