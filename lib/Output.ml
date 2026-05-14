@@ -42,9 +42,15 @@ let krmllib_include () =
  * - #include X for X in the dependencies of the file, followed by
  * - #include Y for each -add-include Y passed on the command-line
  *)
+module StringSet = Set.Make(String)
+
 let includes_for which file files =
   let extra_includes = filter_includes which file !Options.add_include in
+  let extra_set = List.fold_left (fun s i -> StringSet.add i s) StringSet.empty extra_includes in
   let includes = List.rev_map (Printf.sprintf "\"%s.h\"") files in
+  (* If a dep-derived include is also listed in -add-include, drop it from the
+   * dep section so the user-specified order in extra_includes prevails. *)
+  let includes = List.filter (fun i -> not (StringSet.mem i extra_set)) includes in
   let includes = includes @ extra_includes in
   if includes = [] then
     empty

@@ -77,6 +77,7 @@ let contained: string list ref = ref []
 let keep_tuples = ref false
 
 let static_header: Bundle.pat list ref = ref []
+let no_inline_type_abbrev: Bundle.pat list ref = ref []
 let minimal = ref false
 let by_ref: (string list * string) list ref = ref []
 let ctypes: Bundle.pat list ref = ref []

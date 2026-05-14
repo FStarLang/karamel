@@ -27,6 +27,19 @@ end
 
 (* Creating AST nodes *********************************************************)
 
+(* Map from preserved (non-inlined) type abbreviation lids to their RHS. This is
+ * populated by [Inlining.inline_type_abbrevs] when [-no-inline-type-abbrev]
+ * matches a declaration. Other passes that need to look through such a type
+ * abbreviation (e.g. [flatten_arrow]) consult this map. *)
+let preserved_type_abbrevs : (Ast.lident, typ) Hashtbl.t = Hashtbl.create 7
+
+let rec expand_preserved_type t =
+  match t with
+  | TQualified lid ->
+      (try expand_preserved_type (Hashtbl.find preserved_type_abbrevs lid)
+       with Not_found -> t)
+  | _ -> t
+
 let uint8 = TInt K.UInt8
 let uint16 = TInt K.UInt16
 let uint32 = TInt K.UInt32
@@ -182,6 +195,10 @@ let mk_named_binding name t e =
 let flatten_arrow =
   let rec flatten_arrow acc = function
     | TArrow (t1, t2) -> flatten_arrow (t1 :: acc) t2
+    | TQualified lid as t ->
+        (match Hashtbl.find_opt preserved_type_abbrevs lid with
+         | Some t' -> flatten_arrow acc t'
+         | None -> t, List.rev acc)
     | t -> t, List.rev acc
   in
   flatten_arrow []

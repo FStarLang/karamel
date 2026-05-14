@@ -271,6 +271,10 @@ Supported options:|}
     "-library", Arg.String (fun s ->
       List.iter (prepend Options.library) (Parsers.drop s)),
       "  this is a model and all functions should be made abstract";
+    "-no-inline-type-abbrev", Arg.String (fun s ->
+      List.iter (prepend Options.no_inline_type_abbrev) (Parsers.drop s)),
+      "  preserve type abbreviations matching this pattern instead of inlining \
+      them at every use site (matches lids)";
     "-hand-written", Arg.String (fun s ->
       List.iter (prepend Options.hand_written) (Parsers.drop s)),
       "  in conjunction with static-header and library";
