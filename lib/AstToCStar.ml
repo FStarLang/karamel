@@ -968,7 +968,7 @@ and mk_declaration m env d: (CStar.decl * _) option =
         mk_expr env false false body), [])
 
   | DExternal (cc, flags, _, n, name, t, pp) ->
-      if LidSet.mem name env.ifdefs || n > 0 then
+      if LidSet.mem name env.ifdefs || LidSet.mem name env.macros || n > 0 then
         None
       else
         let add_cc = function
@@ -1068,6 +1068,12 @@ let mk_macros_set files =
           LidSet.singleton name
         end
       else
+        LidSet.empty
+    method visit_DExternal _ _cc flags n_cg n name _t _hints =
+      if List.mem Common.Macro flags && n_cg = 0 && n = 0 then begin
+        record name;
+        LidSet.singleton name
+      end else
         LidSet.empty
   end)#visit_files () files
 
