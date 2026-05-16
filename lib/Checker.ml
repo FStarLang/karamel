@@ -331,7 +331,8 @@ and check' env t e =
   | EFor _
   | EIgnore _
   | EStandaloneComment _
-  | EApp _ ->
+  | EApp _
+  | ESizeof _ ->
       c (infer env e)
 
   | ECast (_, t) ->
@@ -891,6 +892,9 @@ and infer' env e =
       let t2 = infer env e in
       check_eqtype env t1 t2;
       t1
+
+  | ESizeof _t ->
+     sizet
 
 and infer_and_check_eq: 'a. env -> ('a -> typ) -> 'a list -> typ =
   fun env f l ->

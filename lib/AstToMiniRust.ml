@@ -1356,6 +1356,10 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
       (* Rust has if-then-else expressions, go back to it and keep going. *)
       translate_expr_with_type env ~context fn_t_ret (Ast.with_type e.typ (Ast.EIfThenElse (e1, e2, e3))) t_ret
 
+  | ESizeof t ->
+      (* use std::mem::size_of *)
+      env, Call (Name ["std"; "mem"; "size_of"], [translate_type env t], [])
+
 and translate_pat env (p: Ast.pattern): MiniRust.pat =
   match p.node with
   | PBound v -> VarP v

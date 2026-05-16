@@ -1397,7 +1397,8 @@ and hoist_expr tbl loc pos e =
   | EEnum _
   | EStandaloneComment _
   | EPolyComp _
-  | EOp _ ->
+  | EOp _
+  | ESizeof _ ->
       [], e
 
   | EAddrOf e ->

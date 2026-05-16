@@ -86,6 +86,7 @@ and expr =
         contain anything as arguments, including statements. *)
   | Type of typ
   | Ternary of expr * expr * expr
+  | Sizeof of typ
   [@@deriving show]
 
 and block =

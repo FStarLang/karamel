@@ -1012,6 +1012,10 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       (* No need for ternary in CFlat, turn to if-then-else and recurse *)
       mk_expr env locals (with_type e.typ (EIfThenElse (e1, e2, e3)))
 
+  | ESizeof t ->
+     (* sizeof is resolved statically for Wasm — all sizes are known *)
+     locals, mk_uint32 (byte_size env t)
+
 (* See digression for [dup32] in CFlatToWasm *)
 let scratch_locals =
   [ I64; I64; I32; I32; I32 ]

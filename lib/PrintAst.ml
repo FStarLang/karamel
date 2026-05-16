@@ -375,6 +375,8 @@ and print_expr env { node; typ; meta } =
           string "?" ^/^ print_expr env t ^/^
           string ":" ^/^ print_expr env e
       )
+  | ESizeof t ->
+      string "sizeof" ^^ parens (print_typ t)
 
 and print_poly_comp = function
   | PEq -> equals

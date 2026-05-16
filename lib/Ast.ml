@@ -295,6 +295,7 @@ type expr' =
   | EStandaloneComment of string
   | EAddrOf of expr
   | ETernary of expr * expr * expr
+  | ESizeof of typ_wo
 
   [@@deriving show,
     visitors { variety = "map"; ancestors = [ "map_typ_adapter" ]; name = "map_expr" },

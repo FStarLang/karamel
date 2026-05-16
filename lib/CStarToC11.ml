@@ -166,6 +166,8 @@ let rec vars_of m = function
       vars_of_block m stmts
   | Ternary (e1, e2, e3) ->
       S.union (vars_of m e1) (S.union (vars_of m e2) (vars_of m e3))
+  | Sizeof _t ->
+      S.empty
 
 and vars_of_block m stmts =
   KList.reduce S.union (List.map (vars_of_stmt m) stmts)
@@ -743,7 +745,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
           | Constant _ | Var _ | Macro _ | Qualified _
           | BufRead _ | BufSub _ | BufNull
           | Op _ | Bool _  | Type _ | StringLiteral _
-          | Any ->
+          | Any | Sizeof _ ->
             true
 
           | Ternary (c, t, e) ->
@@ -1223,6 +1225,9 @@ and mk_expr m (e: expr): C.expr =
 
   | Ternary (c, t, e) ->
       Ternary (mk_expr m c, mk_expr m t, mk_expr m e)
+
+  | Sizeof t ->
+      Sizeof (Type (mk_type m t))
 
 and mk_compound_literal m name fields =
   let name = to_c_name m (name, Type) in
