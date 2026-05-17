@@ -89,10 +89,28 @@ class ['self] safe_use lvalue = object (self: 'self)
      *every* path in the control-flow is safe. *)
   method! visit_EIfThenElse env e _ _ = self#sequential env e None
   method! visit_ESwitch env e _ = self#sequential env e None
-  method! visit_EWhile env e _ = self#sequential env e None
-  method! visit_EFor env _ e _ _ _ = self#sequential env e None
   method! visit_EMatch env _ e _ = self#sequential env e None
   method! visit_ESequence env es = self#sequential env (List.hd es) None
+
+  (* Loops are more complicated. We cannot just use self#sequential since we
+     have to consider that the bodies run multiple times, and therefore we must
+     still look at the rest of the body even after first use of a variable.
+     Example:
+
+      int x = a[i];
+      while (...) {
+        b[j] = x;
+        a[foo] ...;
+      }
+
+    inlining x ~> a[i] into the loop body is in general not equivalent: b could
+    alias to a, and writes to a[foo] could change the value of a[i] across
+    iterations.  This also applies to the condition: we cannot inline into the
+    condition of a while loop (See InlineLoopCond.fst testcase). The only thing
+    we do allow is inlining into the initializer of a for loop, since it is only
+    executed once. *)
+  method! visit_EWhile _ _ _ = Unsafe
+  method! visit_EFor env _ e_init _ _ _ = self#sequential env e_init None
 end
 
 let safe_readonly_use lvalue e =
@@ -142,8 +160,8 @@ let use_mark_to_inline_temporaries = object (self)
        ) &&
         (v = AtMost 1 && (
           let lvalue = Structs.will_be_lvalue e1 in
-          is_readonly_c_expression e1 &&
-          safe_readonly_use lvalue e2 ||
+          (is_readonly_c_expression e1 &&
+           safe_readonly_use lvalue e2) ||
           safe_pure_use lvalue e2
         ) ||
         is_readonly_and_variable_free_c_expression e1 && not b.node.mut)
