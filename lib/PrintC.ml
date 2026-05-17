@@ -170,7 +170,7 @@ and prec_of_op2 op =
   let open Constant in
   match op with
   | AddW | SubW | MultW | DivW -> failwith "[prec_of_op]: should've been desugared"
-  | Add -> 4, 4, 4 (* addition is associative in C *)
+  | Add -> 4, 4, 3
   | Sub -> 4, 4, 3
   | Div -> 3, 3, 2
   | Mult -> 3, 3, 2
