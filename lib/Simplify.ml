@@ -519,7 +519,23 @@ let constant_fold = object (self)
         (* 0+x, x+0 ~> x *)
         | EConstant (w1, "0"), e2 when w = w1 -> e2
         | e1, EConstant (w2, "0") when w = w2 -> e1
-        | _ -> EApp (e, [ e1; e2 ])
+        | _ ->
+          (* Unsigned additions associate, since overflow is well defined.
+             Try associating to the left, so we can avoid superfluous parentheses
+             in the output. *)
+          if K.is_int w && K.is_unsigned w then (
+            let rec destruct_add (w : width) e : expr list =
+              match e.node with
+              | EApp ({ node = EOp (K.Add, TInt w'); _ }, [ e1; e2 ]) when w' = w ->
+                destruct_add w e1 @ destruct_add w e2
+              | _ -> [e]
+            in
+            let mk_add a b : expr =
+              with_type (TInt w) (EApp (mk_op K.Add (TInt w), [a; b]))
+            in
+            (List.fold_left mk_add e1 (destruct_add w e2)).node
+          ) else
+            EApp (e, [ e1; e2 ])
     )
 
     | EOp (K.Mult, TInt w), [ e1; e2 ] -> (
@@ -535,7 +551,23 @@ let constant_fold = object (self)
         (* 1*x, x*1 ~> x *)
         | EConstant (w1, "1"), e2 when w = w1 -> e2
         | e1, EConstant (w2, "1") when w = w2 -> e1
-        | _ -> EApp (e, [ e1; e2 ])
+        | _ ->
+          (* Unsigned products associate, since overflow is well defined.
+             Try associating to the left, so we can avoid superfluous parentheses
+             in the output. *)
+          if K.is_int w && K.is_unsigned w then (
+            let rec destruct_mult (w : width) e : expr list =
+              match e.node with
+              | EApp ({ node = EOp (K.Mult, TInt w'); _ }, [ e1; e2 ]) when w' = w ->
+                destruct_mult w e1 @ destruct_mult w e2
+              | _ -> [e]
+            in
+            let mk_mult a b : expr =
+              with_type (TInt w) (EApp (mk_op K.Mult (TInt w), [a; b]))
+            in
+            (List.fold_left mk_mult e1 (destruct_mult w e2)).node
+          ) else
+            EApp (e, [ e1; e2 ])
     )
 
     | EOp (K.Div, TInt w), [ e1; e2 ] -> (
