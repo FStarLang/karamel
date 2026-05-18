@@ -292,6 +292,8 @@ and mk_expr = function
       mk (EStandaloneComment s)
   | I.EAddrOf e ->
       mk (EAddrOf (mk_expr e))
+  | I.ESizeof t ->
+      mk (ESizeof (mk_typ t))
 
 and mk_branches branches =
   List.map mk_branch branches

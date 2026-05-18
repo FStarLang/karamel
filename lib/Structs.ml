@@ -608,7 +608,8 @@ let to_addr is_struct =
     | EPushFrame
     | EPopFrame
     | EStandaloneComment _
-    | EEnum _ ->
+    | EEnum _
+    | ESizeof _ ->
         not_struct ();
         e
 

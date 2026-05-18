@@ -78,6 +78,7 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
   | EEnum _
   | EStandaloneComment _
   | EAbort _
+  | ESizeof _
   | EBufNull ->
       keys env, u, e
 
