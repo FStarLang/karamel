@@ -363,6 +363,13 @@ and mk_arith env e =
          that every subexpression operates over unsigned int until the final
          cast, or until a mask is needed to preserve semantics. *)
       mk_expr env false false e, true, false (* C++: a constant that is wider than the intended type, but in an initializer list, is ok *)
+  | ETernary (c, t, f) ->
+      (* Recurse into branches so that non-atomic arithmetic is not hidden
+         behind a ternary marked as "atomic". *)
+      let c = mk_expr env false false c in
+      let t, a1, w1 = mk_arith env t in
+      let f, a2, w2 = mk_arith env f in
+      CStar.Ternary (c, t, f), a1 && a2, w1 || w2
   | _ ->
       (* Something else. Who knows? Maybe a function call, a field reference, a
          variable, a global... which will be upcast into `int`, which is *not*
@@ -454,7 +461,17 @@ and mk_expr env in_stmt under_initializer_list e =
          scalar type in C that is supported by C's equality comparison. *)
       CStar.Op (K.op_of_poly_comp c)
   | ECast (e, t) ->
-      CStar.Cast (mk_expr env false e, mk_type env t)
+      (* When the source is UInt8/UInt16 and contains arithmetic, the widened
+         result may have extra bits. We must mask before casting to a wider
+         type, otherwise the junk bits are preserved. *)
+      begin match e.typ with
+      | TInt w when w = K.UInt8 || w = K.UInt16 ->
+          let e', is_atomic, _ = mk_arith env e in
+          let e' = if is_atomic then e' else mask w e' in
+          CStar.Cast (e', mk_type env t)
+      | _ ->
+          CStar.Cast (mk_expr env false e, mk_type env t)
+      end
   | EAbort (t, s) ->
       let t = match t with Some t -> t | None -> e.typ in
       CStar.EAbort (mk_type env t, Option.value ~default:"" s)
@@ -702,7 +719,16 @@ and mk_stmts env e ret_type =
           | [] -> None
           | _ -> failwith "impossible"
         in
-        env, CStar.Switch (mk_expr env false false e0,
+        (* In C, the scrutinee is widened to at least int. Since U8/U16
+           have defined overflow, we must mask the extra bits away if the
+           scrutinee is of that type. See https://github.com/FStarLang/karamel/issues/707. *)
+        let scrutinee = match e0.typ with
+          | TInt w when w = K.UInt8 || w = K.UInt16 ->
+              let e, is_atomic, _ = mk_arith env e0 in
+              if is_atomic then e else mask w e
+          | _ -> mk_expr env false false e0
+        in
+        env, CStar.Switch (scrutinee,
           List.map (fun (lid, e) ->
             (match lid with
             | SConstant k -> `Int k
