@@ -635,6 +635,7 @@ and mk_stmts env e ret_type =
         let e' = CStar.For (`Stmt e1, e2, e3, e4) in
         env, maybe_return (e' :: comment e.meta @ acc)
 
+    | ETernary (e1, e2, e3)
     | EIfThenElse (e1, e2, e3) ->
         begin try
           env, mk_ifdef env return_pos (comment e.meta @ acc) e1 e2 e3
@@ -775,9 +776,6 @@ and mk_stmts env e ret_type =
 
     | _ when return_pos <> Not ->
         mk_as_return env e (comment e.meta @ acc) return_pos
-
-    | ETernary _ ->
-      Warn.fatal_error "ETernary in stmt position?: %a\n" pexpr e
 
     | _ ->
         (* This is a specialized instance of `mk_as_return` when return_pos = Not *)
