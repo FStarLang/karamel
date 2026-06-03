@@ -41,6 +41,7 @@ let tr_width (w : IK.width) : K.width =
   | IK.SizeT -> K.SizeT
   | IK.PtrdiffT -> K.PtrdiffT
   | IK.Float16 -> K.Float16
+  | IK.BFloat16 -> K.BFloat16
   | IK.Float32 -> K.Float32
   | IK.Float64 -> K.Float64
   | IK.Bool ->
