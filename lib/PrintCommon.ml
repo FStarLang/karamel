@@ -33,6 +33,7 @@ let width_to_string = function
   | SizeT -> if !Options.linux_ints then "size_t" else "size"
   | PtrdiffT -> if !Options.linux_ints then "ptrdiff_t" else "ptrdiff"
   | Float16 -> "half"
+  | BFloat16 -> if !Options.cuda then "__nv_bfloat16" else failwith "unexpected: bfloat16 with CUDA disabled"
   | Float32 -> if !Options.cuda then "float" else "float32"
   | Float64 -> if !Options.cuda then "double" else "float64"
 
