@@ -171,6 +171,7 @@ let string_of_width (w: Constant.width) =
   | Constant.CInt -> ""
   | Constant.PtrdiffT -> failwith "unexpected: ptrdifft"
   | Constant.Float16 -> failwith "unexpected: half"
+  | Constant.BFloat16 -> failwith "unexpected: bfloat16"
   | Constant.Float32 -> "f32"
   | Constant.Float64 -> "f64"
 
