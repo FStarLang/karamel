@@ -124,6 +124,7 @@ jobs:
         working-directory: karamel
         run: |
           eval $(opam env)
+          sudo apt-get update
           sudo apt-get install -y python3-sphinx python3-sphinx-rtd-theme
           make -C book html
 
