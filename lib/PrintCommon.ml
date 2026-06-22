@@ -36,8 +36,13 @@ let width_to_string = function
   | Float64 -> "float64"
 
 let print_width w =
-  string (width_to_string w) ^^
-  (if !Options.linux_ints then empty else string "_t")
+  match w with
+  (* Floating-point types are spelled out as plain C types, with no _t suffix. *)
+  | Float32 -> string "float"
+  | Float64 -> string "double"
+  | _ ->
+    string (width_to_string w) ^^
+    (if !Options.linux_ints then empty else string "_t")
 
 let print_constant = function
   | w, s -> string s ^^ print_width w
