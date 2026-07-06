@@ -55,7 +55,6 @@ module DataType = struct
 end
 
 module NameMap = Map.Make(Name)
-module DataTypeMap = Map.Make(DataType)
 module VarSet = Set.Make(Atom)
 module IntSet = Set.Make(Int)
 
@@ -576,6 +575,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
   | VecNew _
   | Name _
   | Constant _
+  | Bool _
   | ConstantString _
   | Unit
   | Panic _
@@ -607,7 +607,7 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
         known, e0
 
   | IfThenElse (e1, e2, e3) ->
-      let known, e1 = infer_expr env valuation return_expected bool known e1 in
+      let known, e1 = infer_expr env valuation return_expected Bool known e1 in
       let known, e2 = infer_expr env valuation return_expected expected known e2 in
       let known, e3 =
         match e3 with
@@ -631,12 +631,12 @@ let rec infer_expr (env: env) valuation (return_expected: typ) (expected: typ) (
       end
 
   | For (b, e1, e2) ->
-      let known, e1 = infer_expr env valuation return_expected bool known e1 in
+      let known, e1 = infer_expr env valuation return_expected Bool known e1 in
       let known, e2 = infer_expr env valuation return_expected Unit known e2 in
       known, For (b, e1, e2)
 
   | While (e1, e2) ->
-      let known, e1 = infer_expr env valuation return_expected bool known e1 in
+      let known, e1 = infer_expr env valuation return_expected Bool known e1 in
       let known, e2 = infer_expr env valuation return_expected Unit known e2 in
       known, While (e1, e2)
 
@@ -1462,8 +1462,8 @@ let simplify_trivial_branching = object
     let e1 = super#visit_expr () e1 in
     let e2 = Option.map (super#visit_expr ()) e2 in
     match cond with
-    | Constant (Bool, "true") -> e1
-    | Constant (Bool, "false") ->
+    | Bool true -> e1
+    | Bool false ->
         begin match e2 with
         | Some e2 -> e2
         | None -> Unit

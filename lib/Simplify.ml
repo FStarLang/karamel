@@ -89,10 +89,28 @@ class ['self] safe_use lvalue = object (self: 'self)
      *every* path in the control-flow is safe. *)
   method! visit_EIfThenElse env e _ _ = self#sequential env e None
   method! visit_ESwitch env e _ = self#sequential env e None
-  method! visit_EWhile env e _ = self#sequential env e None
-  method! visit_EFor env _ e _ _ _ = self#sequential env e None
   method! visit_EMatch env _ e _ = self#sequential env e None
   method! visit_ESequence env es = self#sequential env (List.hd es) None
+
+  (* Loops are more complicated. We cannot just use self#sequential since we
+     have to consider that the bodies run multiple times, and therefore we must
+     still look at the rest of the body even after first use of a variable.
+     Example:
+
+      int x = a[i];
+      while (...) {
+        b[j] = x;
+        a[foo] ...;
+      }
+
+    inlining x ~> a[i] into the loop body is in general not equivalent: b could
+    alias to a, and writes to a[foo] could change the value of a[i] across
+    iterations.  This also applies to the condition: we cannot inline into the
+    condition of a while loop (See InlineLoopCond.fst testcase). The only thing
+    we do allow is inlining into the initializer of a for loop, since it is only
+    executed once. *)
+  method! visit_EWhile _ _ _ = Unsafe
+  method! visit_EFor env _ e_init _ _ _ = self#sequential env e_init None
 end
 
 let safe_readonly_use lvalue e =
@@ -142,8 +160,8 @@ let use_mark_to_inline_temporaries = object (self)
        ) &&
         (v = AtMost 1 && (
           let lvalue = Structs.will_be_lvalue e1 in
-          is_readonly_c_expression e1 &&
-          safe_readonly_use lvalue e2 ||
+          (is_readonly_c_expression e1 &&
+           safe_readonly_use lvalue e2) ||
           safe_pure_use lvalue e2
         ) ||
         is_readonly_and_variable_free_c_expression e1 && not b.node.mut)
@@ -393,9 +411,9 @@ let wrapping_arithmetic = object (self)
   (* TODO: this is no longer exposed by F*; check and remove this pass? *)
   method! visit_EApp env e es =
     match e.node, es with
-    | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), w), [ e1; e2 ] when K.is_signed w ->
+    | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), TInt w), [ e1; e2 ] when K.is_signed w ->
         let unsigned_w = K.unsigned_of_signed w in
-        let e = mk_op (K.without_wrap op) unsigned_w in
+        let e = mk_op (K.without_wrap op) (TInt unsigned_w) in
         let e1 = self#visit_expr env e1 in
         let e2 = self#visit_expr env e2 in
         let c e = { node = ECast (e, TInt unsigned_w); typ = TInt unsigned_w; meta = [] } in
@@ -405,8 +423,8 @@ let wrapping_arithmetic = object (self)
         let unsigned_app = { node = EApp (e, [ c e1; c e2 ]); typ = TInt unsigned_w; meta = [] } in
         ECast (unsigned_app, TInt w)
 
-    | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), w), [ e1; e2 ] when K.is_unsigned w ->
-        let e = mk_op (K.without_wrap op) w in
+    | EOp (((K.AddW | K.SubW | K.MultW | K.DivW) as op), TInt w), [ e1; e2 ] when K.is_unsigned w ->
+        let e = mk_op (K.without_wrap op) (TInt w) in
         let e1 = self#visit_expr env e1 in
         let e2 = self#visit_expr env e2 in
         EApp (e, [ e1; e2 ])
@@ -416,6 +434,9 @@ let wrapping_arithmetic = object (self)
 end
 
 let constant_fold = object (self)
+  (* Below, we do some optimizations like 0*x ~> 0. But those are only valid
+     if x is side-effect free, hence the `is_readonly_c_expression` guards. See
+     #709. *)
 
   inherit [_] map
 
@@ -442,7 +463,7 @@ let constant_fold = object (self)
     in
 
     match e.node, es with
-    | EOp (K.Add, w), [ e1; e2 ] -> (
+    | EOp (K.Add, TInt w), [ e1; e2 ] -> (
         let e1 = self#visit_expr env e1 in
         let e2 = self#visit_expr env e2 in
         let is_int w =
@@ -460,7 +481,7 @@ let constant_fold = object (self)
         | _ -> EApp (e, [ e1; e2 ])
     )
 
-    | EOp (K.Mult, w), [ e1; e2 ] -> (
+    | EOp (K.Mult, TInt w), [ e1; e2 ] -> (
         let e1 = self#visit_expr env e1 in
         let e2 = self#visit_expr env e2 in
         match e1.node, e2.node with
@@ -468,29 +489,29 @@ let constant_fold = object (self)
         | EConstant (w1, s1), EConstant (w2, s2) when w = w1 && w1 = w2 ->
           EConstant (w1, op_on_strings Z.mul w s1 s2)
         (* 0*x, x*0 ~> 0 *)
-        | EConstant (w1, "0"), _ when w = w1 -> EConstant(w1, "0");
-        | _, EConstant (w2, "0") when w = w2 -> EConstant(w2, "0");
+        | EConstant (w1, "0"), _ when w = w1 && is_readonly_c_expression e2 -> EConstant(w1, "0");
+        | _, EConstant (w2, "0") when w = w2 && is_readonly_c_expression e1 -> EConstant(w2, "0");
         (* 1*x, x*1 ~> x *)
         | EConstant (w1, "1"), e2 when w = w1 -> e2
         | e1, EConstant (w2, "1") when w = w2 -> e1
         | _ -> EApp (e, [ e1; e2 ])
     )
 
-    | EOp (K.Div, w), [ e1; e2 ] -> (
+    | EOp (K.Div, TInt w), [ e1; e2 ] -> (
         let e1 = self#visit_expr env e1 in
         let e2 = self#visit_expr env e2 in
         match e1.node, e2.node with
         (* Division of literals. Note, ZArith div/rem coincides with C semantics. *)
         | EConstant (w1, s1), EConstant (w2, s2) when w = w1 && w1 = w2 ->
           EConstant (w1, op_on_strings Z.div w s1 s2)
-        (* 0/x ~> x *)
-        | EConstant (w2, "0"), _ when w = w2 -> EConstant(w2, "0")
+        (* 0/x ~> 0 *)
+        | EConstant (w2, "0"), _ when w = w2 && is_readonly_c_expression e2 -> EConstant(w2, "0")
         (* x/1 ~> x *)
         | _, EConstant (w2, "1") when w = w2 -> e1.node
         | _ -> EApp (e, [ e1; e2 ])
     )
 
-    | EOp (K.Mod, w), [ e1; e2 ] -> (
+    | EOp (K.Mod, TInt w), [ e1; e2 ] -> (
         let e1 = self#visit_expr env e1 in
         let e2 = self#visit_expr env e2 in
         match e1.node, e2.node with
@@ -498,14 +519,81 @@ let constant_fold = object (self)
         | EConstant (w1, s1), EConstant (w2, s2) when w = w1 && w1 = w2 ->
           EConstant (w1, op_on_strings Z.rem w s1 s2)
         (* 0 % x ~> 0 *)
-        | EConstant (w2, "0"), _ when w = w2 -> EConstant(w2, "0")
+        | EConstant (w2, "0"), _ when w = w2 && is_readonly_c_expression e2 -> EConstant(w2, "0")
         (* x % 1 ~> 0 *)
-        | _, EConstant (w2, "1") when w = w2 -> EConstant(w2, "0")
+        | _, EConstant (w2, "1") when w = w2 && is_readonly_c_expression e1 -> EConstant(w2, "0")
         | _ -> EApp (e, [ e1; e2 ])
+    )
+
+    | EOp (K.And, _), [e1; e2] -> (
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
+        match e1.node, e2.node with
+        | EBool false, _ -> EBool false
+        | _, EBool false -> EBool false
+        | EBool true, e2 -> e2
+        | e1, EBool true -> e1
+        | _ -> EApp (e, [e1; e2])
+    )
+
+    | EOp (K.Or, _), [e1; e2] -> (
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
+        match e1.node, e2.node with
+        | EBool true, _ -> EBool true
+        | _, EBool true -> EBool true
+        | EBool false, e2 -> e2
+        | e1, EBool false -> e1
+        | _ -> EApp (e, [e1; e2])
+    )
+
+    | EOp (K.Not, _), [e1] -> (
+        let e1 = self#visit_expr env e1 in
+        match e1.node with
+        | EBool b -> EBool (not b)
+        | _ -> EApp (e, [e1])
     )
 
     | _ ->
         EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
+
+  method! visit_ETernary env c t e =
+    let c = self#visit_expr env c in
+    let t = self#visit_expr env t in
+    let e = self#visit_expr env e in
+    assert (c.typ = TBool);
+    (* Some of the rules below are gated with type information, to make sure we
+    don't end up rewriting something like `p ? true : 42` into `p || 42`, which
+    would booleanize the 42 into 1. Karamel's typechecker should prevent this
+    from being the case (the types of the branches should match and be either
+    TBool or TInt), but better safe than sorry. *)
+    match c.node, t.node, e.node with
+    | EBool true, _, _ ->
+      (* true ? t : e  ~>  t *)
+      t.node
+    | EBool false, _, _ ->
+      (* false ? t : e  ~>  e *)
+      e.node
+    | _, EBool false, EBool true ->
+      (* c ? false : true  ~>  !c *)
+      (mk_not c).node
+    | _, EBool true, EBool false ->
+      (* c ? true : false  ~>  c. Note, we know that c is TBool. *)
+      c.node
+    | _, EBool true, _ when e.typ = TBool ->
+      (* c ? true : e  ~>  c || e *)
+      (mk_or c e).node
+    | _, EBool false, _ when e.typ = TBool ->
+      (* c ? false : e  ~>  !c && e *)
+      (mk_and (mk_not c) e).node
+    | _, _, EBool true when t.typ = TBool ->
+      (* c ? t : true  ~>  !c || t *)
+      (mk_or (mk_not c) t).node
+    | _, _, EBool false when t.typ = TBool ->
+      (* c ? t : false  ~>  c && t *)
+      (mk_and c t).node
+    | _ ->
+      ETernary (c, t, e)
 end
 
 let remove_ignore_unit = object
@@ -640,6 +728,40 @@ let let_if_to_assign = object (self)
 
     | _ ->
         EAssign (e1, e2)
+end
+
+(* Check if an expression references any ifdef variable. If so, we must keep it
+   as EIfThenElse so that AstToCStar can compile it to #ifdef. *)
+let references_ifdef ifdefs =
+  (object
+    inherit [_] reduce
+    method private zero = false
+    method private plus = (||)
+    method! visit_EQualified _ lid = Idents.LidSet.mem lid ifdefs
+  end)#visit_expr_w ()
+
+(* Eligible for use inside a C ternary: readonly (no side effects, no function
+   calls) AND no statement constructs (ELet, EIfThenElse) anywhere in the
+   subtree. *)
+let is_ternary_eligible = (object
+  inherit [_] readonly_visitor
+  method! visit_ELet _ _ _ _ = false
+  method! visit_EIfThenElse _ _ _ _ = false
+end)#visit_expr_w ()
+
+let use_ternary_op ifdefs = object (self)
+  inherit [_] map
+
+  method! visit_EIfThenElse env c t e =
+    let c = self#visit_expr env c in
+    let t = self#visit_expr env t in
+    let e = self#visit_expr env e in
+    if is_ternary_eligible c &&
+       is_ternary_eligible t &&
+       is_ternary_eligible e &&
+       not (references_ifdef ifdefs c)
+    then ETernary (c, t, e)
+    else EIfThenElse (c, t, e)
 end
 
 (* Transform functional updates of the form x.(i) <- { x.(i) with f = e } into
@@ -1103,7 +1225,7 @@ let rec flag_short_circuit tbl loc t e0 es =
   let lhs0, e0 = hoist_expr loc Unspecified e0 in
   let lhss, es = List.split (List.map (hoist_expr loc Unspecified) es) in
   match e0.node, es, lhss with
-  | EOp ((K.And | K.Or) as op, K.Bool), [ e1; e2 ], [ lhs1; lhs2 ] ->
+  | EOp ((K.And | K.Or) as op, TBool), [ e1; e2 ], [ lhs1; lhs2 ] ->
       (* In Wasm, we automatically inline functions based on their size, so we
        * can't ask the user to rewrite, but it's ok, because it's an expression
        * language, so we can have let-bindings anywhere. *)
@@ -1275,7 +1397,8 @@ and hoist_expr tbl loc pos e =
   | EEnum _
   | EStandaloneComment _
   | EPolyComp _
-  | EOp _ ->
+  | EOp _
+  | ESizeof _ ->
       [], e
 
   | EAddrOf e ->
@@ -1532,6 +1655,14 @@ and hoist_expr tbl loc pos e =
         [], mk EContinue
       else
         Warn.fatal_error "%a: %s" Loc.ploc loc "[continue] expressions should only appear in statement position"
+
+  | ETernary (e1, e2, e3) ->
+      let lhs1, e1 = hoist_expr loc Unspecified e1 in
+      let lhs2, e2 = hoist_expr loc UnderConditional e2 in
+      let e2 = nest lhs2 e2.typ e2 in
+      let lhs3, e3 = hoist_expr loc UnderConditional e3 in
+      let e3 = nest lhs3 e3.typ e3 in
+      lhs1, mk (ETernary (e1, e2, e3))
 
 (* TODO: figure out if we want to ignore the other cases for performance
  * reasons. *)
@@ -2233,6 +2364,7 @@ let simplify2 ifdefs (files: file list): file list =
   (* Quality of hoisting is WIDELY improved if we remove un-necessary
    * let-bindings. Also removes occurrences of spinlock and the like. *)
   let files = optimize_lets ~ifdefs files in
+  let files = (use_ternary_op ifdefs)#visit_files () files in
   let files = if Options.wasm () then files else fixup_while_tests#visit_files () files in
   let files = (new hoist)#visit_files [] files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in

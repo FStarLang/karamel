@@ -167,7 +167,6 @@ let string_of_width (w: Constant.width) =
   | Constant.Int16 -> "i16"
   | Constant.Int32 -> "i32"
   | Constant.Int64 -> "i64"
-  | Constant.Bool -> "bool"
   | Constant.SizeT -> "usize"
   | Constant.CInt -> ""
   | Constant.PtrdiffT -> failwith "unexpected: ptrdifft"
@@ -180,10 +179,7 @@ let print_borrow_kind k =
   | Shared -> empty
 
 let print_constant (w, s) =
-  if w <> Constant.Bool then
-    string s ^^ string (string_of_width w)
-  else
-    string s
+  string s ^^ string (string_of_width w)
 
 let print_lifetime = function
   | Label l ->
@@ -226,6 +222,7 @@ type lbrace_conflict =
 let rec print_typ env (t: typ): document =
   match t with
   | Constant w -> string (string_of_width w)
+  | Bool -> string "bool"
   | Ref (lt, k, t) -> group (ampersand ^^ print_lifetime_option lt ^^ print_borrow_kind k ^^ print_typ env t)
   | Vec t -> group (string "Vec" ^^ angles (print_typ env t))
   | Array (t, n) -> group (brackets (print_typ env t ^^ semi ^/^ int n))
@@ -428,6 +425,8 @@ and print_expr env ?(lbrace_conflict=Fine) (context: int) (e: expr): document =
       group (ampersand ^^ print_borrow_kind k ^^ print_expr env mine e)
   | Constant c ->
       print_constant c
+  | Bool b ->
+      string (if b then "true" else "false")
   | Let _ ->
       (* If we reach this point with lbrace_conflict=Danger, then we get bonus
          parentheses *)

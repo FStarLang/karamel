@@ -55,7 +55,7 @@ FSTAR_ARGS += $(OTHERFLAGS)
 # Set ADMIT=1 to admit queries
 FSTAR_ARGS += $(if $(ADMIT),--admit_smt_queries true)
 
-KRML_EXE ?= ../../krml
+KRML_EXE ?= $(abspath ../../krml)
 _ := $(shell $(KRML_EXE) -help)
 ifneq ($(.SHELLSTATUS),0)
 _: $(error "Cannot run krml, aborting (KRML_EXE = $(KRML_EXE))")
@@ -103,7 +103,8 @@ $(OUTPUT_DIR)/$(subst .,_,%).krml:
 
 $(OUTPUT_DIR)/%.c: $(OUTPUT_DIR)/%.krml $(OUTPUT_DIR)/Pulse_Lib_Pervasives.krml
 	$(call msg, "KRML", $(basename $(notdir $@)))
-	$(KRML_EXE) $(KRML_FLAGS) -skip-compilation -header=krmlheader -bundle $*=* -skip-linking $+ -tmpdir $(OUTPUT_DIR)
+	@# Note, we are probably running karamel minimal. We will fail without -skip-makefiles.
+	$(KRML_EXE) $(KRML_FLAGS) -skip-makefiles -skip-compilation -header=krmlheader -bundle $*=* -skip-linking $+ -tmpdir $(OUTPUT_DIR)
 
 ### Checking expected output for any kind of file
 $(OUTPUT_DIR)/%.diff: $(OUTPUT_DIR)/%.c %.expected.c

@@ -608,7 +608,8 @@ let to_addr is_struct =
     | EPushFrame
     | EPopFrame
     | EStandaloneComment _
-    | EEnum _ ->
+    | EEnum _
+    | ESizeof _ ->
         not_struct ();
         e
 
@@ -700,6 +701,9 @@ let to_addr is_struct =
 
     | EIfThenElse (e1, e2, e3) ->
         w (EIfThenElse (to_addr false e1, to_addr false e2, to_addr false e3))
+
+    | ETernary (e1, e2, e3) ->
+        w (ETernary (to_addr false e1, to_addr false e2, to_addr false e3))
 
     | EAssign (e1, e2) ->
         (* In the case of a by-copy struct assignment (for the return value of

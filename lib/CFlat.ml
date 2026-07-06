@@ -68,7 +68,7 @@ module Sizes = struct
         A16
     | UInt8 | Int8 ->
         A8
-    | Bool | SizeT | PtrdiffT ->
+    | SizeT | PtrdiffT ->
         invalid_arg "array_size_of_width"
 
   let bytes_in = function
@@ -115,6 +115,7 @@ and expr =
   | Var of var
   | GetGlobal of ident
   | Constant of constant
+  | Bool of bool
   | Assign of var * expr
   | StringLiteral of string
   | Abort of expr

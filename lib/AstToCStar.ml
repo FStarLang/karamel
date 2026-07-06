@@ -309,7 +309,7 @@ and mask w e =
   | _ -> e
 
 and is_integer_arith op w =
-  w <> K.Bool && not (Constant.is_float w) && K.is_unsigned w && match op with
+  not (Constant.is_float w) && K.is_unsigned w && match op with
   | K.Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
   | BOr | BAnd | BXor | BShiftL | BShiftR | BNot
   | Eq | Neq | Lt | Lte | Gt | Gte ->
@@ -333,7 +333,7 @@ and is_integer_arith op w =
 and mk_arith env e =
   let mask_if is_atomic w e = if is_atomic then e else mask w e in
   match e.node with
-  | EApp ({ node = EOp (op, w); _ }, [ e1; e2 ]) when is_integer_arith op w ->
+  | EApp ({ node = EOp (op, TInt w); _ }, [ e1; e2 ]) when is_integer_arith op w ->
       let e1, a1, w1 = mk_arith env e1 in
       let e2, a2, w2 = mk_arith env e2 in
       begin match op with
@@ -343,12 +343,17 @@ and mk_arith env e =
           CStar.Call (Op op, [ mask_if a1 w e1; mask_if a2 w e2 ])
       | BShiftR ->
           CStar.Call (Op op, [ mask_if a1 w e1; e2 ])
+      | Eq | Neq | Lt | Lte | Gt | Gte when a1 && a2 ->
+          (* Both operands are atomic (no arithmetic widening) — compare at
+             native width without redundant upcasts. *)
+          let strip e = match e with CStar.Cast (inner, _) -> inner | _ -> e in
+          CStar.Call (Op op, [ strip e1; strip e2 ])
       | Eq | Neq | Lt | Lte | Gt | Gte ->
           CStar.Call (Op op, [ mask_if a1 w e1; mask_if a2 w e2 ])
       | _ ->
           assert false
       end, false, w1 || w2
-  | EApp ({ node = EOp (BNot, w); _ }, [ e1 ]) when is_integer_arith BNot w ->
+  | EApp ({ node = EOp (BNot, TInt w); _ }, [ e1 ]) when is_integer_arith BNot w ->
       (* BNot is unary. Complement always corrupts upper bits for UInt8/UInt16
          (~(uint8_t)0x0F promotes to int 0xFFFFFFF0), so we must mask. *)
       let e1, _, w1 = mk_arith env e1 in
@@ -358,6 +363,13 @@ and mk_arith env e =
          that every subexpression operates over unsigned int until the final
          cast, or until a mask is needed to preserve semantics. *)
       mk_expr env false false e, true, false (* C++: a constant that is wider than the intended type, but in an initializer list, is ok *)
+  | ETernary (c, t, f) ->
+      (* Recurse into branches so that non-atomic arithmetic is not hidden
+         behind a ternary marked as "atomic". *)
+      let c = mk_expr env false false c in
+      let t, a1, w1 = mk_arith env t in
+      let f, a2, w2 = mk_arith env f in
+      CStar.Ternary (c, t, f), a1 && a2, w1 || w2
   | _ ->
       (* Something else. Who knows? Maybe a function call, a field reference, a
          variable, a global... which will be upcast into `int`, which is *not*
@@ -410,7 +422,7 @@ and mk_expr env in_stmt under_initializer_list e =
       let ret_t = CStar.Type (mk_type env (MonomorphizationState.normalize e.typ)) in
       unit_to_void env e0 (cgs @ cgs') (List.map (fun t -> CStar.Type (mk_type env t)) ts @ [ ret_t ])
 
-  | EApp ({ node = EOp (op, w); _ }, [ _; _ ]) when is_integer_arith op w ->
+  | EApp ({ node = EOp (op, TInt w); _ }, [ _; _ ]) when is_integer_arith op w ->
       let e', _, widened = mk_arith env e in
       if !Options.cxx_compat && under_initializer_list && widened then
         Cast (e', mk_type env e.typ)
@@ -449,7 +461,17 @@ and mk_expr env in_stmt under_initializer_list e =
          scalar type in C that is supported by C's equality comparison. *)
       CStar.Op (K.op_of_poly_comp c)
   | ECast (e, t) ->
-      CStar.Cast (mk_expr env false e, mk_type env t)
+      (* When the source is UInt8/UInt16 and contains arithmetic, the widened
+         result may have extra bits. We must mask before casting to a wider
+         type, otherwise the junk bits are preserved. *)
+      begin match e.typ with
+      | TInt w when w = K.UInt8 || w = K.UInt16 ->
+          let e', is_atomic, _ = mk_arith env e in
+          let e' = if is_atomic then e' else mask w e' in
+          CStar.Cast (e', mk_type env t)
+      | _ ->
+          CStar.Cast (mk_expr env false e, mk_type env t)
+      end
   | EAbort (t, s) ->
       let t = match t with Some t -> t | None -> e.typ in
       CStar.EAbort (mk_type env t, Option.value ~default:"" s)
@@ -474,6 +496,12 @@ and mk_expr env in_stmt under_initializer_list e =
 
   | EBufNull ->
       CStar.BufNull
+
+  | ETernary (e1, e2, e3) ->
+      CStar.Ternary (mk_expr env false e1, mk_expr env false e2, mk_expr env false e3)
+
+  | ESizeof t ->
+      CStar.Sizeof (mk_type env t)
 
   | _ ->
       Warn.maybe_fatal_error (KPrint.bsprintf "%a" Loc.ploc env.location, NotLowStar e);
@@ -525,13 +553,13 @@ and mk_stmts env e ret_type =
     | EFor (binder,
       ({ node = EConstant ((K.UInt32 | K.SizeT), init as k_init); _ } as e_init),
       { node = EApp (
-        { node = EOp (K.Lt, (K.UInt32 | K.SizeT)); _ },
+        { node = EOp (K.Lt, TInt (K.UInt32 | K.SizeT)); _ },
         [{ node = EBound 0; _ };
         ({ node = EConstant ((K.UInt32 | K.SizeT), max as k_max); _ } as e_max)]); _},
       { node = EAssign (
         { node = EBound 0; _ },
         { node = EApp (
-          { node = EOp (K.Add, (K.UInt32 | K.SizeT)); _ },
+          { node = EOp (K.Add, TInt (K.UInt32 | K.SizeT)); _ },
           [{ node = EBound 0; _ };
           ({ node = EConstant ((K.UInt32 | K.SizeT), incr as k_incr); _ } as e_incr)]); _}); _},
       body)
@@ -691,7 +719,16 @@ and mk_stmts env e ret_type =
           | [] -> None
           | _ -> failwith "impossible"
         in
-        env, CStar.Switch (mk_expr env false false e0,
+        (* In C, the scrutinee is widened to at least int. Since U8/U16
+           have defined overflow, we must mask the extra bits away if the
+           scrutinee is of that type. See https://github.com/FStarLang/karamel/issues/707. *)
+        let scrutinee = match e0.typ with
+          | TInt w when w = K.UInt8 || w = K.UInt16 ->
+              let e, is_atomic, _ = mk_arith env e0 in
+              if is_atomic then e else mask w e
+          | _ -> mk_expr env false false e0
+        in
+        env, CStar.Switch (scrutinee,
           List.map (fun (lid, e) ->
             (match lid with
             | SConstant k -> `Int k
@@ -721,6 +758,9 @@ and mk_stmts env e ret_type =
 
     | _ when return_pos <> Not ->
         mk_as_return env e (comment e.meta @ acc) return_pos
+
+    | ETernary _ ->
+      Warn.fatal_error "ETernary in stmt position?: %a\n" pexpr e
 
     | _ ->
         (* This is a specialized instance of `mk_as_return` when return_pos = Not *)
@@ -776,7 +816,7 @@ and mk_stmts env e ret_type =
        * ill-parenthesized, or if there's B1 && B'1
        *)
       match e1.node with
-      | EApp ({ node = EOp (K.And, K.Bool); _ }, [ e1; e1' ]) when return_pos <> Not ->
+      | EApp ({ node = EOp (K.And, TBool); _ }, [ e1; e1' ]) when return_pos <> Not ->
           let cond = mk_ifcond env e1 in
           (* Can't recursively call mk_block with Must because it'll insert a
            * return in the else-branch. *)
@@ -804,9 +844,9 @@ and mk_stmts env e ret_type =
     match e.node with
     | EQualified name when LidSet.mem name env.ifdefs ->
         CStar.Macro name
-    | EApp ({ node = EOp ((K.And | K.Or) as o, K.Bool); _ }, [ e1; e2 ]) ->
+    | EApp ({ node = EOp ((K.And | K.Or) as o, TBool); _ }, [ e1; e2 ]) ->
         CStar.Call (CStar.Op o, [ mk_ifcond env e1; mk_ifcond env e2 ])
-    | EApp ({ node = EOp (K.Not as o, K.Bool); _ }, [ e1 ]) ->
+    | EApp ({ node = EOp (K.Not as o, TBool); _ }, [ e1 ]) ->
         CStar.Call (CStar.Op o, [ mk_ifcond env e1 ])
     | _ ->
         raise NotIfDef

@@ -8,7 +8,6 @@ open Loc
 module W = Wasm
 module K = Constant
 
-module StringMap = Map.Make(String)
 module StringSet = Set.Make(String)
 
 (******************************************************************************)
@@ -211,7 +210,7 @@ let mk_lit w lit =
       let n = Z.of_string lit in
       let n = if Z.( n >= ~$2 ** 63 ) then Z.( n - ~$2 ** 64 ) else n in
       mk_int64 (Z.to_int64 n)
-  | K.Int32 | K.UInt8 | K.UInt16 | K.UInt32 | K.SizeT | K.PtrdiffT | K.Bool | K.CInt ->
+  | K.Int32 | K.UInt8 | K.UInt16 | K.UInt32 | K.SizeT | K.PtrdiffT | K.CInt ->
       let n = Z.of_string lit in
       let n = if Z.( n >= ~$2 ** 31 ) then Z.( n - ~$2 ** 32 ) else n in
       mk_int32 (Z.to_int32 n)
@@ -521,8 +520,6 @@ let mk_cast w_from w_to =
   | UInt16, UInt8
   | UInt32, (UInt16 | UInt8) ->
       mk_mask w_to
-  | Bool, _ | _, Bool ->
-      invalid_arg "mk_cast"
   | _ ->
       Warn.fatal_error "todo: conversion from %s to %s"
         (show_width w_from) (show_width w_to)
@@ -664,6 +661,9 @@ and mk_expr env (e: expr): W.Ast.instr list =
 
   | Constant (w, lit) ->
       mk_const (mk_lit w lit)
+
+  | Bool true  -> mk_const (mk_int32 Int32.one)
+  | Bool false -> mk_const (mk_int32 Int32.zero)
 
   | CallOp (o, [ e1 ]) ->
       mk_callop env o e1

@@ -306,7 +306,7 @@ and print_expr env { node; typ; meta } =
       group (c ^^ string "match" ^/^ print_expr env e ^/^ string "with") ^^
       jump ~indent:0 (print_branches env branches)
   | EOp (o, w) ->
-      string "(" ^^ print_op o ^^ string "," ^^ print_width w ^^ string ")"
+      string "(" ^^ print_op o ^^ string "," ^^ print_typ w ^^ string ")"
   | ECast (e, t) ->
       parens_with_nesting (print_expr env e ^^ langle ^^ colon ^/^ print_typ t)
   | EPopFrame ->
@@ -369,6 +369,14 @@ and print_expr env { node; typ; meta } =
       string "NULL" ^^ langle ^^ print_typ typ ^^ rangle
   | EContinue ->
       string "continue"
+  | ETernary (c, t, e) ->
+      parens_with_nesting (
+        print_expr env c ^/^
+          string "?" ^/^ print_expr env t ^/^
+          string ":" ^/^ print_expr env e
+      )
+  | ESizeof t ->
+      string "sizeof" ^^ parens (print_typ t)
 
 and print_poly_comp = function
   | PEq -> equals

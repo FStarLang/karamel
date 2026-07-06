@@ -62,6 +62,11 @@ let p_or p x =
   | Some x -> p x
   | None -> empty
 
+  (* Negative power of two, to check for minimum integers. *)
+  let npow2 x = Z.neg (Z.pow (Z.of_int 2) x)
+  let npow2_31 = npow2 31
+  let npow2_63 = npow2 63
+
 let rec p_type_spec = function
   | Int w -> print_width w
   | Void -> string "void"
@@ -165,7 +170,7 @@ and prec_of_op2 op =
   let open Constant in
   match op with
   | AddW | SubW | MultW | DivW -> failwith "[prec_of_op]: should've been desugared"
-  | Add -> 4, 4, 4 (* addition is associative in C *)
+  | Add -> 4, 4, 3
   | Sub -> 4, 4, 3
   | Div -> 3, 3, 2
   | Mult -> 3, 3, 2
@@ -223,13 +228,27 @@ and defeat_Wparentheses op e prec =
   | _ ->
       prec
 
-and p_constant w s =
-  let suffix = match w with
-    | K.UInt64 -> string "ULL"
-    | UInt32 | UInt16 | UInt8 | SizeT -> string "U"
-    | _ -> empty
-  in
-  string s ^^ suffix
+and p_constant w (s : string) : document =
+  let open Constant in
+  (* Special case the minimum integer in the larger widths.
+     In C, -123 is not a negative literal but the unary minus applied to the 123
+     literal. This means that for the minimum integer, e.g. -2147483648, the
+     literal may overflow (it won't fit in a signed 32 bit int). In practice
+     this is benign, but we get warnings about it. The C idiom to represent the
+     minimum integer is (-2147483647 - 1), but since we have stdint we can use
+     the custom macros.  Int8 and Int16 are guaranteed to fit in a plain `int`
+     so there is no problem there. *)
+  match w with
+  | Int64 when Z.of_string s = npow2_63 -> string "INT64_MIN"
+  | Int32 when Z.of_string s = npow2_31 -> string "INT32_MIN"
+  | _ ->
+    let suffix = match w with
+      | UInt64 -> string "ULL"
+      | UInt32 | UInt16 | UInt8 | SizeT -> string "U"
+      | Int64 -> string "LL"
+      | _ -> empty
+    in
+    string s ^^ suffix
 
 and p_expr' curr = function
   | Op1 (op, e1) ->
@@ -253,6 +272,12 @@ and p_expr' curr = function
       let e1 = p_expr' left e1 in
       let e2 = p_expr' right e2 in
       paren_if curr mine (group (e1 ^/^ equals) ^^ jump e2)
+  | CompoundAssign (e1, op, e2) ->
+      let mine, left, right = 14, 13, 14 in
+      let right = defeat_Wparentheses op e2 right in
+      let e1 = p_expr' left e1 in
+      let e2 = p_expr' right e2 in
+      paren_if curr mine (group (e1 ^/^ print_op op ^^ equals) ^^ jump e2)
   | Call (e, es) ->
       let mine, left, arg = 1, 1, 14 in
       let e = p_expr' left e in
@@ -325,6 +350,16 @@ and p_expr' curr = function
       p_stmts stmts
   | CxxInitializerList init ->
       p_init init
+  | Ternary (c, t, e) ->
+      let mine = 13 in
+      let c = p_expr' 12 c in
+      (* "The expression in the middle of the conditional operator (between ?
+      and :) is parsed as if parenthesized: its precedence relative to ?: is
+      ignored." Hence the 15 (max) here. *)
+      let t = p_expr' 15 t in
+      let e = p_expr' 13 e in
+      paren_if curr mine @@
+      group c ^^ space ^^ align (qmark ^^ space ^^ group t ^/^ colon ^^ space ^^ group e)
 
 (* statement-level comment *)
 and p_comment s =

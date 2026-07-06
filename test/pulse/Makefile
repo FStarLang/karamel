@@ -24,3 +24,6 @@ $(OUTPUT_DIR)/GotoReturn.c: KRML_FLAGS += -goto_for_early_return -fnoreturn-else
 $(OUTPUT_DIR)/CommentFusion.c: CommentFusion.json
 	$(call msg, "KRML", "CommentFusion")
 	$(KRML_EXE) -skip-makefiles -skip-compilation -skip-linking -header=krmlheader -fline-comments -fblank-lines -bundle CommentFusion=* -tmpdir $(OUTPUT_DIR) $<
+
+# Inline enough so the augmented assignments actually kick in
+$(OUTPUT_DIR)/CompoundAssignment.c: KRML_FLAGS += -faggressive-inlining

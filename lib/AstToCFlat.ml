@@ -6,7 +6,6 @@
 module CF = CFlat
 module K = Constant
 module LidMap = Idents.LidMap
-module StringMap = Map.Make(String)
 
 open CFlat.Sizes
 open Ast
@@ -751,7 +750,13 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       let o = K.op_of_poly_comp c in
       locals, CF.CallOp ((w, o), es)
 
-  | EApp ({ node = EOp (o, w); _ }, es) ->
+  | EApp ({ node = EOp (o, TBool); _ }, es) ->
+      let locals, es = fold (mk_expr env) locals es in
+      (* Bools are Int32 *)
+      let w = K.Int32 in
+      locals, CF.CallOp ((w, o), es)
+
+  | EApp ({ node = EOp (o, TInt w); _ }, es) ->
       let locals, es = fold (mk_expr env) locals es in
       locals, CF.CallOp ((w, o), es)
 
@@ -834,7 +839,7 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
       failwith "TODO: implement manual memory management"
 
   | EBool b ->
-      locals, CF.Constant (K.Bool, if b then "1" else "0")
+      locals, Bool b
 
   | ECast (e, TInt wt) ->
       let wf = match e.typ with TInt wf -> wf | _ -> failwith "non-int cast" in
@@ -1003,6 +1008,13 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
   | EBufNull ->
       locals, CF.Constant (K.UInt32, "0")
 
+  | ETernary (e1, e2, e3) ->
+      (* No need for ternary in CFlat, turn to if-then-else and recurse *)
+      mk_expr env locals (with_type e.typ (EIfThenElse (e1, e2, e3)))
+
+  | ESizeof t ->
+     (* sizeof is resolved statically for Wasm — all sizes are known *)
+     locals, mk_uint32 (byte_size env t)
 
 (* See digression for [dup32] in CFlatToWasm *)
 let scratch_locals =

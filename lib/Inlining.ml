@@ -224,6 +224,7 @@ let cross_call_analysis files =
       wasm_mutable: bool;
       wasm_needs_getter: bool;
       abstract_struct: bool;
+      macro: bool;
     }
   end in
   let open T in
@@ -247,6 +248,7 @@ let cross_call_analysis files =
     let f = flags_of_decl d in
     let name = lid_of_decl d in
     let abstract_struct = List.mem Common.AbstractStruct f in
+    let macro = List.mem Common.Macro f in
     let visibility =
       if List.mem Common.Internal f || abstract_struct then
         (* C abstract structs start at internal, since their body is going to be in the internal
@@ -282,7 +284,7 @@ let cross_call_analysis files =
     in
     let wasm_needs_getter = false in
     let callers = LidSet.empty in
-    Hashtbl.add map (lid_of_decl d) { visibility; inlining; wasm_mutable; wasm_needs_getter; callers; abstract_struct }
+    Hashtbl.add map (lid_of_decl d) { macro; visibility; inlining; wasm_mutable; wasm_needs_getter; callers; abstract_struct }
   ) in
 
   (* We keep track of the declarations we have seen so far. Since the
@@ -406,7 +408,7 @@ let cross_call_analysis files =
              Types that appear in static inline function definitions (lhs of the
              disjunction) must, in addition to the criterion above, follow
              the same rules as for a prototype. *)
-          if in_body && my_info.inlining = StaticInline || not in_body then
+          if in_body && (my_info.inlining = StaticInline || my_info.macro) || not in_body then
             record_call_from_to lid name
 
         method! visit_TApp () name ts =
@@ -472,7 +474,7 @@ let cross_call_analysis files =
           (* Static inline definitions force the callee to be at least as
              visible as the caller, so that the callee is in scope of the
              caller. *)
-          if my_info.inlining = StaticInline then
+          if my_info.inlining = StaticInline || my_info.macro then
             record_call_from_to lid name;
           (* Unrelated to visibility: MSVC and CompCert follow the C standard
              closely and make inline

@@ -52,7 +52,7 @@ and expr =
   | Member of expr * expr
   | MemberP of expr * expr
   | Assign of expr * expr
-    (** not covering *=, +=, etc. *)
+  | CompoundAssign of expr * K.op * expr (* x op= y, op is binary. *)
   | Call of expr * expr list
   | Name of ident
   | Cast of type_name * expr
@@ -70,7 +70,7 @@ and expr =
   (* Not in the C grammar either; encode a C++ initializer list that appears in expression position
      so as to rely on an implicit constructor *)
   | CxxInitializerList of init
-    
+  | Ternary of expr * expr * expr
 
 (** this is a WILD approximation of the notion of "type name" in C _and_ a hack
  * because there's the invariant that the ident found at the bottom of the

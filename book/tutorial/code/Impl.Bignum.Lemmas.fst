@@ -6,12 +6,9 @@ module Impl.Bignum.Lemmas
 /// Let's move lemmas to a separate module. It'll be cleaner!
 
 module B = LowStar.Buffer
-module ST = FStar.HyperStack.ST
-module HS = FStar.HyperStack
 module S = FStar.Seq
 
 module U32 = FStar.UInt32
-module U64 = FStar.UInt64
 
 /// I oftentimes use ``Spec`` to refer to the spec of the current module.
 module Spec = Spec.Bignum

@@ -6,7 +6,7 @@
 open Utils
 open Common
 
-module K = Constant
+module K = InputConstant
 
 (** The input AST. Note: F* doesn't have flat data constructors, so we need to introduce
  * (inefficient) boxing for the sake of interop. Other note: this is using the
@@ -106,6 +106,7 @@ and expr =
   | EBufNull of typ
   | EBufDiff of (expr * expr)
     (** e1 - e2 *)
+  | ESizeof of typ
 
 and branches =
   branch list
@@ -165,7 +166,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 31
+let current_version: version = 32
 
 type file = string * program
   [@@deriving yojson]

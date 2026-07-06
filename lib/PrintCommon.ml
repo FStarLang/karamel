@@ -30,7 +30,6 @@ let width_to_string = function
   | Int16 -> if !Options.linux_ints then "s16" else "int16"
   | Int32 -> if !Options.linux_ints then "s32" else "int32"
   | Int64 -> if !Options.linux_ints then "s64" else "int64"
-  | Bool -> "bool"
   | SizeT -> if !Options.linux_ints then "size_t" else "size"
   | PtrdiffT -> if !Options.linux_ints then "ptrdiff_t" else "ptrdiff"
   | Float32 -> "float32"

@@ -138,6 +138,12 @@ FStar_Int_shift_arithmetic_right(
   krml_checked_int_t s
 );
 
+extern krml_checked_int_t
+FStar_Int_rotate_left(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t s);
+
+extern krml_checked_int_t
+FStar_Int_rotate_right(krml_checked_int_t n, krml_checked_int_t a, krml_checked_int_t s);
+
 
 #define FStar_Int_H_DEFINED
 #endif /* FStar_Int_H */

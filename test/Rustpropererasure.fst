@@ -1,7 +1,6 @@
 module Rustpropererasure
 open FStar.HyperStack.ST
 
-module G = FStar.Ghost
 module U32 = FStar.UInt32
 
 noeq type slice (t: Type0) : Type0 = { len: U32.t ; ptr: ref t }

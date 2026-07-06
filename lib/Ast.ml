@@ -214,7 +214,7 @@ type expr' =
   | EOpen of ident * atom_t
     (** [ident] for debugging purposes only *)
 
-  | EOp of op * width
+  | EOp of op * typ_wo
   | EQualified of lident
   | EConstant of constant
   | EUnit
@@ -294,6 +294,8 @@ type expr' =
   | ECast of expr * typ_wo
   | EStandaloneComment of string
   | EAddrOf of expr
+  | ETernary of expr * expr * expr
+  | ESizeof of typ_wo
 
   [@@deriving show,
     visitors { variety = "map"; ancestors = [ "map_typ_adapter" ]; name = "map_expr" },

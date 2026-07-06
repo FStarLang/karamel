@@ -10,13 +10,13 @@ endif
 FSTAR_EXE ?= fstar.exe
 
 TEST_OPTS	= -warn-error @4 -verbose -skip-makefiles
-KRML_BIN	= ../../_build/default/src/Karamel.exe
-KRML		= $(KRML_BIN) -fstar $(FSTAR_EXE) $(KOPTS) $(TEST_OPTS)
+KRML_EXE	= ../../_build/default/src/Karamel.exe
+KRML		= $(KRML_EXE) -fstar $(FSTAR_EXE) $(KOPTS) $(TEST_OPTS)
 CACHE_DIR	= .cache
 FSTAR		= $(FSTAR_EXE) --cache_checked_modules \
   --cache_dir $(CACHE_DIR) \
   --include ../../krmllib/compat --include ../../krmllib/obj \
-  --include ../../krmllib --include ../../runtime \
+  --include ../../krmllib --include ../../krmllib/runtime \
   --ext optimize_let_vc \
   --already_cached 'Prims FStar C TestLib Spec.Loops -C.Compat -C.Nullity LowStar WasmSupport' \
   --trivial_pre_for_unannotated_effectful_fns false \
@@ -62,7 +62,7 @@ $(CACHE_DIR)/%.checked: | .depend
 ########
 
 .PRECIOUS: %.rs
-%.rs: $(ALL_KRML_FILES) $(KRML_BIN)
+%.rs: $(ALL_KRML_FILES) $(KRML_EXE)
 	$(KRML) -minimal -bundle AuxA+AuxB=[rename=Auxiliary,rename-prefix] -bundle $(notdir $(subst rust,Rust,$*))=\* \
 	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)
 	$(SED) -i 's/\(patterns..\)/\1\nmod auxiliary; mod lowstar { pub mod ignore { pub fn ignore<T>(_x: T) {}}}\n/' $@

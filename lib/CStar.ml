@@ -87,6 +87,8 @@ and expr =
         therefore are more closely modeled as an expression, but truly may
         contain anything as arguments, including statements. *)
   | Type of typ
+  | Ternary of expr * expr * expr
+  | Sizeof of typ
   [@@deriving show]
 
 and block =

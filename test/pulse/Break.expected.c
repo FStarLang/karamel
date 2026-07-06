@@ -7,21 +7,8 @@ void Break_simple_break(void)
 {
   bool k = true;
   bool _break = false;
-  bool cond;
-  if (_break)
-    cond = false;
-  else
-    cond = k;
-  while (cond)
-  {
+  while (!_break && k)
     _break = true;
-    bool ite;
-    if (_break)
-      ite = false;
-    else
-      ite = k;
-    cond = ite;
-  }
 }
 
 void Break_break_continue_and_return(uint8_t which)
@@ -42,17 +29,17 @@ void Break_break_continue_and_return(uint8_t which)
   while (cond)
   {
     bool _continue = false;
-    if ((uint32_t)which == 0U)
+    if (which == 0U)
       _break = true;
     bool _break1 = _break;
     if (!_break1)
     {
-      if ((uint32_t)which == 1U)
+      if (which == 1U)
         _continue = true;
       bool _continue1 = _continue;
       if (!_continue1)
       {
-        if ((uint32_t)which == 2U)
+        if (which == 2U)
           _return = true;
         bool _return1 = _return;
         if (!_return1)
@@ -92,7 +79,7 @@ size_t Break_find_zero_with_break(int32_t *a, size_t sz)
   {
     size_t __anf01 = i;
     int32_t __anf1 = a[__anf01];
-    if (__anf1 == (int32_t)0)
+    if (__anf1 == 0)
       _break = true;
     bool _break1 = _break;
     if (!_break1)

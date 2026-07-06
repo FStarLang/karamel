@@ -536,7 +536,7 @@ let has_pointer env =
 let rec translate_type_with_config (env: env) (config: config) (t: Ast.typ): MiniRust.typ =
   match t with
   | TInt w -> Constant w
-  | TBool -> Constant Bool
+  | TBool -> Bool
   | TUnit -> Unit
   | TAny -> failwith "unexpected: [type] no casts in Low* -> Rust"
   | TBuf (t, b) ->
@@ -873,7 +873,7 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
   | EUnit ->
       env, Unit
   | EBool b ->
-      env, Constant (Bool, string_of_bool b)
+      env, Bool b
   | EString s ->
       env, ConstantString s
   | EAny -> failwith "Unexpected EAny"
@@ -884,7 +884,7 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
       let env, e = translate_expr env fn_t_ret e in
       let binding: MiniRust.binding = { name = "_"; typ = t; mut = false; ref = false } in
       env, Let (binding, Some e, Unit)
-  | EApp ({ node = EOp (o, w); _ }, es) when H.is_wrapping_operator o && not (Constant.is_float w) ->
+  | EApp ({ node = EOp (o, TInt w); _ }, es) when H.is_wrapping_operator o && not (Constant.is_float w) ->
       let w = Helpers.assert_tint (List.hd es).typ in
       let env, es = translate_expr_list env fn_t_ret es in
       env, possibly_convert (MethodCall (List.hd es, [ H.wrapping_operator o ], List.tl es)) (Constant w)
@@ -955,8 +955,8 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
   | EApp ({ node = EPolyComp (op, TBuf _); _ }, ([ { node = EBufNull; _ }; _ ] | [ _; { node = EBufNull; _ }])) ->
       (* No null-checks in Rust -- function will panic. *)
       begin match op with
-      | PEq -> env, Constant (Bool, "false") (* nothing is ever null *)
-      | PNeq ->  env, Constant (Bool, "true") (* everything is always non-null *)
+      | PEq -> env, Bool false (* nothing is ever null *)
+      | PNeq -> env, Bool true (* everything is always non-null *)
       end
 
   | EApp (e0, es) ->
@@ -1351,6 +1351,14 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
         (* env, possibly_convert (Borrow (Mut, e1_)) (Ref (None, Mut, translate_type env e1.typ)) *)
         (* POSSIBLE FIX (if we care): insert slice::from_ref, since the expected
            Rust type for this is a slice (and maybe ditch possibly_convert) *)
+
+  | ETernary (e1, e2, e3) ->
+      (* Rust has if-then-else expressions, go back to it and keep going. *)
+      translate_expr_with_type env ~context fn_t_ret (Ast.with_type e.typ (Ast.EIfThenElse (e1, e2, e3))) t_ret
+
+  | ESizeof t ->
+      (* use std::mem::size_of *)
+      env, Call (Name ["std"; "mem"; "size_of"], [translate_type env t], [])
 
 and translate_pat env (p: Ast.pattern): MiniRust.pat =
   match p.node with

@@ -139,7 +139,7 @@ obj/Specs_Driver.ml: specs/ml/Specs_Driver.ml
 # F* --> C
 # --------
 
-KRML=$(KRML_HOME)/krml
+KRML_EXE ?= krml
 
 # Note: the implementation of the intrinsic uses external linkage, but you could
 # easily turn this file into a .h, use -add-include '"Impl_Bignum_Intrinsics.h"'
@@ -240,7 +240,7 @@ obj/specs-test.exe: $(ALL_CMX_FILES) obj/Specs_Driver.cmx
 # Compiling the hand-written test
 # -------------------------------
 
-CFLAGS += -I dist -I $(KRML_HOME)/include
+CFLAGS += -I dist -I $(shell $(KRML_EXE) -locate-include)
 
 tests/c-tests.exe: tests/c-tests.o dist/libbignum.a
 	$(CC) $^ -o $@
