@@ -192,6 +192,7 @@ jobs:
       - name: Generate CBOR and COSE .krml files
         working-directory: everparse
         run: |
+          rm -rf opt/karamel && touch opt/karamel &&
           git pull && make cbor-extract-krml cose-extract-krml -kj$(nproc)
 
       # Paranoid delete before saving. Note: run_id is constant across reruns.
