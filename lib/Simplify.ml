@@ -250,8 +250,13 @@ let unused private_count_table lid ts (i: int) =
       i < List.length l &&
       snd (List.nth l i) = Mark.AtMost 0
     ) ||
-    (* Second case: it's a unit, so here type-based elimination *)
-    List.nth ts i = TUnit
+    (* Second case: it's a unit, so here type-based elimination.
+     * Bounds-check [i]: an over-applied callee (e.g. the untyped/variadic
+     * [KPR_KCALL] kernel-launch macro, whose type has zero arrows) can be
+     * applied to more arguments than [ts] has entries. [visit_EApp] already
+     * tolerates over-application ("happens ... ignore"), so treat any index
+     * past the end of [ts] as "not (statically-known) unused". *)
+    (i < List.length ts && List.nth ts i = TUnit)
   in
   unused_i i &&
   implies (i = 0) (List.exists not (List.init (List.length ts) unused_i))
