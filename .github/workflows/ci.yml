@@ -294,10 +294,6 @@ jobs:
         with:
           node-version: 16
 
-      - run: |
-         echo "FSTAR_USE_KRML_EXE=1" >> $GITHUB_ENV
-         echo "KRML_EXE=$(pwd)/karamel/out/bin/krml" >> $GITHUB_ENV
-
       - name: Karamel CI (test-pulse)
         working-directory: karamel
         run: |
