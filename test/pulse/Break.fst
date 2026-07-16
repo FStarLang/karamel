@@ -9,12 +9,13 @@ fn simple_break ()
   while (!k)
     invariant live k
     ensures true
+    decreases (if !k then 1 else 0)
   {
     break;
   }
 }
 
-fn break_continue_and_return (which: UInt8.t)
+divergent fn break_continue_and_return (which: UInt8.t)
 {
   let mut i = 0ul;
   while (!i `UInt32.lt` 1000ul)
@@ -48,6 +49,7 @@ fn find_zero_with_break (a: array Int32.t) (sz: SizeT.t)
     invariant pure (SizeT.v !i <= SizeT.v sz /\
       (forall (j: nat). j < SizeT.v (!i) ==> Seq.index 'va j <> 0l))
     ensures (SizeT.v !i < SizeT.v sz /\ a.(!i) = 0l)
+    decreases (SizeT.v sz - SizeT.v (!i))
   {
     if (a.(!i) = 0l) {
       break;
