@@ -10,7 +10,9 @@ ifeq (3.81,$(MAKE_VERSION))
 endif
 
 FSTAR_EXE ?= fstar.exe
-KRML_BIN = ../../_build/default/src/Karamel.exe
+# Use the installed krml so it can auto-detect its runtime lib/include dirs
+# (out/lib/krml, out/include/krml); the _build/default binary cannot.
+KRML_BIN = ../../out/bin/krml
 TEST_OPTS = -warn-error @4 -skip-makefiles
 
 CACHE_DIR = .cache
