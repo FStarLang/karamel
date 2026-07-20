@@ -3,7 +3,7 @@ module InlineLoopCond
 #lang-pulse
 open Pulse
 
-fn test (f : unit -> fn returns UInt32.t)
+divergent fn test (f : unit -> fn returns UInt32.t)
   returns UInt32.t
 {
   let uu__  = f ();
@@ -15,7 +15,7 @@ fn test (f : unit -> fn returns UInt32.t)
   0ul
 }
 
-fn test_ok (x : UInt32.t)
+divergent fn test_ok (x : UInt32.t)
   returns UInt32.t
 {
   (* This one could be inlined (it's not at the moment) *)

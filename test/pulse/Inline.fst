@@ -60,6 +60,8 @@ fn tst (shared : UInt32.t)
   let mut i = 0ul;
   while (!i <^ uu__k)
     invariant live i
+    invariant pure (v (!i) <= v uu__k)
+    decreases (Prims.op_Subtraction (v uu__k) (v (!i)))
   {
     i := !i +^ 1ul;
   };

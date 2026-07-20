@@ -29,6 +29,7 @@ fn find_zero (a: array Int32.t) (sz: SizeT.t)
     invariant live i
     invariant pure (SizeT.v !i <= SizeT.v sz /\
       (forall (j: nat). j < SizeT.v (!i) ==> Seq.index 'va j <> 0l))
+    decreases (SizeT.v sz - SizeT.v (!i))
   {
     if (a.(!i) = 0l) {
       return !i;
