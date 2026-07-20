@@ -19,6 +19,9 @@ let rec vars_of_expr (e: C.expr): SSet.t =
   | C.Member (e1, e2) -> SSet.union (vars_of_expr e1) (vars_of_expr e2)
   | C.MemberP (e1, e2) -> SSet.union (vars_of_expr e1) (vars_of_expr e2)
   | C.Assign (e1, e2) -> SSet.union (vars_of_expr e1) (vars_of_expr e2)
+  | C.CompoundAssign (e1, _, e2) -> SSet.union (vars_of_expr e1) (vars_of_expr e2)
+  | C.Ternary (e1, e2, e3) ->
+      SSet.union (vars_of_expr e1) (SSet.union (vars_of_expr e2) (vars_of_expr e3))
   | C.Call (e, es) ->
       List.fold_left (fun acc e -> SSet.union acc (vars_of_expr e))
         (vars_of_expr e) es

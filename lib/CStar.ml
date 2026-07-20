@@ -191,9 +191,10 @@ let names_of_block (body: block): S.t =
     | Var v -> add v
     | Qualified (_, n) | Macro (_, n) -> add n
     | Constant _ | Bool _ | StringLiteral _ | Any | EAbort _ | Type _
-    | BufNull | Op _ -> ()
+    | BufNull | Op _ | Sizeof _ -> ()
     | Cast (e, _) | Field (e, _) | AddrOf e | InlineComment (_, e, _) ->
         collect_expr e
+    | Ternary (e1, e2, e3) -> collect_expr e1; collect_expr e2; collect_expr e3
     | BufRead (e1, e2) | BufSub (e1, e2) | Comma (e1, e2)
     | BufCreate (_, e1, e2) ->
         collect_expr e1; collect_expr e2

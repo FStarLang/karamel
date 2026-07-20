@@ -80,11 +80,7 @@ let rec zero_init_for_type (mode: mode) (tmap: type_map) (spec: C.type_spec) (de
 and zero_init_for_spec (mode: mode) (tmap: type_map) (spec: C.type_spec): C.init =
   match spec with
   | Int w ->
-      let s = match w with
-        | K.Bool -> "false"
-        | _ -> "0"
-      in
-      InitExpr (Constant (w, s))
+      InitExpr (Constant (w, "0"))
   | Void ->
       InitExpr (Constant (K.Int32, "0"))
   | Named name ->
