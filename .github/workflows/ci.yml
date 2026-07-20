@@ -156,12 +156,6 @@ jobs:
           path: _opam
           key: opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }}
 
-      - name: Setup environment
-        run: |
-          echo "KRML_HOME=$(pwd)/karamel" >> $GITHUB_ENV
-          echo "EVERPARSE_USE_KRML_HOME=1" >> $GITHUB_ENV
-          echo "ADMIT=1" >> $GITHUB_ENV
-
       - name: Restore EverParse cache if it exists
         uses: actions/cache/restore@v4
         with:
@@ -187,9 +181,18 @@ jobs:
           export OCAMLRUNPARAM=b
           OTHERFLAGS='--admit_smt_queries true' make -kj$(nproc)
 
+      # KRML_EXE must be set for EverParse, but not when building krmllib
+      # as part of Karamel, so we set it only here
+      - name: Setup environment
+        run: |
+          echo "KRML_EXE=$(pwd)/karamel/out/bin/krml" >> $GITHUB_ENV
+          echo "EVERPARSE_USE_KRML_EXE=1" >> $GITHUB_ENV
+          echo "ADMIT=1" >> $GITHUB_ENV
+
       - name: Generate CBOR and COSE .krml files
         working-directory: everparse
         run: |
+          rm -rf opt/karamel && touch opt/karamel &&
           git pull && make cbor-extract-krml cose-extract-krml -kj$(nproc)
 
       # Paranoid delete before saving. Note: run_id is constant across reruns.
