@@ -294,8 +294,6 @@ jobs:
         with:
           node-version: 16
 
-      - run: echo "KRML_HOME=$(pwd)/karamel" >> $GITHUB_ENV
-
       - name: Karamel CI (test-pulse)
         working-directory: karamel
         run: |
