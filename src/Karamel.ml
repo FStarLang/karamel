@@ -357,6 +357,9 @@ Supported options:|}
       one of the included system headers";
     "-faggressive-inlining", Arg.Set Options.aggressive_inlining, " attempt to inline \
       every variable for more compact code-generation";
+    "-goto_for_early_return", Arg.Set Options.goto_for_early_return, " replace early \
+      returns with assignments to a return variable and gotos to a label at the end \
+      of the function";
     "", Arg.Unit (fun _ -> ()), " ";
 
     (* For developers *)
@@ -805,6 +808,14 @@ Supported options:|}
     tick_print true "AstToCStar";
 
     let files = List.filter (fun (_, decls) -> List.length decls > 0) files in
+
+    (* Apply goto-for-early-return on C* before lowering to C11 *)
+    let files =
+      if !Options.goto_for_early_return then
+        List.map (fun (name, decls) -> name, GotoForEarlyReturn.rewrite_file decls) files
+      else
+        files
+    in
 
     (* ... then to C *)
     let headers = CStarToC11.mk_headers c_name_map files in

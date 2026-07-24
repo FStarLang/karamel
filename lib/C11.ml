@@ -139,6 +139,8 @@ and stmt =
   | Continue
   | Comment of string
     (** note: this is not in the C grammar *)
+  | Goto of ident
+  | Label of ident
 
 and program =
   declaration_or_function list
