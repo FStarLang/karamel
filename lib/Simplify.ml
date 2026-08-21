@@ -553,6 +553,24 @@ let constant_fold = object (self)
         | _ -> EApp (e, [e1])
     )
 
+    | EOp ((K.Eq | K.Neq | K.Lt | K.Lte | K.Gt | K.Gte) as cmp, TInt w), [ e1; e2 ] -> (
+        let e1 = self#visit_expr env e1 in
+        let e2 = self#visit_expr env e2 in
+        match e1.node, e2.node with
+        | EConstant (w1, s1), EConstant (w2, s2) when K.is_int w && w = w1 && w1 = w2 ->
+          assert (K.is_valid_int (w1, s1) && K.is_valid_int (w2, s2));
+          let c = Z.compare (Z.of_string s1) (Z.of_string s2) in
+          EBool (match cmp with
+            | K.Eq -> c = 0
+            | K.Neq -> c <> 0
+            | K.Lt -> c < 0
+            | K.Lte -> c <= 0
+            | K.Gt -> c > 0
+            | K.Gte -> c >= 0
+            | _ -> assert false)
+        | _ -> EApp (e, [ e1; e2 ])
+    )
+
     | _ ->
         EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
 
