@@ -646,7 +646,11 @@ and infer' env e =
   | EQualified lid ->
       lookup_global env lid
 
-  | EConstant (w, _) ->
+  | EConstant ((w, s) as k) ->
+      (* Validate integers to make sure we are not accepting constants
+         like "-1" as unsigned. *)
+      if not (is_float w) && not (is_valid_int k) then
+        checker_error env "constant %s is not a valid %a" s ptyp (TInt w);
       TInt w
 
   | EStandaloneComment _ ->
