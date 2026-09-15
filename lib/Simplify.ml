@@ -557,6 +557,16 @@ let constant_fold = object (self)
     | _ ->
         EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
 
+  (* Eliminate dead branches. *)
+  method! visit_EIfThenElse env c t e =
+    let c = self#visit_expr env c in
+    let t = self#visit_expr env t in
+    let e = self#visit_expr env e in
+    match c.node with
+    | EBool true -> t.node
+    | EBool false -> e.node
+    | _ -> EIfThenElse (c, t, e)
+
   method! visit_ETernary env c t e =
     let c = self#visit_expr env c in
     let t = self#visit_expr env t in
