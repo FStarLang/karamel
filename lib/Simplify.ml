@@ -646,6 +646,13 @@ let constant_fold = object (self)
         let e1 = self#visit_expr env e1 in
         let e2 = self#visit_expr env e2 in
         match e1.node, e2.node with
+        | _ when K.is_int w && e1.node = e2.node && is_readonly_c_expression e1 ->
+          (* Identical read-only expressions compare equal. Keep effectful
+             expressions and floating-point comparisons (which may involve NaNs). *)
+          if cmp = K.Eq || cmp = K.Lte || cmp = K.Gte then
+            EBool true
+          else
+            EBool false
         | EConstant (w1, s1), EConstant (w2, s2) when K.is_int w && w = w1 && w1 = w2 ->
           let c = Z.compare (Z.of_string s1) (Z.of_string s2) in
           EBool (match cmp with
