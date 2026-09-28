@@ -1,7 +1,7 @@
 # make src/Ast.processed.ml
 include visitors.mk
 
-.PHONY: all minimal clean test pre krmllib install
+.PHONY: all minimal clean test test-unit pre krmllib install
 
 FSTAR_EXE ?= fstar.exe
 
@@ -50,6 +50,9 @@ clean:
 
 test: all
 	$(MAKE) -C test
+
+test-unit: minimal
+	dune runtest test/unit
 
 # This depends on minimal since fstar2 (with Pulse) is not expected
 # to be able to build krmllib.

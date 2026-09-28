@@ -7,6 +7,12 @@ quality regressions.
 - EverParse
 - Eurydice, which contains the expected C in its own repository
 
+## Compiler unit tests
+
+Run `make -j4 test-unit` for the compiler-backend unit tests in `test/unit`.
+They are also included in `make -C test everything`, so regular CI runs them.
+These tests build the compiler but do not require F* verification.
+
 # Coarse instructions for dealing with PRs that have impact on Eurydice
 
 If a PR changes the generated C code, chances are it will generate a diff in

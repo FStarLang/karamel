@@ -1,0 +1,3 @@
+(test
+ (name auto_for_scope)
+ (libraries krml))

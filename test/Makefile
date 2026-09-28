@@ -90,7 +90,11 @@ FSTAR		= $(FSTAR_EXE) \
   --trivial_pre_for_unannotated_effectful_fns false \
   --cmi --warn_error -274
 
-all: $(FILES) rust $(WASM_FILES) $(CUSTOM) ctypes-test sepcomp-test rust-val-test bundle-test rust-propererasure-bundle-test
+all: unit $(FILES) rust $(WASM_FILES) $(CUSTOM) ctypes-test sepcomp-test rust-val-test bundle-test rust-propererasure-bundle-test
+
+.PHONY: unit
+unit:
+	$(MAKE) -C .. test-unit
 
 # Needs node
 wasm: $(WASM_FILES)

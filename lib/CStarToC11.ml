@@ -951,12 +951,8 @@ and mk_stmt m (stmt: stmt): C.stmt list =
       else
       match KList.split_at_last blk with
       | init, Expr e ->
-        (* let vs = vars_of m e in *)
-        (* This here can cause things to not compile since the last
-        statement in the loop might refer to variables defined within
-        the body. I'm just keeping this temporarilly to get nicer code.
-        We avoid this issue in all of our kuiper programs, for now. *)
-        if true || List.for_all (fun (x : C11.stmt) ->
+        (* A for-loop increment is outside the body's declaration scope. *)
+        if List.for_all (fun (x : C11.stmt) ->
                          match x with C.Decl _ -> false | _ -> true) init
         then Some (init, e)
         else None
