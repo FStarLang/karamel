@@ -48,6 +48,11 @@ FunctionalUpdates_set_and_return_arg(
   return result;
 }
 
+void FunctionalUpdates_set_at_index(FunctionalUpdates_counters *p, uint32_t i, uint32_t value)
+{
+  p[i].first = value;
+}
+
 void FunctionalUpdates_clobber(FunctionalUpdates_counters *p)
 {
   p->first = p->second;
