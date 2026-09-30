@@ -1023,7 +1023,7 @@ let functional_updates = object (self)
     match e1.node, e2.node with
     | EBufRead ({ node = EBound i; _ }, j),
       EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ })
-      when j = j' && is_value j && iplusone = i + 1 ->
+      when lift 1 j = j' && is_value j && iplusone = i + 1 ->
         (* With temporary, in terminal position:
 
            let uu = (Bound i)[j] in
@@ -1037,7 +1037,7 @@ let functional_updates = object (self)
       ELet (b_seq,
         { node = EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ }); _ },
         e3)
-      when j = j' && is_value j && iplusone = i + 1 ->
+      when lift 1 j = j' && is_value j && iplusone = i + 1 ->
         (* With temporary, NOT in terminal position:
 
            let uu = (Bound i)[j];

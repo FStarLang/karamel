@@ -45,6 +45,13 @@ let set_and_return_arg (p: B.buffer counters) (value result: UInt32.t): ST.Stack
   B.upd p 0ul { old with first = value };
   result
 
+let set_at_index (p: B.buffer counters) (i: UInt32.t) (value: UInt32.t): ST.Stack unit
+  (requires (fun h -> B.live h p /\ UInt32.v i < B.length p))
+  (ensures (fun _ _ _ -> True))
+=
+  let old = B.index p i in
+  B.upd p i { old with first = value }
+
 (* Once field updates leave only one use of old, CInline lets optimize_lets
    turn this into p->first = p->second. *)
 let clobber (p: B.buffer counters): ST.Stack unit
