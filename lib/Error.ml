@@ -36,6 +36,8 @@ and raw_error =
   | NotLowStarCast of expr
   | LibraryPointerAmbiguity of lident * expr
   | UnrecognizedCCompiler of string
+  | HoistLocalsVla of ident
+  | InitializerUnknownType of string
 
 and location =
   string
