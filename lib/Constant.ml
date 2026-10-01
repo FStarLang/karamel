@@ -41,6 +41,17 @@ type op =
   | Neg
   [@@deriving yojson,show]
 
+(* This list excludes effectful operators like Assign or PostIncr. New
+   pure operators can be added to improve the precision. Explicitly
+   blacklisting the bad operators instead would be a bit of a footgun in
+   case new ones appear. *)
+let is_pure_op = function
+  | Add | AddW | Sub | SubW | Div | DivW | Mult | MultW | Mod
+  | BOr | BAnd | BXor | BShiftL | BShiftR | BNot
+  | Eq | Neq | Lt | Lte | Gt | Gte
+  | And | Or | Xor | Not | Comma | Neg -> true
+  | _ -> false
+
 (* Determines is this is a comparison operator *)
 let is_comp_op = function
   | Eq | Neq | Lt | Lte | Gt | Gte -> true

@@ -358,8 +358,9 @@ class ['self] readonly_visitor = object (self: 'self)
 
   method! visit_EApp _ e es =
     match e.node with
-    | EPolyComp _
-    | EOp _ ->
+    | EOp (op, _) when K.is_pure_op op ->
+        List.for_all (self#visit_expr_w ()) es
+    | EPolyComp _ ->
         List.for_all (self#visit_expr_w ()) es
     | EQualified _
     when is_readonly_builtin_lid e ->
