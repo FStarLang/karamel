@@ -69,12 +69,52 @@ let unsigned_of_signed = function
   | CInt | UInt8 | UInt16 | UInt32 | UInt64 | SizeT
   | Float32 | Float64 -> raise (Invalid_argument "unsigned_of_signed")
 
+let is_int = function
+  | UInt8 | UInt16 | UInt32 | UInt64
+  | Int8 | Int16 | Int32 | Int64
+  | SizeT -> true
+  | _ -> false
+
 let is_signed = function
   | Int8 | Int16 | Int32 | Int64 | CInt | PtrdiffT -> true
   | UInt8 | UInt16 | UInt32 | UInt64 | SizeT -> false
   | Float32 | Float64 -> raise (Invalid_argument "is_signed: float")
 
 let is_unsigned w = not (is_signed w)
+
+(* The range of the values representable at a given width, when known. *)
+let bounds_of_width (w: width) : (Z.t * Z.t) option =
+  let two = Z.of_int 2 in
+  let unsigned bits = Some (Z.zero, Z.pred (Z.pow two bits)) in
+  let signed bits =
+    Some (Z.neg (Z.pow two (bits - 1)), Z.pred (Z.pow two (bits - 1)))
+  in
+  match w with
+  | UInt8  -> unsigned 8
+  | UInt16 -> unsigned 16
+  | UInt32 -> unsigned 32
+  | UInt64 -> unsigned 64
+  (* size_t is platform-dependent (at least 16 bits, at most 64 in practice),
+     we use the loosest bound *)
+  | SizeT -> unsigned 64
+  | Int8  -> signed 8
+  | Int16 -> signed 16
+  | Int32 -> signed 32
+  | Int64 -> signed 64
+  | CInt | PtrdiffT -> None
+  | Float32 | Float64 -> None
+
+(* Whether this is a well-formed integer constant. *)
+let is_valid_int ((w, s): t) : bool =
+  if is_float w then
+    false
+  else
+    match Z.of_string s with
+    | exception Invalid_argument _ -> false
+    | z ->
+        match bounds_of_width w with
+        | None -> true
+        | Some (lo, hi) -> Z.leq lo z && Z.leq z hi
 
 let without_wrap = function
   | AddW -> Add
