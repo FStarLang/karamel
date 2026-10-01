@@ -464,8 +464,8 @@ let euclid_simpl = object (self)
 
   inherit [_] map
 
-  method! visit_EApp env e es =
-    match e.node, es with
+  method! visit_EApp env e0 es =
+    match e0.node, es with
     (* Matching (a/b)* c + d % e *)
     | EOp (K.Add, _w), [e1; e2] -> (
       try
@@ -476,12 +476,12 @@ let euclid_simpl = object (self)
         if b = c && c = e && d = a then
           a.node
         else
-          EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
+          EApp (self#visit_expr env e0, List.map (self#visit_expr env) es)
       with Nope ->
-        EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
+        EApp (self#visit_expr env e0, List.map (self#visit_expr env) es)
     )
     | _ ->
-        EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
+        EApp (self#visit_expr env e0, List.map (self#visit_expr env) es)
 end
 
 let constant_fold = object (self)
