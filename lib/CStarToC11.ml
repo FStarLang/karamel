@@ -1202,11 +1202,13 @@ and mk_expr m (e: expr): C.expr =
       let typ = Option.get typ in
       mk_compound_literal m typ fields
 
-  | Field (BufRead (e, Constant (_, "0")), field) ->
-      MemberAccessPointer (mk_expr m e, field)
-
   | Field (e, field) ->
-      MemberAccess (mk_expr m e, field)
+      begin match mk_expr m e with
+      | Deref e ->
+          MemberAccessPointer (e, field)
+      | e ->
+          MemberAccess (e, field)
+      end
 
   | StringLiteral s ->
       Literal (escape_string s)
