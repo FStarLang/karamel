@@ -203,24 +203,6 @@ lookup__size_t_Example_Hashtable_data(ht_t__size_t_Example_Hashtable_data ht, si
     );
 }
 
-static ht_t__size_t_Example_Hashtable_data
-fst__Pulse_Lib_HashTable_Type_ht_t_size_t_Example_Hashtable_data_FStar_Pervasives_Native_option_size_t(
-  __Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_FStar_Pervasives_Native_option__size_t
-  x
-)
-{
-  return x.fst;
-}
-
-static option__size_t
-snd__Pulse_Lib_HashTable_Type_ht_t_size_t_Example_Hashtable_data_FStar_Pervasives_Native_option_size_t(
-  __Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_FStar_Pervasives_Native_option__size_t
-  x
-)
-{
-  return x.snd;
-}
-
 static cell__size_t_Example_Hashtable_data
 mk_used_cell__size_t_Example_Hashtable_data(size_t k, Example_Hashtable_data v)
 {
@@ -292,11 +274,8 @@ insert__size_t_Example_Hashtable_data(
       ht1 = { .sz = ht.sz, .hashf = hashf, .contents = vcontents };
       __Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_FStar_Pervasives_Native_option__size_t
       res = lookup__size_t_Example_Hashtable_data(ht1, k);
-      contents =
-        fst__Pulse_Lib_HashTable_Type_ht_t_size_t_Example_Hashtable_data_FStar_Pervasives_Native_option_size_t(res).contents;
-      option__size_t
-      o =
-        snd__Pulse_Lib_HashTable_Type_ht_t_size_t_Example_Hashtable_data_FStar_Pervasives_Native_option_size_t(res);
+      contents = res.fst.contents;
+      option__size_t o = res.snd;
       if (o.tag == Some)
       {
         size_t p = o.v;
