@@ -19,3 +19,23 @@ fn update (p: ref foo) (a: Int32.t)
   let x = !p;
   p := { x with a = a };
 }
+
+(* Even if the index is zero, we want to generate an array access, not a
+dereference of the pointer. *)
+fn read_zero (p: larray foo 5)
+  preserves live p
+  returns Int32.t
+{
+  Pulse.Lib.Array.pts_to_len p;
+  let uu__x = p.(0sz);
+  uu__x.a
+}
+
+fn read_middle (p: larray foo 5)
+  preserves live p
+  returns Int32.t
+{
+  Pulse.Lib.Array.pts_to_len p;
+  let uu__x = p.(2sz);
+  uu__x.a
+}

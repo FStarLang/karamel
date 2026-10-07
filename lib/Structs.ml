@@ -283,7 +283,7 @@ let pass_by_ref (externals: Idents.LidSet.t) (should_rewrite: _ -> policy) = obj
                   if ret_is_array then
                     with_type TUnit (EAssign (Option.get ret_atom, e))
                   else
-                    with_type TUnit (EBufWrite (Option.get ret_atom, Helpers.zerou32, e))
+                    with_type TUnit (EBufWrite (Option.get ret_atom, Helpers.zero_for_deref, e))
             in
             (* Step 4.1: early-returns `return e` become `dst := e; return` *)
             let body = (object
@@ -321,7 +321,7 @@ let pass_by_ref (externals: Idents.LidSet.t) (should_rewrite: _ -> policy) = obj
     (* [x] was a struct parameter that is now passed by reference; replace it
      * with [*x] *)
     if List.exists (Atom.equal atom) to_be_starred then
-      EBufRead (with_type (TBuf (t, should_rewrite t = Always)) (EOpen (name, atom)), Helpers.zerou32)
+      EBufRead (with_type (TBuf (t, should_rewrite t = Always)) (EOpen (name, atom)), Helpers.zero_for_deref)
     else
       EOpen (name, atom)
 
@@ -605,6 +605,7 @@ let to_addr is_struct =
     | EBreak
     | EContinue
     | EConstant _
+    | EZeroForDeref _
     | EPushFrame
     | EPopFrame
     | EStandaloneComment _

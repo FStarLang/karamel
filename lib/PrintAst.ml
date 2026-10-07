@@ -261,6 +261,8 @@ and print_expr env { node; typ; meta } =
       print_lident lident
   | EConstant c ->
       print_constant c
+  | EZeroForDeref w ->
+      string "zero_for_deref" ^^ angles (print_width w)
   | EUnit ->
       string "()"
   | EString s ->
