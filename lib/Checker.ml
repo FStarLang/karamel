@@ -314,6 +314,7 @@ and check' env t e =
   | EOpen _
   | EQualified _
   | EConstant _
+  | EZeroForDeref _
   | EUnit
   | EAssign _
   | EOp _
@@ -647,6 +648,9 @@ and infer' env e =
       lookup_global env lid
 
   | EConstant (w, _) ->
+      TInt w
+
+  | EZeroForDeref w ->
       TInt w
 
   | EStandaloneComment _ ->

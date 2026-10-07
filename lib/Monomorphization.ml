@@ -91,6 +91,7 @@ module NameGen = struct
     let pconst e =
       match e.node with
       | EConstant (_, s) -> string s
+      | EZeroForDeref _ -> string "0"
       | _ -> failwith "impossible"
     in
     let extra = match extra with

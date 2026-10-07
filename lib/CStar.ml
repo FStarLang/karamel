@@ -55,6 +55,7 @@ and expr =
   | Qualified of lident
   | Macro of lident
   | Constant of K.t
+  | ZeroForDeref of K.width
   | BufCreate of lifetime * expr * expr
     (** initial value, length *)
   | BufCreateL of lifetime * expr list

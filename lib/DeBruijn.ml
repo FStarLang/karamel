@@ -310,6 +310,8 @@ let cg_of_expr diff e =
       CgVar (k - diff)
   | EConstant (w, s) ->
       CgConst (w, s)
+  | EZeroForDeref w ->
+      CgConst (w, "0")
   | _ ->
       failwith (KPrint.bsprintf "Unsuitable const generic: %a" pexpr e)
 

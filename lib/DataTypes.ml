@@ -962,7 +962,7 @@ let rec compile_pattern env scrut pat expr =
   | PCons (ident, _) ->
       failwith ("constructor hasn't been desugared: " ^ ident)
   | PDeref pat ->
-      let scrut = with_type (Helpers.assert_tbuf_or_tarray scrut.typ) (EBufRead (scrut, zerou32)) in
+      let scrut = with_type (Helpers.assert_tbuf_or_tarray scrut.typ) (EBufRead (scrut, zero_for_deref)) in
       compile_pattern env scrut pat expr
   | PConstant k ->
       [ mk_eq (TInt (fst k)) scrut (with_type (TInt (fst k)) (EConstant k)) ], expr
