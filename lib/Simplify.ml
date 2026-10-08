@@ -1148,7 +1148,9 @@ let misc_cosmetic = object (self)
     let e = self#visit_expr_w () e in
     let compatible t2 =
       match t, t2 with
-      | TBuf _, TBuf _ -> t = t2
+      | TBuf (dst, dst_const), TBuf (src, src_const) ->
+          assert (not src_const || dst_const);
+          dst = src
       | _ -> true
     in
     match e.node with

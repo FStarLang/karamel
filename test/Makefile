@@ -50,7 +50,7 @@ ifneq ($(CRYPTO),)
 endif
 
 FILES		= \
-  $(patsubst %.fst,%.test,$(filter-out Steel.SpinLock.fst Unused_A.fst StaticHeaderAPI.fst \
+  $(patsubst %.fst,%.test,$(filter-out ArrayReborrowData.fst Steel.SpinLock.fst Unused_A.fst StaticHeaderAPI.fst \
     StaticHeaderLib.fst NameCollisionHelper.fst ML16Externals.fst MemCpyModel.fst \
     Lowlevel.fst PrivateInclude1.fst EnumAliasHelper.fst $(BROKEN),$(wildcard *.fst))) \
   $(CRYPTO_FILES) \
@@ -164,6 +164,15 @@ NoCopiesConst.test: $(OUTPUT_DIR)/NoCopiesConst.out/NoCopiesConst.c NoCopiesCons
   $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c NoCopiesConst.byref.expected.c
 	bash pulse/diff.sh $(OUTPUT_DIR)/NoCopiesConst.out/NoCopiesConst.c NoCopiesConst.expected.c
 	bash pulse/diff.sh $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c NoCopiesConst.byref.expected.c
+
+$(OUTPUT_DIR)/ArrayReborrow.out/ArrayReborrow.c: $(OUTPUT_DIR)/ArrayReborrow.krml $(OUTPUT_DIR)/ArrayReborrowData.krml $(KRML_EXE)
+	$(call run-with-log, \
+	  $(KRML) -fnostruct-passing -library ArrayReborrowData -skip-compilation \
+	    -header pulse/krmlheader -bundle ArrayReborrow=* -tmpdir $(dir $@) $(filter %.krml,$^) \
+	,[KRML] ArrayReborrow,$(OUTPUT_DIR)/ArrayReborrow)
+
+ArrayReborrow.test: $(OUTPUT_DIR)/ArrayReborrow.out/ArrayReborrow.c ArrayReborrow.expected.c
+	bash pulse/diff.sh $^
 
 .SECONDEXPANSION:
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe

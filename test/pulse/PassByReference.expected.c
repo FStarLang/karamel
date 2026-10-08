@@ -33,3 +33,18 @@ void PassByReference_assign_middle(PassByReference_foo *p, int32_t a)
   PassByReference_make(a, &p[2U]);
 }
 
+int32_t PassByReference_read_value(const PassByReference_foo *x)
+{
+  return x->a;
+}
+
+int32_t PassByReference_read_ref(PassByReference_foo *p)
+{
+  return PassByReference_read_value(p);
+}
+
+int32_t PassByReference_read_zero(PassByReference_foo *p)
+{
+  return PassByReference_read_value(&p[0U]);
+}
+
