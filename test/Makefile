@@ -50,7 +50,7 @@ ifneq ($(CRYPTO),)
 endif
 
 FILES		= \
-  $(patsubst %.fst,%.test,$(filter-out Unused_A.fst StaticHeaderAPI.fst \
+  $(patsubst %.fst,%.test,$(filter-out Steel.SpinLock.fst Unused_A.fst StaticHeaderAPI.fst \
     StaticHeaderLib.fst NameCollisionHelper.fst ML16Externals.fst MemCpyModel.fst \
     Lowlevel.fst PrivateInclude1.fst EnumAliasHelper.fst $(BROKEN),$(wildcard *.fst))) \
   $(CRYPTO_FILES) \
@@ -150,6 +150,20 @@ $(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_EXE)
 	  $(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
 	    -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack$(comma)\* \
 	,[KRML] $*,$(OUTPUT_DIR)/$*)
+
+$(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c: EXTRA := -fnostruct-passing
+
+$(OUTPUT_DIR)/NoCopiesConst.out/NoCopiesConst.c $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c: \
+  $(OUTPUT_DIR)/NoCopiesConst.krml $(OUTPUT_DIR)/Steel_SpinLock.krml $(KRML_EXE)
+	$(call run-with-log, \
+	  $(KRML) $(EXTRA) -skip-compilation -header pulse/krmlheader \
+	    -tmpdir $(dir $@) $(filter %.krml,$^) \
+	,[KRML] $(notdir $(@D)),$(patsubst %.out,%,$(@D)))
+
+NoCopiesConst.test: $(OUTPUT_DIR)/NoCopiesConst.out/NoCopiesConst.c NoCopiesConst.expected.c \
+  $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c NoCopiesConst.byref.expected.c
+	bash pulse/diff.sh $(OUTPUT_DIR)/NoCopiesConst.out/NoCopiesConst.c NoCopiesConst.expected.c
+	bash pulse/diff.sh $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c NoCopiesConst.byref.expected.c
 
 .SECONDEXPANSION:
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe

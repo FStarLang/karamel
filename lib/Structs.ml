@@ -236,7 +236,7 @@ let pass_by_ref (externals: Idents.LidSet.t) (should_rewrite: _ -> policy) = obj
     (* Step 2: rewrite the types of the arguments to take pointers to structs *)
     let binders = List.map2 (fun binder is_struct ->
       if is_struct then
-        { binder with typ = TBuf (binder.typ, true) }
+        { binder with typ = TBuf (binder.typ, should_rewrite binder.typ = Always) }
       else
         binder
     ) binders args_are_structs in
@@ -321,7 +321,7 @@ let pass_by_ref (externals: Idents.LidSet.t) (should_rewrite: _ -> policy) = obj
     (* [x] was a struct parameter that is now passed by reference; replace it
      * with [*x] *)
     if List.exists (Atom.equal atom) to_be_starred then
-      EBufRead (with_type (TBuf (t, true)) (EOpen (name, atom)), Helpers.zerou32)
+      EBufRead (with_type (TBuf (t, should_rewrite t = Always)) (EOpen (name, atom)), Helpers.zerou32)
     else
       EOpen (name, atom)
 
