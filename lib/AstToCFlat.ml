@@ -559,6 +559,9 @@ let write_static (env: env) (lid: lident) (e: expr): string * CFlat.expr list =
     | EBufNull ->
         write_le dst ofs Helpers.uint32 Z.zero;
         []
+    | EZeroForDeref w ->
+        write_le dst ofs (TInt w) Z.zero;
+        []
     | _ ->
         failwith (KPrint.bsprintf "Top-level constant contains unsupported value:\n\
           %a: %a" pexpr e ptyp e.typ)
@@ -673,6 +676,8 @@ and mk_addr env e =
  * bytes) that corresponds to the given offset in the index. *)
 and mk_offset env locals (base: CF.expr) (ofs: expr) (sz: int) =
   match ofs.node with
+  | EZeroForDeref _ ->
+      locals, base, 0
   | EConstant (_, c) ->
       (* TODO: overflow on 32-bit OCaml for string_of_int and subsequent
        * computations *)
@@ -769,6 +774,9 @@ and mk_expr (env: env) (locals: locals) (e: expr): locals * CF.expr =
 
   | EConstant (w, lit) ->
       locals, CF.Constant (w, lit)
+
+  | EZeroForDeref w ->
+      locals, CF.Constant (w, "0")
 
   | EEnum v ->
       locals, CF.Constant (K.UInt32, string_of_int (LidMap.find v env.enums))

@@ -95,6 +95,7 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
 
   | EQualified _
   | EConstant _
+  | EZeroForDeref _
   | EUnit
   | EBool _
   | EString _

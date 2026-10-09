@@ -148,6 +148,7 @@ let rec vars_of m = function
   | Macro v ->
       S.singleton (to_c_name m (v, Other))
   | Constant _
+  | ZeroForDeref _
   | Bool _
   | StringLiteral _
   | Any
@@ -752,7 +753,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
            affecting the meaning. *)
         let rec is_pure e =
           match e with
-          | Constant _ | Var _ | Macro _ | Qualified _
+          | Constant _ | ZeroForDeref _ | Var _ | Macro _ | Qualified _
           | BufRead _ | BufSub _ | BufNull
           | Op _ | Bool _  | Type _ | StringLiteral _
           | Any | Sizeof _ ->
@@ -1035,8 +1036,7 @@ and mk_stmts m stmts: C.stmt list =
 
 and mk_index m (e1: expr) (e2: expr): C.expr =
   match e2 with
-  | Qualified (["Pulse"; "Lib"; "Pervasives"], "_zero_for_deref")
-  | Qualified (["C"], "_zero_for_deref") ->
+  | ZeroForDeref _ ->
       mk_deref m e1
   | _ ->
     begin match mk_expr m e2 with
@@ -1165,6 +1165,9 @@ and mk_expr m (e: expr): C.expr =
   | Macro ident ->
       Name (to_c_name m (ident, Macro))
 
+  | ZeroForDeref w ->
+      mk_expr m (Constant (w, "0"))
+
   | Constant (w, c) ->
       (* See discussion in AstToCStar.ml, around mk_arith. *)
       if not (Constant.is_float w) && K.is_unsigned w && w <> SizeT then
@@ -1182,7 +1185,7 @@ and mk_expr m (e: expr): C.expr =
   | BufCreate _ | BufCreateL _ ->
       failwith "[mk_expr m]: Buffer.create and Buffer.createl may only appear as let ... = Buffer.create"
 
-  | BufSub (e1, Constant (_, "0")) ->
+  | BufSub (e1, (Constant (_, "0") | ZeroForDeref _)) ->
       mk_expr m e1
 
   | BufSub (e1, e2) ->
@@ -1212,11 +1215,13 @@ and mk_expr m (e: expr): C.expr =
       let typ = Option.get typ in
       mk_compound_literal m typ fields
 
-  | Field (BufRead (e, Constant (_, "0")), field) ->
-      MemberAccessPointer (mk_expr m e, field)
-
   | Field (e, field) ->
-      MemberAccess (mk_expr m e, field)
+      begin match mk_expr m e with
+      | Deref e ->
+          MemberAccessPointer (e, field)
+      | e ->
+          MemberAccess (e, field)
+      end
 
   | StringLiteral s ->
       Literal (escape_string s)

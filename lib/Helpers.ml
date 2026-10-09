@@ -70,13 +70,17 @@ let etrue = with_type TBool (EBool true)
 
 let with_unit x = with_type TUnit x
 
-let zero w = with_type (TInt w) (EConstant (w, "0"))
+let zero ?(for_deref=false) w =
+  with_type (TInt w) (if for_deref then EZeroForDeref w else EConstant (w, "0"))
 let zerou8 = zero K.UInt8
 let zerou32 = zero K.UInt32
+let zero_for_deref = zero ~for_deref:true K.UInt32
 let one w = with_type (TInt w) (EConstant (w, "1"))
 let oneu32 = one K.UInt32
 
-let zero_usize = zero K.SizeT
+(* Eurydice uses this for pointer dereferences as well as SizeT values.
+   Preserve dereference intent without changing its width. *)
+let zero_usize = zero ~for_deref:true K.SizeT
 
 let pwild = with_type TAny PWild
 
@@ -153,7 +157,7 @@ let mk_gt_zero e =
 
 (* *e *)
 let mk_deref t ?(const=false) e =
-  with_type t (EBufRead (with_type (TBuf (t, const)) e, zerou32))
+  with_type t (EBufRead (with_type (TBuf (t, const)) e, zero_for_deref))
 
 (* Binder nodes ***************************************************************)
 
@@ -222,7 +226,7 @@ let is_bufcreate x =
 let is_uu name = KString.starts_with name "uu__"
 
 let is_zero = function
-  | { node = EConstant (_, "0"); _ } -> true
+  | { node = EConstant (_, "0") | EZeroForDeref _; _ } -> true
   | _ -> false
 
 (* Is this condition of an if-then-else going to give rise to an ifdef? Yes, no,
@@ -400,7 +404,7 @@ let is_value = (new value_visitor)#visit_expr_w ()
 let rec is_int_constant e =
   let open Constant in
   match e.node with
-  | EConstant _ | EEnum _ | EBool _ | EUnit | EString _ | EAny ->
+  | EConstant _ | EZeroForDeref _ | EEnum _ | EBool _ | EUnit | EString _ | EAny ->
       true
   | ECast (e, _) ->
       is_int_constant e

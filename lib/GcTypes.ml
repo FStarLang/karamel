@@ -71,7 +71,7 @@ let alloc table = object (self)
     (* A field destructor must dereference. *)
     let e = self#visit_expr env e in
     if just_gc'd table e.typ then
-      EField (with_type (assert_tbuf e.typ) (EBufRead (e, Helpers.zerou32)), f)
+      EField (with_type (assert_tbuf e.typ) (EBufRead (e, Helpers.zero_for_deref)), f)
     else
       EField (e, f)
 end

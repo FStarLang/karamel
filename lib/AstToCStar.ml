@@ -362,7 +362,7 @@ and mk_arith env e =
          (~(uint8_t)0x0F promotes to int 0xFFFFFFF0), so we must mask. *)
       let e1, _, w1 = mk_arith env e1 in
       mask w (CStar.Call (Op BNot, [ e1 ])), true, w1
-  | EConstant _ ->
+  | EConstant _ | EZeroForDeref _ ->
       (* Constants are emitted with the U suffix which preserves the invariant
          that every subexpression operates over unsigned int until the final
          cast, or until a mask is needed to preserve semantics. *)
@@ -415,6 +415,8 @@ and mk_expr env in_stmt under_initializer_list e =
         CStar.Qualified lident
   | EConstant c ->
       CStar.Constant c
+  | EZeroForDeref w ->
+      CStar.ZeroForDeref w
 
   | EApp ({ node = ETApp (e0, cgs, cgs', ts); _ }, es) when !Options.allow_tapps || whitelisted_tapp e0 ->
       (* Return type is oftentimes very useful when having to build a return value using e.g. a
@@ -553,6 +555,12 @@ and mk_stmts env e ret_type =
     | EWhile (e1, e2) ->
         let e' = CStar.While (mk_expr env false false e1, mk_block env Not e2) in
         env, maybe_return (e' :: comment e.meta @ acc)
+
+    | EFor (binder, ({ node = EZeroForDeref w; _ } as init), cond, incr, body) ->
+        (* The initializer is a numeric value. Keep loop unrolling available and
+           substitute ordinary indices when unrolling the body. *)
+        let init = { init with node = EConstant (w, "0") } in
+        collect (env, acc) return_pos { e with node = EFor (binder, init, cond, incr, body) }
 
     | EFor (binder,
       ({ node = EConstant ((K.UInt32 | K.SizeT), init as k_init); _ } as e_init),

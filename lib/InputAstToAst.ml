@@ -181,6 +181,9 @@ and mk_typ = function
 and mk_expr = function
   | I.EBound i ->
       mk (EBound i)
+  | I.EQualified (["C"], "_zero_for_deref")
+  | I.EQualified (["Pulse"; "Lib"; "Pervasives"], "_zero_for_deref") ->
+      mk (EZeroForDeref K.UInt32)
   | I.EQualified lid ->
       mk (EQualified lid)
   | I.EConstant k ->

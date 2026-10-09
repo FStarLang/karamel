@@ -855,19 +855,15 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
       env, Operator o
   | EQualified lid ->
       begin try
-        match lid with
-        | [ "Pulse"; "Lib"; "Pervasives" ], "_zero_for_deref"
-        | [ "C" ], "_zero_for_deref" ->
-            (* CInt for Rust means no suffix -- rustc will convert to usize or u32 *)
-            env, Constant (CInt, "0")
-        | _ ->
-            let name, t = lookup_decl env lid in
-            env, possibly_convert (Name name) t
+        let name, t = lookup_decl env lid in
+        env, possibly_convert (Name name) t
       with Not_found ->
         (* External -- TODO: make sure external definitions are properly added
            to the scope *)
         env, Name (translate_unknown_lid lid)
       end
+  | EZeroForDeref w ->
+      env, possibly_convert (Constant (w, "0")) (Constant w)
   | EConstant c ->
       env, possibly_convert (Constant c) (Constant (fst c))
   | EUnit ->

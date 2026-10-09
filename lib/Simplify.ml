@@ -827,7 +827,7 @@ let functional_updates = object (self)
         if List.length untouched_fields > 0 then
           (* TODO: catch the monomorphized name of the *= operator above and use that for prettier
              code-gen *)
-          let e_read = with_type (assert_tbuf e1.typ) (EBufRead (e1, Helpers.zerou32)) in
+          let e_read = with_type (assert_tbuf e1.typ) (EBufRead (e1, Helpers.zero_for_deref)) in
           self#gen_assignments env e_read updated_fields
         else
           super#visit_EApp env e es
@@ -1148,11 +1148,16 @@ let misc_cosmetic = object (self)
     let e = self#visit_expr_w () e in
     let compatible t2 =
       match t, t2 with
-      | TBuf _, TBuf _ -> t = t2
+      | TBuf (dst, dst_const), TBuf (src, src_const) ->
+          assert (not src_const || dst_const);
+          dst = src
       | _ -> true
     in
     match e.node with
-    | EBufRead (e, { node = EConstant (_, "0"); _ }) when compatible e.typ ->
+    (* Note, we explicitly keep &x[0U] as such when the 0U
+       is an array access instead of a EZeroForDeref. That way it
+       is clear that we are taking a cell pointer out of an array. *)
+    | EBufRead (e, { node = EZeroForDeref _; _ }) when compatible e.typ ->
         e.node
     | _ ->
         EAddrOf e
@@ -1160,8 +1165,8 @@ let misc_cosmetic = object (self)
   method! visit_EBufRead env e1 e2 =
     let e1 = self#visit_expr env e1 in
     let e2 = self#visit_expr env e2 in
-    match e1.node, e2.node with
-    | EAddrOf e, EConstant (_, "0") ->
+    match e1.node with
+    | EAddrOf e when Helpers.is_zero e2 ->
         e.node
     | _ ->
         EBufRead (e1, e2)
@@ -1170,8 +1175,8 @@ let misc_cosmetic = object (self)
     let e1 = self#visit_expr env e1 in
     let e2 = self#visit_expr env e2 in
     let e3 = self#visit_expr env e3 in
-    match e1.node, e2.node with
-    | EAddrOf e, EConstant (_, "0") ->
+    match e1.node with
+    | EAddrOf e when Helpers.is_zero e2 ->
         EAssign (e, e3)
     | _ ->
         EBufWrite (e1, e2, e3)
@@ -1400,6 +1405,7 @@ and hoist_expr tbl loc pos e =
   | EOpen _
   | EQualified _
   | EConstant _
+  | EZeroForDeref _
   | EUnit
   | EPushFrame | EPopFrame
   | EBool _
