@@ -11,16 +11,44 @@ module S = Set.Make(Atom)
 
 let debug = false
 
-type env = (Atom.t * (typ * bool * ident)) list
+type env = {
+  bindings: (Atom.t * (typ * bool * ident)) list;
+  address_taken: S.t;
+}
+
+(* A syntactically dead local may still be read through a pointer. Collect the
+   original binder atoms before merging opens binders with fresh atoms. *)
+let collect_address_taken = object (self)
+  inherit [_] reduce as super
+
+  method private zero = S.empty
+  method private plus = S.union
+  method! extend env b = b :: env
+
+  method private root env e =
+    match e.node with
+    (* Both Bound and Open can be reached. Function params are opened,
+       local binders are bound. *)
+    | EBound i -> S.singleton (List.nth env i).node.atom
+    | EOpen (_, a) -> S.singleton a
+    | EField (e, _) -> self#root env e
+    | EBufRead (e, _) when Helpers.is_array e.typ -> self#root env e
+    | _ ->
+      (* This is reachable, we may be taking the address of a global *)
+      S.empty
+
+  method! visit_EAddrOf ((env, _) as env_) e =
+    S.union (self#root env e) (super#visit_EAddrOf env_ e)
+end
 
 let keys (e: env): S.t =
-  List.fold_left (fun acc (k, _) -> S.add k acc) S.empty e
+  List.fold_left (fun acc (k, _) -> S.add k acc) S.empty e.bindings
 
 let extend x y (env: env) =
-  (x, y) :: env
+  { env with bindings = (x, y) :: env.bindings }
 
-let find =
-  List.assoc
+let find x env =
+  List.assoc x env.bindings
 
 (* Print elements of x based on atom -> ident mapping in env *)
 let p (env: env) (x: S.t) =
@@ -100,6 +128,7 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
 
   | ELet (b, e1, e2) ->
       (* Following the reverse order of control-flow for u *)
+      let has_address = S.mem b.node.atom env.address_taken in
       let b, e2 = open_binder b e2 in
       let has_storage t e1 =
         match t, e1.node with
@@ -110,7 +139,7 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
         | _ ->
             false
       in
-      let env' = extend b.node.atom (b.typ, has_storage b.typ e1, b.node.name) env in
+      let env' = extend b.node.atom (b.typ, has_address || has_storage b.typ e1, b.node.name) env in
       let d2, u, e2 = merge env' u e2 in
 
       let candidate =
@@ -140,12 +169,12 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
               S.mem x d2 &&
               (* Ignore sequence let-bindings *)
               not (t = TUnit) &&
-              (* Array types are not assignable *)
+              (* Arrays and locals whose address is taken need their own storage. *)
               not has_storage &&
               (* If in prefix mode, must find a common prefix *)
               (Options.(!merge_variables <> Prefix) || common_prefix 0 i b.node.name > 0)
             in
-            List.find_map (fun (x, (t, h, i)) -> if fits x t h i then Some (x, i) else None) env
+            List.find_map (fun (x, (t, h, i)) -> if fits x t h i then Some (x, i) else None) env.bindings
       in
 
       (* For later *)
@@ -338,7 +367,8 @@ let merge_visitor = object(_)
     if debug then
       KPrint.bprintf "Variable merge: visiting %a\n%a\n" plid name ppexpr body;
     let binders, body = open_binders binders body in
-    let _, _, body = merge [] S.empty body in
+    let env = { bindings = []; address_taken = collect_address_taken#visit_expr_w [] body } in
+    let _, _, body = merge env S.empty body in
     let body = close_binders binders body in
     DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
 end
