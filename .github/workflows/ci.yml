@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       nocache:
-        description: Do not use stored OPAM cache
+        description: Do not reuse previous F*1 or EverParse builds
         type: boolean
         default: false
   schedule:
@@ -38,7 +38,7 @@ jobs:
       # update itself. This means we don't build F* again if it doesn't change.
       # The nightly build will start from scratch.
       - name: Try restore OPAM state
-        if: ${{ inputs.nocache != 'true' && github.event_name != 'schedule' }}
+        if: ${{ !inputs.nocache && github.event_name != 'schedule' }}
         uses: actions/cache/restore@v4
         with:
           path: _opam
@@ -159,13 +159,24 @@ jobs:
           path: _opam
           key: opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }}
 
+      # Cached Pulse plugins depend on the actual F* build, not just its version.
+      - name: Fingerprint F* toolchain
+        id: fstar-toolchain
+        run: |
+          eval "$(opam env)"
+          fstar_hash=$(sha256sum "$(command -v fstar.exe)" | cut -d ' ' -f 1)
+          ocaml_version=$(ocamlc -version)
+          echo "fingerprint=${ocaml_version}-${fstar_hash}" >> "$GITHUB_OUTPUT"
+
       - name: Restore EverParse cache if it exists
+        if: ${{ !inputs.nocache && github.event_name != 'schedule' }}
         uses: actions/cache/restore@v4
         with:
           path: everparse
-          key: everparse-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          key: everparse-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.fstar-toolchain.outputs.fingerprint }}-${{ github.run_id }}
+          # Never fall back to a cache built with a different toolchain.
           restore-keys: |
-            everparse-${{ runner.os }}-${{ runner.arch }}-
+            everparse-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.fstar-toolchain.outputs.fingerprint }}-
 
       # NOTE: we use `git checkout` instead of actions/checkout,
       # because of `git pull` below
@@ -201,7 +212,7 @@ jobs:
       # Paranoid delete before saving. Note: run_id is constant across reruns.
       - name: Delete EverParse cache if it already existed
         run: |
-          gh cache delete everparse-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }} || true
+          gh cache delete everparse-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.fstar-toolchain.outputs.fingerprint }}-${{ github.run_id }} || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -211,7 +222,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: everparse
-          key: everparse-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
+          key: everparse-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.fstar-toolchain.outputs.fingerprint }}-${{ github.run_id }}
 
       - name: Generate CBOR snapshot with Karamel
         run: |
