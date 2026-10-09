@@ -3,7 +3,10 @@ on:
   push:
     branches-ignore:
     - _**
+    - 'gh-readonly-queue/**'
   pull_request:
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
     inputs:
       nocache:
@@ -323,6 +326,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ cancelled() || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'failure') }}
     needs:
+      - build-deps
       - build-and-test
       - build-and-test-pulse
       - build-krmllib
