@@ -97,7 +97,9 @@ let fresh =
     incr r;
     "_" ^ string_of_int !r
 
-let escape_string s =
+(* Escapes [s] for use between double quotes; [non_printable] is called for
+   every byte that has neither a mnemonic escape nor a printable ASCII form. *)
+let escape_string_with non_printable s =
   let b = Buffer.create 256 in
   String.iter (fun c ->
     match c with
@@ -113,9 +115,17 @@ let escape_string s =
     | '\x09' -> Buffer.add_string b "\\t"
     | '\x0b' -> Buffer.add_string b "\\v"
     | '\x20'..'\x7e' -> Buffer.add_char b c
-    | _ -> Printf.bprintf b "\\x%02x" (Char.code c)
+    | _ -> non_printable b c
   ) s;
   Buffer.contents b
+
+(* C string literal. A hex escape is greedy in C (C11 6.4.4.4: `\x` followed by
+   one or more hex digits), so `\x01` immediately followed by `a` is re-lexed as
+   the single byte 0x1a, and a longer run of hex digits is a compile error. An
+   octal escape takes at most three digits, so a zero-padded three-digit octal
+   escape is unambiguous whatever character follows it. *)
+let escape_string s =
+  escape_string_with (fun b c -> Printf.bprintf b "\\%03o" (Char.code c)) s
 
 let to_c_name = GlobalNames.to_c_name
 
