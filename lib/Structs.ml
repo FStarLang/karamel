@@ -818,6 +818,9 @@ class remove_literals tbl = object (self)
   method! visit_ELet ((_, t) as env) b e1 e2 =
     match e1.node with
     | EFlat fields ->
+        (* These bindings now own storage initialized through field writes.
+           Keep the inliner from substituting their uninitialized value. *)
+        let b = Helpers.mark_mut b in
         let fields = List.map (fun (f, e) -> f, DeBruijn.lift 1 e) fields in
         let x = with_type b.typ (EBound 0) in
         ELet (b, Helpers.any, with_type t (ESequence (
@@ -827,7 +830,7 @@ class remove_literals tbl = object (self)
         super#visit_ELet env b e1 e2
 
   method! visit_EFlat (_, t) fields =
-    let b, x = Helpers.mk_binding "lit" t in
+    let b, x = Helpers.mk_binding ~mut:true "lit" t in
     ELet (b, Helpers.any, DeBruijn.close_binder b (with_type t (ESequence (
       List.rev (x :: self#explode [] [] (with_type t (EFlat fields)) x)))))
 
