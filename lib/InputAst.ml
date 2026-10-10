@@ -107,6 +107,8 @@ and expr =
   | EBufDiff of (expr * expr)
     (** e1 - e2 *)
   | ESizeof of typ
+  | EZeroForDeref of K.width
+    (** Zero with an explicit width; requests dereference syntax when used as a buffer index. *)
 
 and branches =
   branch list
@@ -166,7 +168,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 32
+let current_version: version = 33
 
 type file = string * program
   [@@deriving yojson]
