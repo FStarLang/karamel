@@ -782,6 +782,11 @@ let functional_updates = object (self)
 
   val mutable make_mut = []
 
+  (* A record construction evaluates every replacement before the store. Only turn them
+  into serialized field updates when they are pure values. *)
+  method private fields_are_values fields =
+    List.for_all (fun (_, e) -> is_value e) fields
+
   (* TODO: there are many combinations of operators or not (both for reading and writing), a single
      assignment or not... we don't cover everything *)
 
@@ -824,7 +829,8 @@ let functional_updates = object (self)
                 true
           ) fields
         in
-        if List.length untouched_fields > 0 then
+        if List.length untouched_fields > 0 && is_value e1 &&
+           self#fields_are_values updated_fields then
           (* TODO: catch the monomorphized name of the *= operator above and use that for prettier
              code-gen *)
           let e_read = with_type (assert_tbuf e1.typ) (EBufRead (e1, Helpers.zero_for_deref)) in
@@ -865,7 +871,8 @@ let functional_updates = object (self)
                 true
           ) fields
         in
-        if List.length untouched_fields > 0 then
+        if List.length untouched_fields > 0 && is_value e1 && is_value e2 &&
+           self#fields_are_values updated_fields then
           self#gen_assignments env (with_type (assert_tbuf e1.typ) e_read) updated_fields
         else
           super#visit_EBufWrite env e1 e2 e3
@@ -885,9 +892,11 @@ let functional_updates = object (self)
               true
         ) fields
       in
-      if List.length untouched_fields > 0 then
-        let updated_fields = List.map (fun (f, e) -> f, snd (open_binder b e)) updated_fields in
-        k (self#gen_assignments env e1 updated_fields)
+      if List.length untouched_fields > 0 && self#fields_are_values updated_fields then
+        (* Preserve the snapshot's scope; optimize_lets will remove or inline
+           the binding when it is safe to do so. *)
+        let body = k (self#gen_assignments env (lift 1 e1) updated_fields) in
+        ELet (b, e1, with_type e2.typ body)
       else
         ELet (b, e1, self#visit_expr env e2)
     in
@@ -896,7 +905,7 @@ let functional_updates = object (self)
     match e1.node, e2.node with
     | EBufRead ({ node = EBound i; _ }, j),
       EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ })
-      when j = j' && iplusone = i + 1 ->
+      when lift 1 j = j' && is_value j && iplusone = i + 1 ->
         (* With temporary, in terminal position:
 
            let uu = (Bound i)[j] in
@@ -907,10 +916,10 @@ let functional_updates = object (self)
         make_assignment fields (fun x -> x)
 
     | EBufRead ({ node = EBound i; _ }, j),
-      ELet (b,
+      ELet (b_seq,
         { node = EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ }); _ },
         e3)
-      when j = j' && iplusone = i + 1 ->
+      when lift 1 j = j' && is_value j && iplusone = i + 1 ->
         (* With temporary, NOT in terminal position:
 
            let uu = (Bound i)[j];
@@ -921,8 +930,7 @@ let functional_updates = object (self)
            e3
          *)
         make_assignment fields (fun x ->
-          let e3 = self#visit_expr env (snd (open_binder b e3)) in
-          ELet (b, with_unit x, e3))
+          ELet (b_seq, with_unit x, self#visit_expr env e3))
 
     | _ ->
         ELet (b, e1, self#visit_expr env e2)
@@ -2395,6 +2403,8 @@ let simplify2 ifdefs (files: file list): file list =
   let files = misc_cosmetic2#visit_files () files in
   let files = functional_updates#visit_files false files in
   let files = functional_updates#visit_files true files in
+  (* Field updates can leave snapshots unused or eligible for inlining. *)
+  let files = optimize_lets ~ifdefs files in
   let files = let_to_sequence#visit_files () files in
   let files = constant_fold#visit_files () files in
   files
