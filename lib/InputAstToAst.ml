@@ -98,7 +98,22 @@ let rec mk_decl = function
   | I.DExternal (cc, flags, name, t) ->
       DExternal (cc, flags, 0, 0, name, mk_typ t, [])
   | I.DExternal2 (cc, flags, name, t, arg_names) ->
-      DExternal (cc, flags, 0, 0, name, mk_typ t, arg_names)
+      let t = mk_typ t in
+      let _, args = Helpers.flatten_arrow t in
+      let n_args = List.length args in
+      let n_hints = List.length arg_names in
+      (* Argument names are optional hints. Do not let surplus hints introduce
+       * nonexistent parameters into later passes, such as unit elimination. *)
+      let arg_names =
+        if n_hints > n_args then (
+          Warn.maybe_fatal_error (Idents.string_of_lident name, Error.TypeError
+            (Printf.sprintf "Argument-name hints exceed the external declaration's arity (%d > %d); ignoring excess hints."
+                n_hints n_args));
+          let arg_names, _ = KList.split (min n_args n_hints) arg_names in
+          arg_names
+        ) else arg_names
+      in
+      DExternal (cc, flags, 0, 0, name, t, arg_names)
   | I.DTypeVariant (name, flags, n, branches) ->
       DType (name, flags, 0, n,
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
