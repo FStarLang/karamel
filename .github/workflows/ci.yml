@@ -264,36 +264,39 @@ jobs:
   build-and-test-pulse:
     runs-on: ubuntu-latest
     needs: build-deps
+    env:
+      # Last master commit before FStarLang/FStar#4653 removed legacy extraction.
+      FSTAR_REV: 334c989ed27b617e694e1d7db35c242735ecceac
     steps:
       - name: Setup ocaml
         uses: ocaml/setup-ocaml@v3
         with:
            ocaml-compiler: 5.3.0
 
-      # Note, this cache is separate from the -fstar1 one.
+      # Keep this cache separate from fstar1 and other F* revisions.
       - name: Restore OPAM state
         uses: actions/cache/restore@v4
         with:
           path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-master-${{ github.run_id }}
+          key: opam-${{ runner.os }}-${{ runner.arch }}-pulse-${{ env.FSTAR_REV }}-${{ github.run_id }}
           restore-keys: |
-            opam-${{ runner.os }}-${{ runner.arch }}-master-
+            opam-${{ runner.os }}-${{ runner.arch }}-pulse-${{ env.FSTAR_REV }}-
 
-      # Build F*, master branch
+      # Retain --codegen krml until the Pulse tests are migrated to Custard.
       - run: opam update
-      - run: opam pin -n fstar git+https://github.com/FStarLang/FStar#master
+      - run: opam pin -n fstar "git+https://github.com/FStarLang/FStar#${FSTAR_REV}"
       - run: opam install fstar
 
-      # Save OPAM state, note master- in key.
+      # Save OPAM state for the pinned F* revision.
       - name: Save OPAM state
         uses: actions/cache/save@v4
         with:
           path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-master-${{ github.run_id }}
+          key: opam-${{ runner.os }}-${{ runner.arch }}-pulse-${{ env.FSTAR_REV }}-${{ github.run_id }}
 
       - name: Install Z3 with script
         run: |
-          wget https://raw.githubusercontent.com/FStarLang/FStar/refs/heads/master/.scripts/get_fstar_z3.sh -O get_fstar_z3.sh
+          wget "https://raw.githubusercontent.com/FStarLang/FStar/${FSTAR_REV}/.scripts/get_fstar_z3.sh" -O get_fstar_z3.sh
           chmod +x get_fstar_z3.sh
           ./get_fstar_z3.sh /usr/local/bin
        # If these fail, stop right now.
