@@ -21,13 +21,13 @@ minimal: lib/Version.ml
 
 ifneq ($(LOWSTAR),false)
 krmllib: minimal
-	@# Make sure krml can find its relevant directories, since
-	@# it is not yet installed with them.
+	@# Use the krml just built and make sure it can find its relevant
+	@# directories, since it is not yet installed with them.
 	env \
 	  KRML_LIBDIR=$(CURDIR)/krmllib \
 	  KRML_INCLUDEDIR=$(CURDIR)/include \
 	  KRML_MISCDIR=$(CURDIR)/misc \
-	  $(MAKE) -C krmllib
+	  $(MAKE) -C krmllib KRML_EXE="$(CURDIR)/krml"
 else
 krmllib: minimal
 endif
