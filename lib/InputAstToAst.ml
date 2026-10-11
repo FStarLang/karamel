@@ -203,6 +203,8 @@ and mk_expr = function
       mk (EQualified lid)
   | I.EConstant k ->
       mk (EConstant (mk_constant k))
+  | I.EZeroForDeref w ->
+      mk (EZeroForDeref (tr_width w))
   | I.EUnit ->
       mk (EUnit)
   | I.EString s ->
