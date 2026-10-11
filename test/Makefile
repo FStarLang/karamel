@@ -52,7 +52,7 @@ endif
 FILES		= \
   $(patsubst %.fst,%.test,$(filter-out ArrayReborrowData.fst Steel.SpinLock.fst Unused_A.fst StaticHeaderAPI.fst \
     StaticHeaderLib.fst NameCollisionHelper.fst ML16Externals.fst MemCpyModel.fst \
-    Lowlevel.fst PrivateInclude1.fst EnumAliasHelper.fst $(BROKEN),$(wildcard *.fst))) \
+    Lowlevel.fst PrivateInclude1.fst EnumAliasHelper.fst FunctionalUpdates.fst $(BROKEN),$(wildcard *.fst))) \
   $(CRYPTO_FILES) \
   $(patsubst %.fst,%.test,$(wildcard ../book/*.fst ../book/notfslit/*.fst))
 
@@ -62,7 +62,8 @@ endif
 
 CUSTOM		= count-eq count-uu check-unused check-no-constructor check-no-erased \
   check-right-file count-deref check-global-init check-useless-alias check-inline-let \
-  check-comment check-ignore check-aggressive-inline check-malloca check-folding
+  check-comment check-ignore check-aggressive-inline check-malloca check-folding \
+  check-functional-updates
 
 ifneq ($(CRYPTO),)
   CRYPTO_WASM_FILES=Crypto.Symmetric.Chacha20.wasm-test
@@ -235,6 +236,17 @@ $(OUTPUT_DIR)/GlobalInit.exe: EXTRA=global_init.c
 Failure.test: NEGATIVE=true
 
 # Some custom targets
+
+# Keep the same stable header and expected-C comparison as the Pulse tests.
+.PHONY: check-functional-updates
+check-functional-updates: FunctionalUpdates.fst FunctionalUpdates.expected.c $(KRML_EXE)
+	mkdir -p $(CACHE_DIR) $(OUTPUT_DIR)/FunctionalUpdates.out
+	$(FSTAR) $(OTHERFLAGS) -c $< -o $(CACHE_DIR)/FunctionalUpdates.fst.checked
+	$(FSTAR) $(OTHERFLAGS) --codegen krml --extract_module FunctionalUpdates \
+	  -o $(OUTPUT_DIR)/FunctionalUpdates.krml $(CACHE_DIR)/FunctionalUpdates.fst.checked
+	$(KRML) -faggressive-inlining -skip-compilation -header pulse/krmlheader \
+	  -tmpdir $(OUTPUT_DIR)/FunctionalUpdates.out $(OUTPUT_DIR)/FunctionalUpdates.krml
+	bash pulse/diff.sh $(OUTPUT_DIR)/FunctionalUpdates.out/FunctionalUpdates.c FunctionalUpdates.expected.c
 
 SED=$(shell which gsed >/dev/null 2>&1 && echo gsed || echo sed)
 check-useless-alias: $(OUTPUT_DIR)/DepPair.exe
