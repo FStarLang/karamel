@@ -143,6 +143,7 @@ $(OUTPUT_DIR)/Ctypes2.exe: $(ALL_KRML_FILES) $(KRML_EXE)
 
 $(OUTPUT_DIR)/AggressiveInline.exe: EXTRA := $(EXTRA) -faggressive-inlining
 $(OUTPUT_DIR)/Malloca.exe: EXTRA := $(EXTRA) -warn-error -6 # Uses VLAs
+$(OUTPUT_DIR)/BufferOps.exe: EXTRA := $(EXTRA) -header pulse/krmlheader
 
 .PRECIOUS: $(OUTPUT_DIR)/%.exe
 $(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_EXE)
@@ -164,6 +165,10 @@ NoCopiesConst.test: $(OUTPUT_DIR)/NoCopiesConst.out/NoCopiesConst.c NoCopiesCons
   $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c NoCopiesConst.byref.expected.c
 	bash pulse/diff.sh $(OUTPUT_DIR)/NoCopiesConst.out/NoCopiesConst.c NoCopiesConst.expected.c
 	bash pulse/diff.sh $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c NoCopiesConst.byref.expected.c
+
+BufferOps.test: $(OUTPUT_DIR)/BufferOps.exe BufferOps.expected.c
+	bash pulse/diff.sh $(OUTPUT_DIR)/BufferOps.out/BufferOps.c BufferOps.expected.c
+	$(OUTPUT_DIR)/BufferOps.exe
 
 $(OUTPUT_DIR)/ArrayReborrow.out/ArrayReborrow.c: $(OUTPUT_DIR)/ArrayReborrow.krml $(OUTPUT_DIR)/ArrayReborrowData.krml $(KRML_EXE)
 	$(call run-with-log, \

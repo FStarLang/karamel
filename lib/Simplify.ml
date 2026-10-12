@@ -782,9 +782,6 @@ let functional_updates = object (self)
 
   val mutable make_mut = []
 
-  (* TODO: there are many combinations of operators or not (both for reading and writing), a single
-     assignment or not... we don't cover everything *)
-
   method private gen_assignments env e_read exprfields =
     ESequence (List.map (fun (the_field, the_expr) ->
       let the_field = Option.get the_field in
@@ -793,47 +790,6 @@ let functional_updates = object (self)
       with_unit (EAssign (with_type the_expr.typ (EField (e_read, the_field)), the_expr))
     ) exprfields)
 
-  method! visit_EApp env e es =
-    (* Without temporary, any position, support for multiple fields updated
-
-       e1 *= { fi = ei } with ei = e if i = k, e1[0].fi otherwise
-       -->
-       e1 *= e
-
-       e1 *= { fi = ei } with ei = e if i = k, !*e1.fi otherwise
-       -->
-       e1 *= e
-
-     *)
-    match e.node, es with
-    | EQualified (["LowStar"; "BufferOps"], op), [ e1; { node = EFlat fields; _ }] when KString.starts_with op "op_Star_Equal" ->
-        let updated_fields, untouched_fields = List.partition (function
-            | Some f, { node = EField ({ node = EBufRead (e1', e2); _ }, f'); _ } when
-              f = f' && e1 = e1' && Helpers.is_zero e2 ->
-                false
-            | Some f, { node = EField ({
-                node = EApp ({
-                  node = EQualified (["LowStar"; "BufferOps"], op); _
-                },
-                [ e1' ]); _
-              }, f'); _ } when
-              (* we match: !*e_deref.f' and request e_read = BufRead (e_deref, 0) *)
-              f = f' && e1 = e1' && KString.starts_with op "op_Bang_Star" ->
-                false
-            | _ ->
-                true
-          ) fields
-        in
-        if List.length untouched_fields > 0 then
-          (* TODO: catch the monomorphized name of the *= operator above and use that for prettier
-             code-gen *)
-          let e_read = with_type (assert_tbuf e1.typ) (EBufRead (e1, Helpers.zero_for_deref)) in
-          self#gen_assignments env e_read updated_fields
-        else
-          super#visit_EApp env e es
-    | _ ->
-        super#visit_EApp env e es
-
   method! visit_EBufWrite env e1 e2 e3 =
     (* Without temporary, any position, support for multiple fields updated
 
@@ -841,25 +797,14 @@ let functional_updates = object (self)
        -->
        e1[e2].fk <- e
 
-       e1[0] <- { fi = ei } with ei = e if i = k, !*e1.fi otherwise
-       -->
-       e1[0].fk <- e
-
      *)
     let e_read = EBufRead (e1, e2) in
     match e3.node with
     | EFlat fields ->
         let updated_fields, untouched_fields = List.partition (function
-            | Some f, { node = EField (e_read', f'); _ } when f = f' && e_read = e_read'.node ->
-                false
-            | Some f, { node = EField ({
-                node = EApp ({
-                  node = EQualified (["LowStar"; "BufferOps"], op); _
-                },
-                [ e_deref ]); _
-              }, f'); _ } when
-              (* we match: !*e_deref.f' and request e_read = BufRead (e_deref, 0) *)
-              f = f' && e1 = e_deref && Helpers.is_zero e2 && KString.starts_with op "op_Bang_Star" ->
+            | Some f, { node = EField ({ node = EBufRead (e1', e2'); _ }, f'); _ } when
+              f = f' && e1 = e1' &&
+              (e2 = e2' || (Helpers.is_zero e2 && Helpers.is_zero e2')) ->
                 false
             | _ ->
                 true
@@ -892,7 +837,6 @@ let functional_updates = object (self)
         ELet (b, e1, self#visit_expr env e2)
     in
 
-    (* TODO: operators *)
     match e1.node, e2.node with
     | EBufRead ({ node = EBound i; _ }, j),
       EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ })
