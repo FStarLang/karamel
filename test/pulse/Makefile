@@ -24,5 +24,5 @@ $(OUTPUT_DIR)/PassByReference.c: KRML_FLAGS += -fnostruct-passing
 # Check late inlining with both the default policy and aggressive inlining.
 $(OUTPUT_DIR)/LateCleanup.aggressive.c: $(OUTPUT_DIR)/LateCleanup.krml $(OUTPUT_DIR)/Pulse_Lib_Pervasives.krml
 	$(call msg, "KRML", $(basename $(notdir $@)))
-	$(KRML_EXE) $(KRML_FLAGS) -faggressive-inlining -skip-makefiles -skip-compilation -header=krmlheader -bundle LateCleanup=* -skip-linking $+ -tmpdir $(OUTPUT_DIR)/LateCleanup.aggressive
+	$(KRML_EXE) $(KRML_FLAGS) -faggressive-inlining -skip-makefiles -skip-compilation -header=../krmlheader -bundle LateCleanup=* -skip-linking $+ -tmpdir $(OUTPUT_DIR)/LateCleanup.aggressive
 	cp $(OUTPUT_DIR)/LateCleanup.aggressive/LateCleanup.c $@

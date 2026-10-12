@@ -143,12 +143,11 @@ $(OUTPUT_DIR)/Ctypes2.exe: $(ALL_KRML_FILES) $(KRML_EXE)
 
 $(OUTPUT_DIR)/AggressiveInline.exe: EXTRA := $(EXTRA) -faggressive-inlining
 $(OUTPUT_DIR)/Malloca.exe: EXTRA := $(EXTRA) -warn-error -6 # Uses VLAs
-$(OUTPUT_DIR)/BufferOps.exe: EXTRA := $(EXTRA) -header pulse/krmlheader
 
 .PRECIOUS: $(OUTPUT_DIR)/%.exe
-$(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_EXE)
+$(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_EXE) krmlheader
 	$(call run-with-log, \
-	  $(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
+	  $(KRML) $(EXTRA) -header krmlheader -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
 	    -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack$(comma)\* \
 	,[KRML] $*,$(OUTPUT_DIR)/$*)
 
@@ -157,31 +156,37 @@ $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c: EXTRA := -fnostruct-passi
 $(OUTPUT_DIR)/NoCopiesConst.out/NoCopiesConst.c $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c: \
   $(OUTPUT_DIR)/NoCopiesConst.krml $(OUTPUT_DIR)/Steel_SpinLock.krml $(KRML_EXE)
 	$(call run-with-log, \
-	  $(KRML) $(EXTRA) -skip-compilation -header pulse/krmlheader \
+	  $(KRML) $(EXTRA) -skip-compilation -header krmlheader \
 	    -tmpdir $(dir $@) $(filter %.krml,$^) \
 	,[KRML] $(notdir $(@D)),$(patsubst %.out,%,$(@D)))
 
-NoCopiesConst.test: $(OUTPUT_DIR)/NoCopiesConst.out/NoCopiesConst.c NoCopiesConst.expected.c \
-  $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c NoCopiesConst.byref.expected.c
-	bash pulse/diff.sh $(OUTPUT_DIR)/NoCopiesConst.out/NoCopiesConst.c NoCopiesConst.expected.c
-	bash pulse/diff.sh $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c NoCopiesConst.byref.expected.c
-
-BufferOps.test: $(OUTPUT_DIR)/BufferOps.exe BufferOps.expected.c
-	bash pulse/diff.sh $(OUTPUT_DIR)/BufferOps.out/BufferOps.c BufferOps.expected.c
-	$(OUTPUT_DIR)/BufferOps.exe
+NoCopiesConst.test: NoCopiesConst.byref.test
 
 $(OUTPUT_DIR)/ArrayReborrow.out/ArrayReborrow.c: $(OUTPUT_DIR)/ArrayReborrow.krml $(OUTPUT_DIR)/ArrayReborrowData.krml $(KRML_EXE)
 	$(call run-with-log, \
 	  $(KRML) -fnostruct-passing -library ArrayReborrowData -skip-compilation \
-	    -header pulse/krmlheader -bundle ArrayReborrow=* -tmpdir $(dir $@) $(filter %.krml,$^) \
+	    -header krmlheader -bundle ArrayReborrow=* -tmpdir $(dir $@) $(filter %.krml,$^) \
 	,[KRML] ArrayReborrow,$(OUTPUT_DIR)/ArrayReborrow)
 
-ArrayReborrow.test: $(OUTPUT_DIR)/ArrayReborrow.out/ArrayReborrow.c ArrayReborrow.expected.c
-	bash pulse/diff.sh $^
+TEST_NAME = $(notdir $(subst .,_,$*))
+TEST_C = $(OUTPUT_DIR)/$(TEST_NAME).out/$(TEST_NAME).c
+TEST_OUTPUT = $(OUTPUT_DIR)/$(TEST_NAME).exe
+
+# These tests only generate C; the by-reference variant keeps its module name.
+ArrayReborrow.test NoCopiesConst.test NoCopiesConst.byref.test: TEST_OUTPUT = $(TEST_C)
+NoCopiesConst.byref.test: TEST_C = $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c
+
+# Include snapshots with custom generation rules and no corresponding .fst file.
+all: $(patsubst %.expected.c,%.test,$(wildcard *.expected.c))
 
 .SECONDEXPANSION:
+# Compare every snapshot, then run the executable if the test builds one.
+%.test: $$(TEST_OUTPUT) %.expected.c
+	bash pulse/diff.sh $(TEST_C) $*.expected.c
+	$(filter %.exe,$(TEST_OUTPUT))
+
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe
-	@(if $(NEGATIVE); then ! $^; else $^; fi) && echo -e "\033[01;32m✔\033[00m [TEST,$*]" || (echo -e "\033[01;31m✘\033[00m [TEST,$*]" && false)
+	@(if $(NEGATIVE); then ! $<; else $<; fi) && echo -e "\033[01;32m✔\033[00m [TEST,$*]" || (echo -e "\033[01;31m✘\033[00m [TEST,$*]" && false)
 
 ifeq ($(OS),Windows_NT)
   HELLOSYSTEM_LDOPTS = -ldopts -lws2_32
