@@ -289,10 +289,11 @@ check-malloca: $(OUTPUT_DIR)/Malloca.exe
 	N=$$(grep 'f()' $(OUTPUT_DIR)/Malloca.out/Malloca.c | wc -l) && \
 	  if [[ $$N -ne 1 ]]; then echo "Malloca.c seems to have several calls to f" >&2; false; fi
 
-check-folding: $(OUTPUT_DIR)/BadFolding.exe
+check-folding: $(OUTPUT_DIR)/BadFolding.exe $(OUTPUT_DIR)/Loops.exe
 	# Check that all 5 calls (+ definition) remain
 	N=$$(grep 'side_effect_fn' $(OUTPUT_DIR)/BadFolding.out/BadFolding.c | wc -l) && \
 	  if [[ $$N -ne 6 ]]; then echo "BadFolding.c c seems to have dropped some effectful calls" >&2; false; fi
+	grep -Fq 'b[3U] = 42U;' $(OUTPUT_DIR)/Loops.out/Loops.c
 
 check-comment: $(OUTPUT_DIR)/Comment.exe
 	grep -q XXX1 $(OUTPUT_DIR)/Comment.out/Comment.c && \
