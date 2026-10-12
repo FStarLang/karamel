@@ -136,6 +136,14 @@ let safe_pure_use lvalue e =
   | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
 
 
+(* Do we *want* to inline b? Safety of the inlining must be checked separately. *)
+let should_inline b =
+  !Options.aggressive_inlining ||
+  List.mem AttemptInline b.node.meta ||
+  Helpers.is_uu b.node.name ||
+  b.node.name = "scrut" ||
+  Structs.should_rewrite b.typ = NoCopies
+
 (* This phase tries to substitute away variables that are temporary (named
    uu____ in F*, or "scrut" if inserted by the pattern matches compilation
    phase), or that are of a type that cannot be copied (to hopefully skirt
@@ -152,12 +160,7 @@ let use_mark_to_inline_temporaries = object (self)
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
     let _, v = !(b.node.mark) in
-    if (!Options.aggressive_inlining ||
-        List.mem AttemptInline b.node.meta ||
-        Helpers.is_uu b.node.name ||
-        b.node.name = "scrut" ||
-        Structs.should_rewrite b.typ = NoCopies
-       ) &&
+    if should_inline b &&
         (v = AtMost 1 && (
           let lvalue = Structs.will_be_lvalue e1 in
           (is_readonly_c_expression e1 &&
@@ -679,6 +682,22 @@ let let_to_sequence = object (self)
       let e2 = self#visit_expr env e2 in
       ELet (b, e1, e2)
 
+end
+
+(* Inline [let x = e in x] after late lowering and constant folding, which can
+ * create new expressions of this shape, using the same policy as the regular
+ * inliner.
+ * This does not need use analysis: e is evaluated once, even if effectful.
+ * Keep buffer allocations let-bound, since that is required in later passes. *)
+let simplify_trivial_lets = object
+  inherit [_] map as super
+
+  method! visit_ELet env b e1 e2 =
+    match super#visit_ELet env b e1 e2 with
+    | ELet (b, e1, { node = EBound 0; _ }) when should_inline b && not (is_bufcreate e1) ->
+        e1.node
+    | e ->
+        e
 end
 
 (* This pass rewrites:
@@ -2341,6 +2360,7 @@ let simplify2 ifdefs (files: file list): file list =
   let files = functional_updates#visit_files true files in
   let files = let_to_sequence#visit_files () files in
   let files = constant_fold#visit_files () files in
+  let files = simplify_trivial_lets#visit_files () files in
   files
 
 let debug env =
