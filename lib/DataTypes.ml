@@ -676,15 +676,6 @@ let remove_unit_buffers = object (self)
     | _ ->
       super#visit_EAddrOf env e1
 
-  method! visit_EApp env e1 es =
-    match e1.node, es with
-    | EQualified ([ "LowStar"; "BufferOps" ], s), { typ = TBuf (TUnit, _); _ } :: _ when
-      KString.starts_with s "op_Bang_Star__" ||
-      KString.starts_with s "op_Star_Equals__" ->
-        EUnit
-    | _ ->
-        super#visit_EApp env e1 es
-
 end
 
 let build_unit_field_table erasable_fields = object (self)

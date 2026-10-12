@@ -925,17 +925,6 @@ and translate_expr_with_type (env: env) ?(context=`Other) (fn_t_ret: MiniRust.ty
 
   (* END PULSE BUILTINS *)
 
-  | EApp ({ node = EQualified ([ "LowStar"; "BufferOps" ], s); _ }, e1 :: _) when KString.starts_with s "op_Bang_Star__" ->
-      let env, e1 = translate_expr env fn_t_ret e1 in
-      (* env, Deref e1 *)
-      env, Index (e1, MiniRust.zero_usize)
-
-  | EApp ({ node = EQualified ([ "LowStar"; "BufferOps" ], s); _ }, e1 :: e2 :: _ ) when KString.starts_with s "op_Star_Equals__" ->
-      let env, e1 = translate_expr env fn_t_ret e1 in
-      let t2 = translate_type env e2.typ in
-      let env, e2 = translate_expr env fn_t_ret e2 in
-      env, Assign (Index (e1, MiniRust.zero_usize), e2, t2)
-
   | EApp ({ node = ETApp (e, cgs, cgs', ts); _ }, es) ->
       assert (cgs @ cgs' = []);
       let es =
@@ -1403,13 +1392,6 @@ let make_poly (t: MiniRust.typ) n: MiniRust.typ =
       assert (n = 0);
       t
 
-let is_handled_primitively = function
-  | [ "LowStar"; "BufferOps" ], s ->
-      KString.starts_with s "op_Bang_Star__" ||
-      KString.starts_with s "op_Star_Equals__"
-  | _ ->
-      false
-
 (* In Rust, like in C, all the declarations from the current module are in
  * scope immediately. This requires us to duplicate a little bit of work. *)
 let bind_type_decl env (d: Ast.decl): env =
@@ -1427,8 +1409,6 @@ let bind_type_decl env (d: Ast.decl): env =
 
 let bind_non_type_decl env (d: Ast.decl): env =
   match d with
-  | DFunction (_, _, _, _, _, lid, _, _) when is_handled_primitively lid ->
-      env
   | DFunction (_cc, _flags, _n_cgs, type_parameters, t, lid, args, _body) ->
       let env, name = translate_lid env lid in
       let args =
@@ -1568,8 +1548,6 @@ let translate_decl env { derives; attributes; static; no_mangle; _ } (d: Ast.dec
   let attributes = Option.value ~default:[] (LidMap.find_opt (Ast.lid_of_decl d) attributes) in
   let env = locate env (Ast.lid_of_decl d) in
   match d with
-  | DFunction (_, _, _, _, _, lid, _, _) when is_handled_primitively lid ->
-      None
   | DFunction (_cc, flags, n_cgs, type_parameters, ret_t, lid, args, body) ->
       if Options.debug "rs" then
         KPrint.bprintf "Ast.DFunction (%a)\n" PrintAst.Ops.plid lid;

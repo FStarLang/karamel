@@ -231,7 +231,6 @@ let ineligible lident =
     ["C"; "Nullity"];
     ["C"; "String"];
     ["C"; "Compat"; "String"];
-    ["LowStar"; "BufferOps"];
     ["LowStar"; "Buffer"];
     ["LowStar"; "Monotonic"; "Buffer"]
   ]

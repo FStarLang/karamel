@@ -87,8 +87,10 @@ let mk_assign (lhs : C11.expr) (rhs : C11.expr) : C11.expr =
 
 let is_var = function Var _ -> true | _ -> false
 let is_call = function
-  | Call (Qualified (_, s), _) ->
-      not (KString.starts_with s "op_Bang_Star__")
+  | Call (Qualified ([ "C"; "Nullity" ], s), _) when KString.starts_with s "op_Bang_Star__" ->
+      false
+  | Call (Qualified _, _) ->
+      true
   | _ -> false
 
 let fresh =
@@ -1082,12 +1084,6 @@ and mk_expr m (e: expr): C.expr =
 
   | Call (Qualified ([ "C"; "Nullity" ], s), [ e1 ]) when KString.starts_with s "op_Bang_Star__" ->
       mk_deref m e1
-
-  | Call (Qualified ([ "LowStar"; "BufferOps" ], s), e1 :: _) when KString.starts_with s "op_Bang_Star__" ->
-      mk_deref m e1
-
-  | Call (Qualified ([ "LowStar"; "BufferOps" ], s), e1 :: e2 :: _ ) when KString.starts_with s "op_Star_Equals__" ->
-      Op2 (K.Assign, mk_deref m e1, mk_expr m e2)
 
   | Call (Qualified ([ "C"; "String"], "of_literal"), [ StringLiteral _ as s ]) ->
       mk_expr m s

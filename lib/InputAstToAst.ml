@@ -227,6 +227,14 @@ and mk_expr = function
   | I.EApp (I.ETApp (I.EQualified ([ "FStar"; "Pervasives" ], "false_elim"), [ t ]), [ I.EUnit ]) ->
       mk (EAbort (Some (mk_typ t), Some "provably unreachable code: did an unverified caller violate a precondition?"))
 
+  (* Lower fully applied pointer operators here, before monomorphization changes
+   * their names. The special zero preserves dereference syntax in C. References
+   * used as function values retain the ordinary definitions from BufferOps. *)
+  | I.EApp (I.ETApp (I.EQualified ([ "LowStar"; "BufferOps" ], "op_Bang_Star"), [ _; _; _ ]), [ p ]) ->
+      mk (EBufRead (mk_expr p, Helpers.zero_for_deref))
+  | I.EApp (I.ETApp (I.EQualified ([ "LowStar"; "BufferOps" ], "op_Star_Equals"), [ _; _; _ ]), [ p; v ]) ->
+      mk (EBufWrite (mk_expr p, Helpers.zero_for_deref, mk_expr v))
+
   | I.EApp (e, es) ->
       mk (EApp (mk_expr e, List.map mk_expr es))
   | I.ETApp (I.EOp ((IK.Eq | IK.Neq as op), _), [ t ]) ->
