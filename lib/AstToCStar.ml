@@ -593,6 +593,8 @@ and mk_stmts env e ret_type =
 
         else if n_loops = 1 then
           let body = DeBruijn.subst e_init 0 body in
+          (* Substituting the index can expose new constant expressions (#775). *)
+          let body = Simplify.constant_fold#visit_expr_w () body in
           let body = mk_block env Not body in
           env, (CStar.Block body) :: comment e.meta @ acc
 

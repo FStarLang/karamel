@@ -10,6 +10,15 @@ module UInt64 = FStar.UInt64
 module HS = FStar.HyperStack
 module Buffer = LowStar.Buffer
 
+// #775: substituting the sole iteration's index should enable constant folding.
+let write_last (b:Buffer.lbuffer UInt32.t 4): Stack unit
+  (requires fun h -> Buffer.live h b)
+  (ensures fun _ _ _ -> True)
+=
+  C.Loops.for 0ul 1ul
+    (fun h _ -> Buffer.live h b)
+    (fun i -> Buffer.upd b UInt32.(4ul *^ i +^ 3ul) 42ul)
+
 // simple for loop example - note that there is no framing
 let sum_to_n (n:UInt32.t) : Stack UInt32.t
   (requires (fun h0 -> True))
@@ -145,6 +154,10 @@ let test_map (): St unit =
 val main: unit -> St Int32.t
 let main () =
   push_frame ();
+
+  let last = Buffer.alloca 0ul 4ul in
+  write_last last;
+  TestLib.checku32 last.(3ul) 42ul;
 
   (* Inline test for a for-loop. Todo: move to a separate test. *)
   let b = Buffer.alloca 1ul 3ul in
