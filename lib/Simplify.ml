@@ -785,12 +785,36 @@ let use_ternary_op ifdefs = object (self)
 end
 
 (* Transform functional updates of the form x.(i) <- { x.(i) with f = e } into
- * in-place field updates. *)
-let functional_updates = object (self)
+* in-place field updates. Only one field may change, we do not handle N > 1.
+*
+* The mark_mut argument is set to false first and then true. The first pass]
+* does the actual transformation, and records which fields of which record types
+* have been assigned in-place. The second pass does not modify expressions, it
+* only marks those recorded fields as mutable in the type declarations. The only
+* reason they are marked mutable is to pass the karamel typechecker later---
+* this does not affect code generation. *)
+let functional_updates () = object (self)
 
   inherit [_] map as super
 
   val mutable make_mut = []
+
+  (* The second traversal only marks types; it must not discover more updates
+     after visiting the corresponding type declarations. *)
+  method! visit_expr ((mark_mut, _) as env) e =
+    if mark_mut then e else super#visit_expr env e
+
+  method private can_update lhs = function
+    | [_fld, e] ->
+        (* e must be read-only to prevent turning
+             let old = *p in
+             *p = { old with foo = f () }
+           into
+             p->foo = f ();
+           since calling f() may modify *p and therefore the two
+           expressions may differ. The lhs ( *p ) should also be read-only. *)
+        is_readonly_c_expression lhs && is_readonly_c_expression e
+    | _ -> false
 
   method private gen_assignments env e_read exprfields =
     ESequence (List.map (fun (the_field, the_expr) ->
@@ -801,7 +825,7 @@ let functional_updates = object (self)
     ) exprfields)
 
   method! visit_EBufWrite env e1 e2 e3 =
-    (* Without temporary, any position, support for multiple fields updated
+    (* Without temporary, any position, only one field updated
 
        e1[e2] <- { fi = ei } with ei = e if i = k, e1[e2].fi otherwise
        -->
@@ -820,8 +844,9 @@ let functional_updates = object (self)
                 true
           ) fields
         in
-        if List.length untouched_fields > 0 then
-          self#gen_assignments env (with_type (assert_tbuf e1.typ) e_read) updated_fields
+        let e_read = with_type e3.typ e_read in
+        if List.length untouched_fields > 0 && self#can_update e_read updated_fields then
+          self#gen_assignments env e_read updated_fields
         else
           super#visit_EBufWrite env e1 e2 e3
     | _ ->
@@ -840,43 +865,37 @@ let functional_updates = object (self)
               true
         ) fields
       in
-      if List.length untouched_fields > 0 then
-        let updated_fields = List.map (fun (f, e) -> f, snd (open_binder b e)) updated_fields in
-        k (self#gen_assignments env e1 updated_fields)
+      let lhs = lift 1 e1 in
+      if List.length untouched_fields > 0 && self#can_update lhs updated_fields then
+        (* Keep the snapshot only if the replacement or continuation still uses
+           it. Removing it here also avoids unused copies of NoCopies records. *)
+        let body = with_type e2.typ (k (self#gen_assignments env lhs updated_fields)) in
+        if occurs 0 body then
+          ELet (b, e1, body)
+        else
+          (snd (open_binder b body)).node (* dropping e1 is ok since it's readonly *)
       else
         ELet (b, e1, self#visit_expr env e2)
     in
 
+    (* let old = p[i] in p[i] <- { old with f = e }; continuation
+       --> let old = p[i] in p[i].f <- e; continuation
+
+       The write is under the snapshot binder, compare indices in that scope.
+       continuation is optional. *)
     match e1.node, e2.node with
     | EBufRead ({ node = EBound i; _ }, j),
       EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ })
-      when j = j' && iplusone = i + 1 ->
-        (* With temporary, in terminal position:
-
-           let uu = (Bound i)[j] in
-           (Bound (i + 1))[j] <- { fi = ei } with ei = e if i = k, (Bound 0).fi otherwise
-           -->
-           (Bound i)[j].fk <- (unlift 1 e)
-         *)
+      when lift 1 j = j' && iplusone = i + 1 ->
         make_assignment fields (fun x -> x)
 
     | EBufRead ({ node = EBound i; _ }, j),
-      ELet (b,
+      ELet (b_seq,
         { node = EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ }); _ },
         e3)
-      when j = j' && iplusone = i + 1 ->
-        (* With temporary, NOT in terminal position:
-
-           let uu = (Bound i)[j];
-           let _ = (Bound (i + 1))[j] <- { fi = ei } with ei = e if i = k, * (Bound 0).fi otherwise in
-           e3
-           -->
-           let _ = (Bound i)[j].fk <- (unlift 1 e) in
-           e3
-         *)
+      when lift 1 j = j' && iplusone = i + 1 ->
         make_assignment fields (fun x ->
-          let e3 = self#visit_expr env (snd (open_binder b e3)) in
-          ELet (b, with_unit x, e3))
+          ELet (b_seq, with_unit x, self#visit_expr env e3))
 
     | _ ->
         ELet (b, e1, self#visit_expr env e2)
@@ -2362,6 +2381,7 @@ let simplify2 ifdefs (files: file list): file list =
      optimize_lets. *)
   let files = misc_cosmetic#visit_files () files in
   let files = misc_cosmetic2#visit_files () files in
+  let functional_updates = functional_updates () in
   let files = functional_updates#visit_files false files in
   let files = functional_updates#visit_files true files in
   let files = let_to_sequence#visit_files () files in

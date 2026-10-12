@@ -30,6 +30,17 @@ end
 
 (* ---------------------------------------------------------------------------- *)
 
+(* Does de Bruijn variable [i] occur in an expression? *)
+let occurs = (object
+  inherit [_] reduce
+  method private zero = false
+  method private plus = (||)
+  method! extend i _ = i + 1
+  method! visit_EBound (i, _) j = i = j
+end)#visit_expr_w
+
+(* ---------------------------------------------------------------------------- *)
+
 (* Lifting. *)
 
 class lift (k: int) = object
