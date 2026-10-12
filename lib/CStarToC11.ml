@@ -87,8 +87,6 @@ let mk_assign (lhs : C11.expr) (rhs : C11.expr) : C11.expr =
 
 let is_var = function Var _ -> true | _ -> false
 let is_call = function
-  | Call (Qualified ([ "C"; "Nullity" ], s), _) when KString.starts_with s "op_Bang_Star__" ->
-      false
   | Call (Qualified _, _) ->
       true
   | _ -> false
@@ -1081,9 +1079,6 @@ and mk_expr m (e: expr): C.expr =
   | Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), _) ->
       (* Only one argument because of unit-to-void elimination -- should not happen. *)
       failwith "`ignore ()` should have been removed earlier on"
-
-  | Call (Qualified ([ "C"; "Nullity" ], s), [ e1 ]) when KString.starts_with s "op_Bang_Star__" ->
-      mk_deref m e1
 
   | Call (Qualified ([ "C"; "String"], "of_literal"), [ StringLiteral _ as s ]) ->
       mk_expr m s

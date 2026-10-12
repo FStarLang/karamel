@@ -229,7 +229,8 @@ and mk_expr = function
 
   (* Lower fully applied pointer operators here, before monomorphization changes
    * their names. The special zero preserves dereference syntax in C. References
-   * used as function values retain the ordinary definitions from BufferOps. *)
+   * used as function values retain their ordinary definitions. *)
+  | I.EApp (I.ETApp (I.EQualified ([ "C"; "Nullity" ], "op_Bang_Star"), [ _ ]), [ p ])
   | I.EApp (I.ETApp (I.EQualified ([ "LowStar"; "BufferOps" ], "op_Bang_Star"), [ _; _; _ ]), [ p ]) ->
       mk (EBufRead (mk_expr p, Helpers.zero_for_deref))
   | I.EApp (I.ETApp (I.EQualified ([ "LowStar"; "BufferOps" ], "op_Star_Equals"), [ _; _; _ ]), [ p; v ]) ->

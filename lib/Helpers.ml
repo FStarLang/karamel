@@ -301,7 +301,6 @@ let strengthen_array t e2 =
 
 let pure_builtin_lids = [
   [ "C"; "String" ], "get";
-  [ "C"; "Nullity" ], "op_Bang_Star";
   [ "Prims" ], "op_Minus";
   [ "Lib"; "IntVector"; "Intrinsics" ], "vec128_smul64";
   [ "Lib"; "IntVector"; "Intrinsics" ], "vec256_smul64";
@@ -686,12 +685,7 @@ let builtin_names =
 
 (* Builtin names, meaning we don't generate declarations for them *)
 let is_primitive s =
-  Hashtbl.mem builtin_names s ||
-  match s with
-  | ["C"; "Nullity"], s when KString.starts_with s "op_Bang_Star__" ->
-      true
-  | _ ->
-      false
+  Hashtbl.mem builtin_names s
 
 (* Somewhat more advanced helpers *********************************************)
 
