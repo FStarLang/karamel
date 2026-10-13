@@ -308,6 +308,8 @@ let pure_builtin_lids = [
   [ "FStar"; "UInt128" ], "";
 ]
 
+(* This is a reference so it can be overriden by Eurydice, and potentially
+other clients using Karamel as an OCaml library. *)
 let is_readonly_builtin_lid_ = ref (fun lid _t ->
   List.exists (fun lid' ->
     let lid = Idents.string_of_lident lid in
