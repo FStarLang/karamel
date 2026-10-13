@@ -1,6 +1,7 @@
 {
   inputs = {
-    fstar.url = "github:fstarlang/fstar";
+    # Pin to fstar1 for the legacy Low* libraries required by krmllib.
+    fstar.url = "github:fstarlang/fstar/019f4e3e38531387ea8534b587aaa23b685edeb5";
     flake-utils.follows = "fstar/flake-utils";
     nixpkgs.follows = "fstar/nixpkgs";
   };
