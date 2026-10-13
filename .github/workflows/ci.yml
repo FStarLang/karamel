@@ -206,6 +206,22 @@ jobs:
           export OCAMLRUNPARAM=b
           make -kj$(nproc) test-pulse
 
+  build-nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: hacl
+
+      - name: Build KaRaMeL and krmllib with F*
+        run: nix build -L --no-link --no-write-lock-file .
+
   test-eurydice:
     runs-on: ubuntu-latest
     steps:
@@ -232,6 +248,7 @@ jobs:
       - build-and-test
       - build-and-test-pulse
       - build-krmllib
+      - build-nix
       - test-eurydice
     steps:
       # Note: this only runs when a dependency fails. If they all succeed,
