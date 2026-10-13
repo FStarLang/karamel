@@ -301,7 +301,6 @@ let strengthen_array t e2 =
 
 let pure_builtin_lids = [
   [ "C"; "String" ], "get";
-  [ "C"; "Nullity" ], "op_Bang_Star";
   [ "Prims" ], "op_Minus";
   [ "Lib"; "IntVector"; "Intrinsics" ], "vec128_smul64";
   [ "Lib"; "IntVector"; "Intrinsics" ], "vec256_smul64";
@@ -309,6 +308,8 @@ let pure_builtin_lids = [
   [ "FStar"; "UInt128" ], "";
 ]
 
+(* This is a reference so it can be overriden by Eurydice, and potentially
+other clients using Karamel as an OCaml library. *)
 let is_readonly_builtin_lid_ = ref (fun lid _t ->
   List.exists (fun lid' ->
     let lid = Idents.string_of_lident lid in
@@ -686,12 +687,7 @@ let builtin_names =
 
 (* Builtin names, meaning we don't generate declarations for them *)
 let is_primitive s =
-  Hashtbl.mem builtin_names s ||
-  match s with
-  | ["C"; "Nullity"], s when KString.starts_with s "op_Bang_Star__" ->
-      true
-  | _ ->
-      false
+  Hashtbl.mem builtin_names s
 
 (* Somewhat more advanced helpers *********************************************)
 
