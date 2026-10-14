@@ -7,9 +7,12 @@
 open Wasm
 open CFlatToWasm
 
+(* An instruction that is read-only and has the effect
+   of pushing a single value to the stack. Load is NOT
+   of this shape since it pops an address and pushes
+   its contents. So [Load; Drop] cannot be removed. *)
 let is_readonly = function
   | Ast.Const _
-  | Ast.Load _
   | Ast.LocalGet _
   | Ast.GlobalGet _ ->
       true
@@ -19,6 +22,8 @@ let is_readonly = function
 let rec optimize_expr' acc es =
   match es with
   | e :: { Source.it = Ast.Drop; _ } :: es when is_readonly e.Source.it ->
+      optimize_expr' acc es
+  | e :: { Source.it = Ast.Load _; _ }:: { Source.it = Ast.Drop; _ } :: es when is_readonly e.Source.it ->
       optimize_expr' acc es
   | { Source.it = Ast.If (t, e1, e2); _ } :: es ->
       let e1 = optimize_expr' [] e1 in
