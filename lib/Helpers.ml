@@ -223,6 +223,14 @@ let is_bufcreate x =
   | EBufCreate _ | EBufCreateL _ -> true
   | _ -> false
 
+(* [let x = e in x] evaluates e exactly once, regardless of its effects or the
+ * binder's name. Keep buffer allocations let-bound for later passes. *)
+let remove_trivial_let = function
+  | ELet (_, e1, { node = EBound 0; _ }) when not (is_bufcreate e1) ->
+      e1.node
+  | e ->
+      e
+
 let is_uu name = KString.starts_with name "uu__"
 
 let is_zero = function
