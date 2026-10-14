@@ -66,8 +66,7 @@ void Example_Slice_test(uint8_t *arr)
   s_ = split__uint8_t(slice, (size_t)2U);
   slice__uint8_t s1 = s_.fst;
   slice__uint8_t s2 = s_.snd;
-  slice__uint8_t res = subslice__uint8_t(s2, (size_t)1U, (size_t)4U);
-  slice__uint8_t s2_ = res;
+  slice__uint8_t s2_ = subslice__uint8_t(s2, (size_t)1U, (size_t)4U);
   uint8_t x = op_Array_Access__uint8_t(s2_, len__uint8_t(s1));
   op_Array_Assignment__uint8_t(s1, (size_t)1U, x);
   __Pulse_Lib_Slice_slice__uint8_t_Pulse_Lib_Slice_slice__uint8_t

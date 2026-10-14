@@ -21,7 +21,7 @@ $(OUTPUT_DIR)/CompoundAssignment.c: KRML_FLAGS += -faggressive-inlining
 
 $(OUTPUT_DIR)/PassByReference.c: KRML_FLAGS += -fnostruct-passing
 
-# Check late inlining with both the default policy and aggressive inlining.
+# Trivial-let elimination works with and without aggressive inlining.
 $(OUTPUT_DIR)/LateCleanup.aggressive.c: $(OUTPUT_DIR)/LateCleanup.krml $(OUTPUT_DIR)/Pulse_Lib_Pervasives.krml
 	$(call msg, "KRML", $(basename $(notdir $@)))
 	$(KRML_EXE) $(KRML_FLAGS) -faggressive-inlining -skip-makefiles -skip-compilation -header=../krmlheader -bundle LateCleanup=* -skip-linking $+ -tmpdir $(OUTPUT_DIR)/LateCleanup.aggressive
