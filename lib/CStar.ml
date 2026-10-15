@@ -191,7 +191,7 @@ let names_of_block (body: block): S.t =
     match e with
     | Var v -> add v
     | Qualified (_, n) | Macro (_, n) -> add n
-    | Constant _ | Bool _ | StringLiteral _ | Any | EAbort _ | Type _
+    | Constant _ | ZeroForDeref _ | Bool _ | StringLiteral _ | Any | EAbort _ | Type _
     | BufNull | Op _ | Sizeof _ -> ()
     | Cast (e, _) | Field (e, _) | AddrOf e | InlineComment (_, e, _) ->
         collect_expr e
