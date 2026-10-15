@@ -214,6 +214,14 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
 
+      # magic-nix-cache saves our CI builds in GitHub Actions, while Cachix
+      # downloads dependencies already built in the shared hacl cache.
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+        with:
+          use-gha-cache: enabled
+          use-flakehub: disabled
+
       - name: Setup Cachix
         uses: cachix/cachix-action@v15
         with:
@@ -227,6 +235,14 @@ jobs:
     steps:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
+
+      # magic-nix-cache saves our CI builds in GitHub Actions, while Cachix
+      # downloads dependencies already built in the shared hacl cache.
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+        with:
+          use-gha-cache: enabled
+          use-flakehub: disabled
 
       - name: Setup Cachix
         uses: cachix/cachix-action@v15
