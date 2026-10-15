@@ -13,3 +13,10 @@ double Floats_neg64(double x)
   return (double)0LL - x;
 }
 
+float Floats_float_array(void)
+{
+  float a[16U];
+  memset(a, 0U, (size_t)16U * sizeof (float));
+  return a[0U];
+}
+
