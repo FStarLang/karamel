@@ -228,10 +228,8 @@ let skip_prefix lid =
 let ineligible lident =
   List.mem (fst lident) [
     ["FStar"; "UInt128"];
-    ["C"; "Nullity"];
     ["C"; "String"];
     ["C"; "Compat"; "String"];
-    ["LowStar"; "BufferOps"];
     ["LowStar"; "Buffer"];
     ["LowStar"; "Monotonic"; "Buffer"]
   ]

@@ -61,7 +61,7 @@ fn tst (shared : UInt32.t)
   while (!i <^ uu__k)
     invariant live i
     invariant pure (v (!i) <= v uu__k)
-    decreases (Prims.op_Subtraction (v uu__k) (v (!i)))
+    decreases (v uu__k - v (!i))
   {
     i := !i +^ 1ul;
   };

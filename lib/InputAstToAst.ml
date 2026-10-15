@@ -98,7 +98,22 @@ let rec mk_decl = function
   | I.DExternal (cc, flags, name, t) ->
       DExternal (cc, flags, 0, 0, name, mk_typ t, [])
   | I.DExternal2 (cc, flags, name, t, arg_names) ->
-      DExternal (cc, flags, 0, 0, name, mk_typ t, arg_names)
+      let t = mk_typ t in
+      let _, args = Helpers.flatten_arrow t in
+      let n_args = List.length args in
+      let n_hints = List.length arg_names in
+      (* Argument names are optional hints. Do not let surplus hints introduce
+       * nonexistent parameters into later passes, such as unit elimination. *)
+      let arg_names =
+        if n_hints > n_args then (
+          Warn.maybe_fatal_error (Idents.string_of_lident name, Error.TypeError
+            (Printf.sprintf "Argument-name hints exceed the external declaration's arity (%d > %d); ignoring excess hints."
+                n_hints n_args));
+          let arg_names, _ = KList.split (min n_args n_hints) arg_names in
+          arg_names
+        ) else arg_names
+      in
+      DExternal (cc, flags, 0, 0, name, t, arg_names)
   | I.DTypeVariant (name, flags, n, branches) ->
       DType (name, flags, 0, n,
         Variant (List.map (fun (ident, fields) -> ident, mk_tfields fields) branches))
@@ -181,10 +196,15 @@ and mk_typ = function
 and mk_expr = function
   | I.EBound i ->
       mk (EBound i)
+  | I.EQualified (["C"], "_zero_for_deref")
+  | I.EQualified (["Pulse"; "Lib"; "Pervasives"], "_zero_for_deref") ->
+      mk (EZeroForDeref K.UInt32)
   | I.EQualified lid ->
       mk (EQualified lid)
   | I.EConstant k ->
       mk (EConstant (mk_constant k))
+  | I.EZeroForDeref w ->
+      mk (EZeroForDeref (tr_width w))
   | I.EUnit ->
       mk (EUnit)
   | I.EString s ->
@@ -206,6 +226,15 @@ and mk_expr = function
 
   | I.EApp (I.ETApp (I.EQualified ([ "FStar"; "Pervasives" ], "false_elim"), [ t ]), [ I.EUnit ]) ->
       mk (EAbort (Some (mk_typ t), Some "provably unreachable code: did an unverified caller violate a precondition?"))
+
+  (* Lower fully applied pointer operators here, before monomorphization changes
+   * their names. The special zero preserves dereference syntax in C. References
+   * used as function values retain their ordinary definitions. *)
+  | I.EApp (I.ETApp (I.EQualified ([ "C"; "Nullity" ], "op_Bang_Star"), [ _ ]), [ p ])
+  | I.EApp (I.ETApp (I.EQualified ([ "LowStar"; "BufferOps" ], "op_Bang_Star"), [ _; _; _ ]), [ p ]) ->
+      mk (EBufRead (mk_expr p, Helpers.zero_for_deref))
+  | I.EApp (I.ETApp (I.EQualified ([ "LowStar"; "BufferOps" ], "op_Star_Equals"), [ _; _; _ ]), [ p; v ]) ->
+      mk (EBufWrite (mk_expr p, Helpers.zero_for_deref, mk_expr v))
 
   | I.EApp (e, es) ->
       mk (EApp (mk_expr e, List.map mk_expr es))

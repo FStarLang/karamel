@@ -343,10 +343,14 @@ and mk_arith env e =
           CStar.Call (Op op, [ mask_if a1 w e1; mask_if a2 w e2 ])
       | BShiftR ->
           CStar.Call (Op op, [ mask_if a1 w e1; e2 ])
-      | Eq | Neq | Lt | Lte | Gt | Gte when a1 && a2 ->
-          (* Both operands are atomic (no arithmetic widening) — compare at
-             native width without redundant upcasts. *)
-          let strip e = match e with CStar.Cast (inner, _) -> inner | _ -> e in
+      | Eq | Neq | Lt | Lte | Gt | Gte when a1 && a2 && (w = K.UInt8 || w = K.UInt16) ->
+          (* Only strip the UInt32 upcasts inserted below for small atomic
+             operands. At wider widths, a cast may be a source-level narrowing
+             conversion that must be preserved. *)
+          let strip e = match e with
+            | CStar.Cast (inner, CStar.Int K.UInt32) -> inner
+            | _ -> e
+          in
           CStar.Call (Op op, [ strip e1; strip e2 ])
       | Eq | Neq | Lt | Lte | Gt | Gte ->
           CStar.Call (Op op, [ mask_if a1 w e1; mask_if a2 w e2 ])
@@ -358,7 +362,7 @@ and mk_arith env e =
          (~(uint8_t)0x0F promotes to int 0xFFFFFFF0), so we must mask. *)
       let e1, _, w1 = mk_arith env e1 in
       mask w (CStar.Call (Op BNot, [ e1 ])), true, w1
-  | EConstant _ ->
+  | EConstant _ | EZeroForDeref _ ->
       (* Constants are emitted with the U suffix which preserves the invariant
          that every subexpression operates over unsigned int until the final
          cast, or until a mask is needed to preserve semantics. *)
@@ -411,6 +415,8 @@ and mk_expr env in_stmt under_initializer_list e =
         CStar.Qualified lident
   | EConstant c ->
       CStar.Constant c
+  | EZeroForDeref w ->
+      CStar.ZeroForDeref w
 
   | EApp ({ node = ETApp (e0, cgs, cgs', ts); _ }, es) when !Options.allow_tapps || whitelisted_tapp e0 ->
       (* Return type is oftentimes very useful when having to build a return value using e.g. a
@@ -550,6 +556,12 @@ and mk_stmts env e ret_type =
         let e' = CStar.While (mk_expr env false false e1, mk_block env Not e2) in
         env, maybe_return (e' :: comment e.meta @ acc)
 
+    | EFor (binder, ({ node = EZeroForDeref w; _ } as init), cond, incr, body) ->
+        (* The initializer is a numeric value. Keep loop unrolling available and
+           substitute ordinary indices when unrolling the body. *)
+        let init = { init with node = EConstant (w, "0") } in
+        collect (env, acc) return_pos { e with node = EFor (binder, init, cond, incr, body) }
+
     | EFor (binder,
       ({ node = EConstant ((K.UInt32 | K.SizeT), init as k_init); _ } as e_init),
       { node = EApp (
@@ -581,6 +593,8 @@ and mk_stmts env e ret_type =
 
         else if n_loops = 1 then
           let body = DeBruijn.subst e_init 0 body in
+          (* Substituting the index can expose new constant expressions (#775). *)
+          let body = Simplify.constant_fold#visit_expr_w () body in
           let body = mk_block env Not body in
           env, (CStar.Block body) :: comment e.meta @ acc
 

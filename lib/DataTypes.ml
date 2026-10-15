@@ -676,15 +676,6 @@ let remove_unit_buffers = object (self)
     | _ ->
       super#visit_EAddrOf env e1
 
-  method! visit_EApp env e1 es =
-    match e1.node, es with
-    | EQualified ([ "LowStar"; "BufferOps" ], s), { typ = TBuf (TUnit, _); _ } :: _ when
-      KString.starts_with s "op_Bang_Star__" ||
-      KString.starts_with s "op_Star_Equals__" ->
-        EUnit
-    | _ ->
-        super#visit_EApp env e1 es
-
 end
 
 let build_unit_field_table erasable_fields = object (self)
@@ -962,7 +953,7 @@ let rec compile_pattern env scrut pat expr =
   | PCons (ident, _) ->
       failwith ("constructor hasn't been desugared: " ^ ident)
   | PDeref pat ->
-      let scrut = with_type (Helpers.assert_tbuf_or_tarray scrut.typ) (EBufRead (scrut, zerou32)) in
+      let scrut = with_type (Helpers.assert_tbuf_or_tarray scrut.typ) (EBufRead (scrut, zero_for_deref)) in
       compile_pattern env scrut pat expr
   | PConstant k ->
       [ mk_eq (TInt (fst k)) scrut (with_type (TInt (fst k)) (EConstant k)) ], expr

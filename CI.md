@@ -1,10 +1,9 @@
 # Extended CI for krml
 
-In addition to the regular krml test files (`test/*.fst`), we now run three
-additional "extended" CIs, two of which track the C output to catch any code
+In addition to the regular krml test files (`test/*.fst`), we now run two
+additional "extended" CIs, both of which track the C output to catch any code
 quality regressions.
 - Pulse-based tests (in `test/pulse`), along with the expected C
-- EverParse
 - Eurydice, which contains the expected C in its own repository
 
 # Coarse instructions for dealing with PRs that have impact on Eurydice

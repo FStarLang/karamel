@@ -523,7 +523,10 @@ and print_expr env ?(lbrace_conflict=Fine) (context: int) (e: expr): document =
       let inclusive = if inclusive then equals else empty in
       e1 ^^ dot ^^ dot ^^ inclusive ^^ e2
   | ConstantString s ->
-      dquotes (string (CStarToC11.escape_string s))
+      (* Rust has no octal escapes, and its `\xNN` escape is exactly two hex
+         digits, so keep the hex form here. *)
+      let non_printable b c = Printf.bprintf b "\\x%02x" (Char.code c) in
+      dquotes (string (CStarToC11.escape_string_with non_printable s))
 
   | Struct (cons, fields) ->
       group @@

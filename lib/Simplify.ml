@@ -136,6 +136,14 @@ let safe_pure_use lvalue e =
   | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
 
 
+(* Do we *want* to inline b? Safety of the inlining must be checked separately. *)
+let should_inline b =
+  !Options.aggressive_inlining ||
+  List.mem AttemptInline b.node.meta ||
+  Helpers.is_uu b.node.name ||
+  b.node.name = "scrut" ||
+  Structs.should_rewrite b.typ = NoCopies
+
 (* This phase tries to substitute away variables that are temporary (named
    uu____ in F*, or "scrut" if inserted by the pattern matches compilation
    phase), or that are of a type that cannot be copied (to hopefully skirt
@@ -152,12 +160,7 @@ let use_mark_to_inline_temporaries = object (self)
     let e1 = self#visit_expr_w () e1 in
     let e2 = self#visit_expr_w () e2 in
     let _, v = !(b.node.mark) in
-    if (!Options.aggressive_inlining ||
-        List.mem AttemptInline b.node.meta ||
-        Helpers.is_uu b.node.name ||
-        b.node.name = "scrut" ||
-        Structs.should_rewrite b.typ = NoCopies
-       ) &&
+    if should_inline b &&
         (v = AtMost 1 && (
           let lvalue = Structs.will_be_lvalue e1 in
           (is_readonly_c_expression e1 &&
@@ -557,6 +560,16 @@ let constant_fold = object (self)
     | _ ->
         EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
 
+  (* Eliminate dead branches. *)
+  method! visit_EIfThenElse env c t e =
+    let c = self#visit_expr env c in
+    let t = self#visit_expr env t in
+    let e = self#visit_expr env e in
+    match c.node with
+    | EBool true -> t.node
+    | EBool false -> e.node
+    | _ -> EIfThenElse (c, t, e)
+
   method! visit_ETernary env c t e =
     let c = self#visit_expr env c in
     let t = self#visit_expr env t in
@@ -671,6 +684,22 @@ let let_to_sequence = object (self)
 
 end
 
+(* Inline [let x = e in x] after late lowering and constant folding, which can
+ * create new expressions of this shape, using the same policy as the regular
+ * inliner.
+ * This does not need use analysis: e is evaluated once, even if effectful.
+ * Keep buffer allocations let-bound, since that is required in later passes. *)
+let simplify_trivial_lets = object
+  inherit [_] map as super
+
+  method! visit_ELet env b e1 e2 =
+    match super#visit_ELet env b e1 e2 with
+    | ELet (b, e1, { node = EBound 0; _ }) when should_inline b && not (is_bufcreate e1) ->
+        e1.node
+    | e ->
+        e
+end
+
 (* This pass rewrites:
  *   let x = if ... then e else e'
  * into:
@@ -772,9 +801,6 @@ let functional_updates = object (self)
 
   val mutable make_mut = []
 
-  (* TODO: there are many combinations of operators or not (both for reading and writing), a single
-     assignment or not... we don't cover everything *)
-
   method private gen_assignments env e_read exprfields =
     ESequence (List.map (fun (the_field, the_expr) ->
       let the_field = Option.get the_field in
@@ -783,47 +809,6 @@ let functional_updates = object (self)
       with_unit (EAssign (with_type the_expr.typ (EField (e_read, the_field)), the_expr))
     ) exprfields)
 
-  method! visit_EApp env e es =
-    (* Without temporary, any position, support for multiple fields updated
-
-       e1 *= { fi = ei } with ei = e if i = k, e1[0].fi otherwise
-       -->
-       e1 *= e
-
-       e1 *= { fi = ei } with ei = e if i = k, !*e1.fi otherwise
-       -->
-       e1 *= e
-
-     *)
-    match e.node, es with
-    | EQualified (["LowStar"; "BufferOps"], op), [ e1; { node = EFlat fields; _ }] when KString.starts_with op "op_Star_Equal" ->
-        let updated_fields, untouched_fields = List.partition (function
-            | Some f, { node = EField ({ node = EBufRead (e1', e2); _ }, f'); _ } when
-              f = f' && e1 = e1' && Helpers.is_zero e2 ->
-                false
-            | Some f, { node = EField ({
-                node = EApp ({
-                  node = EQualified (["LowStar"; "BufferOps"], op); _
-                },
-                [ e1' ]); _
-              }, f'); _ } when
-              (* we match: !*e_deref.f' and request e_read = BufRead (e_deref, 0) *)
-              f = f' && e1 = e1' && KString.starts_with op "op_Bang_Star" ->
-                false
-            | _ ->
-                true
-          ) fields
-        in
-        if List.length untouched_fields > 0 then
-          (* TODO: catch the monomorphized name of the *= operator above and use that for prettier
-             code-gen *)
-          let e_read = with_type (assert_tbuf e1.typ) (EBufRead (e1, Helpers.zerou32)) in
-          self#gen_assignments env e_read updated_fields
-        else
-          super#visit_EApp env e es
-    | _ ->
-        super#visit_EApp env e es
-
   method! visit_EBufWrite env e1 e2 e3 =
     (* Without temporary, any position, support for multiple fields updated
 
@@ -831,25 +816,14 @@ let functional_updates = object (self)
        -->
        e1[e2].fk <- e
 
-       e1[0] <- { fi = ei } with ei = e if i = k, !*e1.fi otherwise
-       -->
-       e1[0].fk <- e
-
      *)
     let e_read = EBufRead (e1, e2) in
     match e3.node with
     | EFlat fields ->
         let updated_fields, untouched_fields = List.partition (function
-            | Some f, { node = EField (e_read', f'); _ } when f = f' && e_read = e_read'.node ->
-                false
-            | Some f, { node = EField ({
-                node = EApp ({
-                  node = EQualified (["LowStar"; "BufferOps"], op); _
-                },
-                [ e_deref ]); _
-              }, f'); _ } when
-              (* we match: !*e_deref.f' and request e_read = BufRead (e_deref, 0) *)
-              f = f' && e1 = e_deref && Helpers.is_zero e2 && KString.starts_with op "op_Bang_Star" ->
+            | Some f, { node = EField ({ node = EBufRead (e1', e2'); _ }, f'); _ } when
+              f = f' && e1 = e1' &&
+              (e2 = e2' || (Helpers.is_zero e2 && Helpers.is_zero e2')) ->
                 false
             | _ ->
                 true
@@ -882,7 +856,6 @@ let functional_updates = object (self)
         ELet (b, e1, self#visit_expr env e2)
     in
 
-    (* TODO: operators *)
     match e1.node, e2.node with
     | EBufRead ({ node = EBound i; _ }, j),
       EBufWrite ({ node = EBound iplusone; _ }, j', { node = EFlat fields; _ })
@@ -1138,11 +1111,16 @@ let misc_cosmetic = object (self)
     let e = self#visit_expr_w () e in
     let compatible t2 =
       match t, t2 with
-      | TBuf _, TBuf _ -> t = t2
+      | TBuf (dst, dst_const), TBuf (src, src_const) ->
+          assert (not src_const || dst_const);
+          dst = src
       | _ -> true
     in
     match e.node with
-    | EBufRead (e, { node = EConstant (_, "0"); _ }) when compatible e.typ ->
+    (* Note, we explicitly keep &x[0U] as such when the 0U
+       is an array access instead of a EZeroForDeref. That way it
+       is clear that we are taking a cell pointer out of an array. *)
+    | EBufRead (e, { node = EZeroForDeref _; _ }) when compatible e.typ ->
         e.node
     | _ ->
         EAddrOf e
@@ -1150,8 +1128,8 @@ let misc_cosmetic = object (self)
   method! visit_EBufRead env e1 e2 =
     let e1 = self#visit_expr env e1 in
     let e2 = self#visit_expr env e2 in
-    match e1.node, e2.node with
-    | EAddrOf e, EConstant (_, "0") ->
+    match e1.node with
+    | EAddrOf e when Helpers.is_zero e2 ->
         e.node
     | _ ->
         EBufRead (e1, e2)
@@ -1160,8 +1138,8 @@ let misc_cosmetic = object (self)
     let e1 = self#visit_expr env e1 in
     let e2 = self#visit_expr env e2 in
     let e3 = self#visit_expr env e3 in
-    match e1.node, e2.node with
-    | EAddrOf e, EConstant (_, "0") ->
+    match e1.node with
+    | EAddrOf e when Helpers.is_zero e2 ->
         EAssign (e, e3)
     | _ ->
         EBufWrite (e1, e2, e3)
@@ -1390,6 +1368,7 @@ and hoist_expr tbl loc pos e =
   | EOpen _
   | EQualified _
   | EConstant _
+  | EZeroForDeref _
   | EUnit
   | EPushFrame | EPopFrame
   | EBool _
@@ -2381,6 +2360,7 @@ let simplify2 ifdefs (files: file list): file list =
   let files = functional_updates#visit_files true files in
   let files = let_to_sequence#visit_files () files in
   let files = constant_fold#visit_files () files in
+  let files = simplify_trivial_lets#visit_files () files in
   files
 
 let debug env =

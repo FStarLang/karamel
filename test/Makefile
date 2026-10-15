@@ -50,7 +50,7 @@ ifneq ($(CRYPTO),)
 endif
 
 FILES		= \
-  $(patsubst %.fst,%.test,$(filter-out Unused_A.fst StaticHeaderAPI.fst \
+  $(patsubst %.fst,%.test,$(filter-out ArrayReborrowData.fst Steel.SpinLock.fst Unused_A.fst StaticHeaderAPI.fst \
     StaticHeaderLib.fst NameCollisionHelper.fst ML16Externals.fst MemCpyModel.fst \
     Lowlevel.fst PrivateInclude1.fst EnumAliasHelper.fst $(BROKEN),$(wildcard *.fst))) \
   $(CRYPTO_FILES) \
@@ -70,7 +70,7 @@ endif
 WASM_FILES	= \
   WasmTrap.wasm-test Wasm1.wasm-test Wasm2.wasm-test Wasm3.wasm-test \
   Wasm4.wasm-test Wasm5.wasm-test Wasm6.wasm-test Wasm7.wasm-test \
-  Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test \
+  Wasm8.wasm-test Wasm9.wasm-test Wasm10.wasm-test WasmUnusedLoad.wasm-test \
   $(CRYPTO_WASM_FILES)
 NEGATIVE	= false
 
@@ -155,15 +155,48 @@ $(OUTPUT_DIR)/AggressiveInline.exe: EXTRA := $(EXTRA) -faggressive-inlining
 $(OUTPUT_DIR)/Malloca.exe: EXTRA := $(EXTRA) -warn-error -6 # Uses VLAs
 
 .PRECIOUS: $(OUTPUT_DIR)/%.exe
-$(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_EXE)
+$(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_EXE) krmlheader
 	$(call run-with-log, \
-	  $(KRML) $(EXTRA) -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
+	  $(KRML) $(EXTRA) -header krmlheader -tmpdir $(subst .exe,.out,$@) -no-prefix $(notdir $*) \
 	    -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack$(comma)\* \
 	,[KRML] $*,$(OUTPUT_DIR)/$*)
 
+$(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c: EXTRA := -fnostruct-passing
+
+$(OUTPUT_DIR)/NoCopiesConst.out/NoCopiesConst.c $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c: \
+  $(OUTPUT_DIR)/NoCopiesConst.krml $(OUTPUT_DIR)/Steel_SpinLock.krml $(KRML_EXE)
+	$(call run-with-log, \
+	  $(KRML) $(EXTRA) -skip-compilation -header krmlheader \
+	    -tmpdir $(dir $@) $(filter %.krml,$^) \
+	,[KRML] $(notdir $(@D)),$(patsubst %.out,%,$(@D)))
+
+NoCopiesConst.test: NoCopiesConst.byref.test
+
+$(OUTPUT_DIR)/ArrayReborrow.out/ArrayReborrow.c: $(OUTPUT_DIR)/ArrayReborrow.krml $(OUTPUT_DIR)/ArrayReborrowData.krml $(KRML_EXE)
+	$(call run-with-log, \
+	  $(KRML) -fnostruct-passing -library ArrayReborrowData -skip-compilation \
+	    -header krmlheader -bundle ArrayReborrow=* -tmpdir $(dir $@) $(filter %.krml,$^) \
+	,[KRML] ArrayReborrow,$(OUTPUT_DIR)/ArrayReborrow)
+
+TEST_NAME = $(notdir $(subst .,_,$*))
+TEST_C = $(OUTPUT_DIR)/$(TEST_NAME).out/$(TEST_NAME).c
+TEST_OUTPUT = $(OUTPUT_DIR)/$(TEST_NAME).exe
+
+# These tests only generate C; the by-reference variant keeps its module name.
+ArrayReborrow.test NoCopiesConst.test NoCopiesConst.byref.test: TEST_OUTPUT = $(TEST_C)
+NoCopiesConst.byref.test: TEST_C = $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c
+
+# Include snapshots with custom generation rules and no corresponding .fst file.
+all: $(patsubst %.expected.c,%.test,$(wildcard *.expected.c))
+
 .SECONDEXPANSION:
+# Compare every snapshot, then run the executable if the test builds one.
+%.test: $$(TEST_OUTPUT) %.expected.c
+	bash pulse/diff.sh $(TEST_C) $*.expected.c
+	$(filter %.exe,$(TEST_OUTPUT))
+
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe
-	@(if $(NEGATIVE); then ! $^; else $^; fi) && echo -e "\033[01;32m✔\033[00m [TEST,$*]" || (echo -e "\033[01;31m✘\033[00m [TEST,$*]" && false)
+	@(if $(NEGATIVE); then ! $<; else $<; fi) && echo -e "\033[01;32m✔\033[00m [TEST,$*]" || (echo -e "\033[01;31m✘\033[00m [TEST,$*]" && false)
 
 ifeq ($(OS),Windows_NT)
   HELLOSYSTEM_LDOPTS = -ldopts -lws2_32
@@ -176,6 +209,7 @@ $(OUTPUT_DIR)/ML16.exe: EXTRA = ml16-native.c
 $(OUTPUT_DIR)/Scope.exe: EXTRA = -ccopt -O3
 $(OUTPUT_DIR)/HigherOrder.exe: EXTRA = -warn-error +9
 $(OUTPUT_DIR)/C89.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic,-Wno-c99-extensions -fc89
+$(OUTPUT_DIR)/C89RecordInlining.exe: EXTRA = -ccopts -Wno-long-long,-Wno-format,-pedantic,-Wno-c99-extensions -fc89 -faggressive-inlining
 $(OUTPUT_DIR)/Debug.exe: EXTRA = -d c-calls
 $(OUTPUT_DIR)/Server.exe: EXTRA = main-Server.c helpers-Server.c
 $(OUTPUT_DIR)/StringLit.exe: EXTRA = -add-include '"krml/internal/compat.h"'
@@ -205,6 +239,7 @@ $(OUTPUT_DIR)/Ctypes2.exe: EXTRA = -ctypes 'Ctypes2,Ctypes4' \
   -no-prefix 'Ctypes4' -skip-compilation
 $(OUTPUT_DIR)/Failwith.exe: EXTRA = -ccopts -Wno-deprecated-declarations,-Wno-infinite-recursion
 $(OUTPUT_DIR)/VariableMerge.exe: EXTRA = -fmerge aggressive
+$(OUTPUT_DIR)/VariableMergeAlias.exe: EXTRA = -fmerge aggressive
 $(OUTPUT_DIR)/SimplifyMergeETApp.exe: EXTRA = -fmerge aggressive
 $(OUTPUT_DIR)/NameCollision.exe: EXTRA = -no-prefix NameCollisionHelper
 $(OUTPUT_DIR)/Intro.exe $(OUTPUT_DIR)/MemCpy.exe: EXTRA = -rst-snippets
@@ -274,10 +309,11 @@ check-malloca: $(OUTPUT_DIR)/Malloca.exe
 	N=$$(grep 'f()' $(OUTPUT_DIR)/Malloca.out/Malloca.c | wc -l) && \
 	  if [[ $$N -ne 1 ]]; then echo "Malloca.c seems to have several calls to f" >&2; false; fi
 
-check-folding: $(OUTPUT_DIR)/BadFolding.exe
+check-folding: $(OUTPUT_DIR)/BadFolding.exe $(OUTPUT_DIR)/Loops.exe
 	# Check that all 5 calls (+ definition) remain
 	N=$$(grep 'side_effect_fn' $(OUTPUT_DIR)/BadFolding.out/BadFolding.c | wc -l) && \
 	  if [[ $$N -ne 6 ]]; then echo "BadFolding.c c seems to have dropped some effectful calls" >&2; false; fi
+	grep -Fq 'b[3U] = 42U;' $(OUTPUT_DIR)/Loops.out/Loops.c
 
 check-comment: $(OUTPUT_DIR)/Comment.exe
 	grep -q XXX1 $(OUTPUT_DIR)/Comment.out/Comment.c && \

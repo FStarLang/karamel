@@ -3,11 +3,14 @@ on:
   push:
     branches-ignore:
     - _**
+    - 'gh-readonly-queue/**'
   pull_request:
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
     inputs:
       nocache:
-        description: Do not use stored OPAM cache
+        description: Do not reuse previous F*1 builds
         type: boolean
         default: false
   schedule:
@@ -35,7 +38,7 @@ jobs:
       # update itself. This means we don't build F* again if it doesn't change.
       # The nightly build will start from scratch.
       - name: Try restore OPAM state
-        if: ${{ inputs.nocache != 'true' && github.event_name != 'schedule' }}
+        if: ${{ !inputs.nocache && github.event_name != 'schedule' }}
         uses: actions/cache/restore@v4
         with:
           path: _opam
@@ -50,18 +53,6 @@ jobs:
 
       # Install karamel deps
       - run: opam install --deps-only karamel/karamel.opam
-
-      - name: Build EverParse opam dependencies
-        run: |
-          opam install re
-          # FIXME: we should rather do the following:
-          # opam install --deps-only ./everparse/opt/everparse-deps.opam
-          # But the maximum available version of sexplib with ocaml 4.x
-          # is 0.16, which requires sexplib0 0.16,
-          # whereas F* installs sexplib0 0.17
-          # Fortunately, sexplib is required only by 3d,
-          # and so far no Karamel regression test suite for EverParse
-          # requires 3d
 
       # Paranoid delete before saving. Note: run_id is constant across reruns.
       - name: Delete OPAM state if it already existed
@@ -134,95 +125,6 @@ jobs:
           path: karamel/book/_build
           name: book
 
-  # EverParse (CBOR, COSE) regressions
-  test-everparse:
-    needs: build-deps
-    runs-on: ubuntu-latest
-    steps:
-
-      - name: Setup ocaml
-        uses: ocaml/setup-ocaml@v3
-        with:
-           ocaml-compiler: 5.3.0
-
-      - uses: actions/checkout@master
-        with:
-          path: karamel
-
-      - name: Restore OPAM state
-        uses: actions/cache/restore@v4
-        with:
-          fail-on-cache-miss: true # should never happen, cache was filled by build-deps
-          path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }}
-
-      - name: Restore EverParse cache if it exists
-        uses: actions/cache/restore@v4
-        with:
-          path: everparse
-          key: everparse-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
-          restore-keys: |
-            everparse-${{ runner.os }}-${{ runner.arch }}-
-
-      # NOTE: we use `git checkout` instead of actions/checkout,
-      # because of `git pull` below
-      - name: Clone EverParse if it does not exist
-        run: |
-          if ! [[ -d everparse ]] ; then git clone \
-            https://github.com/project-everest/everparse ; fi
-
-      # Need to build Karamel only at the last minute, since `opam
-      # install` might recompile F*
-      - name: Build Karamel
-        working-directory: karamel
-        run: |
-          eval $(opam env)
-          . $HOME/.cargo/env
-          export OCAMLRUNPARAM=b
-          OTHERFLAGS='--admit_smt_queries true' make -kj$(nproc)
-
-      # KRML_EXE must be set for EverParse, but not when building krmllib
-      # as part of Karamel, so we set it only here
-      - name: Setup environment
-        run: |
-          echo "KRML_EXE=$(pwd)/karamel/out/bin/krml" >> $GITHUB_ENV
-          echo "EVERPARSE_USE_KRML_EXE=1" >> $GITHUB_ENV
-          echo "ADMIT=1" >> $GITHUB_ENV
-
-      - name: Generate CBOR and COSE .krml files
-        working-directory: everparse
-        run: |
-          rm -rf opt/karamel && touch opt/karamel &&
-          git pull && make cbor-extract-krml cose-extract-krml -kj$(nproc)
-
-      # Paranoid delete before saving. Note: run_id is constant across reruns.
-      - name: Delete EverParse cache if it already existed
-        run: |
-          gh cache delete everparse-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }} || true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          BRANCH: ${{ github.ref }}
-
-      - name: Save EverParse cache
-        uses: actions/cache/save@v4
-        with:
-          path: everparse
-          key: everparse-${{ runner.os }}-${{ runner.arch }}-${{ github.run_id }}
-
-      - name: Generate CBOR snapshot with Karamel
-        run: |
-          make -C everparse cbor-snapshot -Otarget -kj$(nproc)
-      - name: Test CBOR snapshot
-        run: |
-          make -C everparse cbor-test-unverified -Otarget -kj$(nproc)
-      - name: Generate COSE snapshot with Karamel
-        run: |
-          make -C everparse cose-snapshot -Otarget -kj$(nproc)
-      - name: Test COSE snapshot
-        run: |
-          make -C everparse cose-extracted-test -Otarget -kj$(nproc)
-
   # This is checked in parallel with no F* around. It checks that the
   # krllib snapshot builds, on several systems.
   build-krmllib:
@@ -250,36 +152,39 @@ jobs:
   build-and-test-pulse:
     runs-on: ubuntu-latest
     needs: build-deps
+    env:
+      # Last master commit before FStarLang/FStar#4653 removed legacy extraction.
+      FSTAR_REV: 334c989ed27b617e694e1d7db35c242735ecceac
     steps:
       - name: Setup ocaml
         uses: ocaml/setup-ocaml@v3
         with:
            ocaml-compiler: 5.3.0
 
-      # Note, this cache is separate from the -fstar1 one.
+      # Keep this cache separate from fstar1 and other F* revisions.
       - name: Restore OPAM state
         uses: actions/cache/restore@v4
         with:
           path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-master-${{ github.run_id }}
+          key: opam-${{ runner.os }}-${{ runner.arch }}-pulse-${{ env.FSTAR_REV }}-${{ github.run_id }}
           restore-keys: |
-            opam-${{ runner.os }}-${{ runner.arch }}-master-
+            opam-${{ runner.os }}-${{ runner.arch }}-pulse-${{ env.FSTAR_REV }}-
 
-      # Build F*, master branch
+      # Retain --codegen krml until the Pulse tests are migrated to Custard.
       - run: opam update
-      - run: opam pin -n fstar git+https://github.com/FStarLang/FStar#master
+      - run: opam pin -n fstar "git+https://github.com/FStarLang/FStar#${FSTAR_REV}"
       - run: opam install fstar
 
-      # Save OPAM state, note master- in key.
+      # Save OPAM state for the pinned F* revision.
       - name: Save OPAM state
         uses: actions/cache/save@v4
         with:
           path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-master-${{ github.run_id }}
+          key: opam-${{ runner.os }}-${{ runner.arch }}-pulse-${{ env.FSTAR_REV }}-${{ github.run_id }}
 
       - name: Install Z3 with script
         run: |
-          wget https://raw.githubusercontent.com/FStarLang/FStar/refs/heads/master/.scripts/get_fstar_z3.sh -O get_fstar_z3.sh
+          wget "https://raw.githubusercontent.com/FStarLang/FStar/${FSTAR_REV}/.scripts/get_fstar_z3.sh" -O get_fstar_z3.sh
           chmod +x get_fstar_z3.sh
           ./get_fstar_z3.sh /usr/local/bin
        # If these fail, stop right now.
@@ -301,11 +206,43 @@ jobs:
           export OCAMLRUNPARAM=b
           make -kj$(nproc) test-pulse
 
+  build-nix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Install Nix
+        uses: DeterminateSystems/nix-installer-action@main
+
+      # magic-nix-cache saves our CI builds in GitHub Actions, while Cachix
+      # downloads dependencies already built in the shared hacl cache.
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+        with:
+          use-gha-cache: enabled
+          use-flakehub: disabled
+
+      - name: Setup Cachix
+        uses: cachix/cachix-action@v15
+        with:
+          name: hacl
+
+      - name: Build KaRaMeL and krmllib with F*
+        run: nix build -L --no-link --no-write-lock-file .
+
   test-eurydice:
     runs-on: ubuntu-latest
     steps:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
+
+      # magic-nix-cache saves our CI builds in GitHub Actions, while Cachix
+      # downloads dependencies already built in the shared hacl cache.
+      - name: Setup Magic Nix Cache
+        uses: DeterminateSystems/magic-nix-cache-action@main
+        with:
+          use-gha-cache: enabled
+          use-flakehub: disabled
 
       - name: Setup Cachix
         uses: cachix/cachix-action@v15
@@ -323,9 +260,11 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ cancelled() || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'failure') }}
     needs:
+      - build-deps
       - build-and-test
       - build-and-test-pulse
       - build-krmllib
+      - build-nix
       - test-eurydice
     steps:
       # Note: this only runs when a dependency fails. If they all succeed,

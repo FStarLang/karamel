@@ -27,9 +27,9 @@ void CompoundAssignment_test3(uint32_t *x)
 
 void CompoundAssignment_test_bitwise(uint32_t *x)
 {
-  *x &= 0x0FU;
-  *x |= 0xF0U;
-  *x ^= 0xAAU;
+  *x &= 0xfU;
+  *x |= 0xf0U;
+  *x ^= 0xaaU;
   *x <<= 2U;
   *x >>= 1U;
 }

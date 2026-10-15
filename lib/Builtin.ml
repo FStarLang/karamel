@@ -324,11 +324,6 @@ let lib_memzero0: file =
     mk_val ~nvars:1 [ "Lib"; "Memzero0" ] "memzero" (TArrow (TBuf (TBound 0, false), TArrow (TInt UInt32, TUnit)))
   ]
 
-let c_deref: file =
-  "C", [
-    mk_val ["C"] "_zero_for_deref" (TInt UInt32)
-  ]
-
 (* These modules are entirely written by hand in abstract syntax. *)
 let hand_written = [
   buffer;
@@ -461,11 +456,6 @@ let prepare files =
       with Not_found ->
         f
   ) files @
-  (* This is unfortunately needed because of PR #278, and especially the corresponding
-     F* PR: References to module C can now occur even when the module is not in the scope.
-     If so, we add the definition that is needed as a builtin, since it will be rewritten
-     during C code generation *)
-  (if List.mem_assoc "C" files || List.mem_assoc "Pulse_Lib_Pervasives" files then [] else [c_deref]) @
   (if List.mem_assoc "LowStar_Ignore" files then [] else [lowstar_ignore]) @
   []
 

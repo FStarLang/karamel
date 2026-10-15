@@ -87,8 +87,8 @@ let mk_assign (lhs : C11.expr) (rhs : C11.expr) : C11.expr =
 
 let is_var = function Var _ -> true | _ -> false
 let is_call = function
-  | Call (Qualified (_, s), _) ->
-      not (KString.starts_with s "op_Bang_Star__")
+  | Call (Qualified _, _) ->
+      true
   | _ -> false
 
 let fresh =
@@ -97,7 +97,9 @@ let fresh =
     incr r;
     "_" ^ string_of_int !r
 
-let escape_string s =
+(* Escapes [s] for use between double quotes; [non_printable] is called for
+   every byte that has neither a mnemonic escape nor a printable ASCII form. *)
+let escape_string_with non_printable s =
   let b = Buffer.create 256 in
   String.iter (fun c ->
     match c with
@@ -113,9 +115,17 @@ let escape_string s =
     | '\x09' -> Buffer.add_string b "\\t"
     | '\x0b' -> Buffer.add_string b "\\v"
     | '\x20'..'\x7e' -> Buffer.add_char b c
-    | _ -> Printf.bprintf b "\\x%02x" (Char.code c)
+    | _ -> non_printable b c
   ) s;
   Buffer.contents b
+
+(* C string literal. A hex escape is greedy in C (C11 6.4.4.4: `\x` followed by
+   one or more hex digits), so `\x01` immediately followed by `a` is re-lexed as
+   the single byte 0x1a, and a longer run of hex digits is a compile error. An
+   octal escape takes at most three digits, so a zero-padded three-digit octal
+   escape is unambiguous whatever character follows it. *)
+let escape_string s =
+  escape_string_with (fun b c -> Printf.bprintf b "\\%03o" (Char.code c)) s
 
 let to_c_name = GlobalNames.to_c_name
 
@@ -138,6 +148,7 @@ let rec vars_of m = function
   | Macro v ->
       S.singleton (to_c_name m (v, Other))
   | Constant _
+  | ZeroForDeref _
   | Bool _
   | StringLiteral _
   | Any
@@ -253,6 +264,9 @@ let mk_debug name parameters =
   if Options.debug "c-calls" then
     let formats, args = List.split (List.map (fun (name, typ) ->
       match typ with
+      | Int (K.Float32 | K.Float64) ->
+          (* %a preserves the exact value; float arguments are promoted to double. *)
+          Printf.sprintf "%s=%%a" name, C.Name name
       | Int w ->
           Printf.sprintf "%s=0x%%08\"%s\"" name (c99_format w), C.Name name
       | Bool ->
@@ -751,7 +765,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
            affecting the meaning. *)
         let rec is_pure e =
           match e with
-          | Constant _ | Var _ | Macro _ | Qualified _
+          | Constant _ | ZeroForDeref _ | Var _ | Macro _ | Qualified _
           | BufRead _ | BufSub _ | BufNull
           | Op _ | Bool _  | Type _ | StringLiteral _
           | Any | Sizeof _ ->
@@ -1049,8 +1063,7 @@ and mk_stmts m stmts: C.stmt list =
 
 and mk_index m (e1: expr) (e2: expr): C.expr =
   match e2 with
-  | Qualified (["Pulse"; "Lib"; "Pervasives"], "_zero_for_deref")
-  | Qualified (["C"], "_zero_for_deref") ->
+  | ZeroForDeref _ ->
       mk_deref m e1
   | _ ->
     begin match mk_expr m e2 with
@@ -1093,15 +1106,6 @@ and mk_expr m (e: expr): C.expr =
   | Call (Qualified ([ "LowStar"; "Ignore" ], "ignore"), _) ->
       (* Only one argument because of unit-to-void elimination -- should not happen. *)
       failwith "`ignore ()` should have been removed earlier on"
-
-  | Call (Qualified ([ "C"; "Nullity" ], s), [ e1 ]) when KString.starts_with s "op_Bang_Star__" ->
-      mk_deref m e1
-
-  | Call (Qualified ([ "LowStar"; "BufferOps" ], s), e1 :: _) when KString.starts_with s "op_Bang_Star__" ->
-      mk_deref m e1
-
-  | Call (Qualified ([ "LowStar"; "BufferOps" ], s), e1 :: e2 :: _ ) when KString.starts_with s "op_Star_Equals__" ->
-      Op2 (K.Assign, mk_deref m e1, mk_expr m e2)
 
   | Call (Qualified ([ "C"; "String"], "of_literal"), [ StringLiteral _ as s ]) ->
       mk_expr m s
@@ -1179,6 +1183,9 @@ and mk_expr m (e: expr): C.expr =
   | Macro ident ->
       Name (to_c_name m (ident, Macro))
 
+  | ZeroForDeref w ->
+      mk_expr m (Constant (w, "0"))
+
   | Constant (w, c) ->
       (* See discussion in AstToCStar.ml, around mk_arith. *)
       if not (Constant.is_float w) && K.is_unsigned w && w <> SizeT then
@@ -1196,7 +1203,7 @@ and mk_expr m (e: expr): C.expr =
   | BufCreate _ | BufCreateL _ ->
       failwith "[mk_expr m]: Buffer.create and Buffer.createl may only appear as let ... = Buffer.create"
 
-  | BufSub (e1, Constant (_, "0")) ->
+  | BufSub (e1, (Constant (_, "0") | ZeroForDeref _)) ->
       mk_expr m e1
 
   | BufSub (e1, e2) ->
@@ -1226,11 +1233,13 @@ and mk_expr m (e: expr): C.expr =
       let typ = Option.get typ in
       mk_compound_literal m typ fields
 
-  | Field (BufRead (e, Constant (_, "0")), field) ->
-      MemberAccessPointer (mk_expr m e, field)
-
   | Field (e, field) ->
-      MemberAccess (mk_expr m e, field)
+      begin match mk_expr m e with
+      | Deref e ->
+          MemberAccessPointer (e, field)
+      | e ->
+          MemberAccess (e, field)
+      end
 
   | StringLiteral s ->
       Literal (escape_string s)

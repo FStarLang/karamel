@@ -236,7 +236,7 @@ let pass_by_ref (externals: Idents.LidSet.t) (should_rewrite: _ -> policy) = obj
     (* Step 2: rewrite the types of the arguments to take pointers to structs *)
     let binders = List.map2 (fun binder is_struct ->
       if is_struct then
-        { binder with typ = TBuf (binder.typ, true) }
+        { binder with typ = TBuf (binder.typ, should_rewrite binder.typ = Always) }
       else
         binder
     ) binders args_are_structs in
@@ -283,7 +283,7 @@ let pass_by_ref (externals: Idents.LidSet.t) (should_rewrite: _ -> policy) = obj
                   if ret_is_array then
                     with_type TUnit (EAssign (Option.get ret_atom, e))
                   else
-                    with_type TUnit (EBufWrite (Option.get ret_atom, Helpers.zerou32, e))
+                    with_type TUnit (EBufWrite (Option.get ret_atom, Helpers.zero_for_deref, e))
             in
             (* Step 4.1: early-returns `return e` become `dst := e; return` *)
             let body = (object
@@ -321,7 +321,7 @@ let pass_by_ref (externals: Idents.LidSet.t) (should_rewrite: _ -> policy) = obj
     (* [x] was a struct parameter that is now passed by reference; replace it
      * with [*x] *)
     if List.exists (Atom.equal atom) to_be_starred then
-      EBufRead (with_type (TBuf (t, true)) (EOpen (name, atom)), Helpers.zerou32)
+      EBufRead (with_type (TBuf (t, should_rewrite t = Always)) (EOpen (name, atom)), Helpers.zero_for_deref)
     else
       EOpen (name, atom)
 
@@ -605,6 +605,7 @@ let to_addr is_struct =
     | EBreak
     | EContinue
     | EConstant _
+    | EZeroForDeref _
     | EPushFrame
     | EPopFrame
     | EStandaloneComment _
@@ -818,6 +819,9 @@ class remove_literals tbl = object (self)
   method! visit_ELet ((_, t) as env) b e1 e2 =
     match e1.node with
     | EFlat fields ->
+        (* These bindings now own storage initialized through field writes.
+           Keep the inliner from substituting their uninitialized value. *)
+        let b = Helpers.mark_mut b in
         let fields = List.map (fun (f, e) -> f, DeBruijn.lift 1 e) fields in
         let x = with_type b.typ (EBound 0) in
         ELet (b, Helpers.any, with_type t (ESequence (
@@ -827,7 +831,7 @@ class remove_literals tbl = object (self)
         super#visit_ELet env b e1 e2
 
   method! visit_EFlat (_, t) fields =
-    let b, x = Helpers.mk_binding "lit" t in
+    let b, x = Helpers.mk_binding ~mut:true "lit" t in
     ELet (b, Helpers.any, DeBruijn.close_binder b (with_type t (ESequence (
       List.rev (x :: self#explode [] [] (with_type t (EFlat fields)) x)))))
 

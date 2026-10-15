@@ -83,13 +83,17 @@ let etrue = with_type TBool (EBool true)
 
 let with_unit x = with_type TUnit x
 
-let zero w = with_type (TInt w) (EConstant (w, "0"))
+let zero ?(for_deref=false) w =
+  with_type (TInt w) (if for_deref then EZeroForDeref w else EConstant (w, "0"))
 let zerou8 = zero K.UInt8
 let zerou32 = zero K.UInt32
+let zero_for_deref = zero ~for_deref:true K.UInt32
 let one w = with_type (TInt w) (EConstant (w, "1"))
 let oneu32 = one K.UInt32
 
-let zero_usize = zero K.SizeT
+(* Eurydice uses this for pointer dereferences as well as SizeT values.
+   Preserve dereference intent without changing its width. *)
+let zero_usize = zero ~for_deref:true K.SizeT
 
 let pwild = with_type TAny PWild
 
@@ -166,7 +170,7 @@ let mk_gt_zero e =
 
 (* *e *)
 let mk_deref t ?(const=false) e =
-  with_type t (EBufRead (with_type (TBuf (t, const)) e, zerou32))
+  with_type t (EBufRead (with_type (TBuf (t, const)) e, zero_for_deref))
 
 (* Binder nodes ***************************************************************)
 
@@ -239,7 +243,7 @@ let is_bufcreate x =
 let is_uu name = KString.starts_with name "uu__"
 
 let is_zero = function
-  | { node = EConstant (_, "0"); _ } -> true
+  | { node = EConstant (_, "0") | EZeroForDeref _; _ } -> true
   | _ -> false
 
 (* Is this condition of an if-then-else going to give rise to an ifdef? Yes, no,
@@ -314,8 +318,6 @@ let strengthen_array t e2 =
 
 let pure_builtin_lids = [
   [ "C"; "String" ], "get";
-  [ "C"; "Nullity" ], "op_Bang_Star";
-  [ "LowStar"; "BufferOps" ], "op_Bang_Star";
   [ "Prims" ], "op_Minus";
   [ "Lib"; "IntVector"; "Intrinsics" ], "vec128_smul64";
   [ "Lib"; "IntVector"; "Intrinsics" ], "vec256_smul64";
@@ -323,6 +325,8 @@ let pure_builtin_lids = [
   [ "FStar"; "UInt128" ], "";
 ]
 
+(* This is a reference so it can be overriden by Eurydice, and potentially
+other clients using Karamel as an OCaml library. *)
 let is_readonly_builtin_lid_ = ref (fun lid _t ->
   List.exists (fun lid' ->
     let lid = Idents.string_of_lident lid in
@@ -375,8 +379,9 @@ class ['self] readonly_visitor = object (self: 'self)
 
   method! visit_EApp _ e es =
     match e.node with
-    | EPolyComp _
-    | EOp _ ->
+    | EOp (op, _) when K.is_pure_op op ->
+        List.for_all (self#visit_expr_w ()) es
+    | EPolyComp _ ->
         List.for_all (self#visit_expr_w ()) es
     | EQualified _
     when is_readonly_builtin_lid e ->
@@ -416,7 +421,7 @@ let is_value = (new value_visitor)#visit_expr_w ()
 let rec is_int_constant e =
   let open Constant in
   match e.node with
-  | EConstant _ | EEnum _ | EBool _ | EUnit | EString _ | EAny ->
+  | EConstant _ | EZeroForDeref _ | EEnum _ | EBool _ | EUnit | EString _ | EAny ->
       true
   | ECast (e, _) ->
       is_int_constant e
@@ -699,16 +704,7 @@ let builtin_names =
 
 (* Builtin names, meaning we don't generate declarations for them *)
 let is_primitive s =
-  Hashtbl.mem builtin_names s ||
-  match s with
-  | ["C"; "Nullity"], s when KString.starts_with s "op_Bang_Star__" ->
-      true
-  | ["LowStar"; "BufferOps"], s when KString.starts_with s "op_Bang_Star__" ->
-      true
-  | ["LowStar"; "BufferOps"], s when KString.starts_with s "op_Star_Equals__" ->
-      true
-  | _ ->
-      false
+  Hashtbl.mem builtin_names s
 
 (* Somewhat more advanced helpers *********************************************)
 

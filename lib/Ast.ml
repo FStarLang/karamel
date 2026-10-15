@@ -217,6 +217,9 @@ type expr' =
   | EOp of op * typ_wo
   | EQualified of lident
   | EConstant of constant
+  | EZeroForDeref of width
+    (** A special node for zero with an explicit width. Requests dereference syntax when used as
+        a buffer index. Otherwise, it is equivalent to EConstant (w, "0"). *)
   | EUnit
   | EBool of bool
   | EString of string
