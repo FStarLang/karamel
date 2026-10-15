@@ -262,6 +262,9 @@ let mk_debug name parameters =
   if Options.debug "c-calls" then
     let formats, args = List.split (List.map (fun (name, typ) ->
       match typ with
+      | Int (K.Float32 | K.Float64) ->
+          (* %a preserves the exact value; float arguments are promoted to double. *)
+          Printf.sprintf "%s=%%a" name, C.Name name
       | Int w ->
           Printf.sprintf "%s=0x%%08\"%s\"" name (c99_format w), C.Name name
       | Bool ->
