@@ -362,8 +362,6 @@ let remove_unused_parameters = object (self)
 
     let es = List.map (self#visit_expr_w (parameter_table, i)) es in
 
-    self#update_table_current parameter_table unused i es;
-
     (* Three cases:
      * - more arguments than the type indicates; it's fairly bad, but happens,
      *   e.g. because the function is not in scope (no extract, polymorphic
@@ -372,7 +370,7 @@ let remove_unused_parameters = object (self)
      * - less arguments than the type indicates: perform the transformation on
      *   the arguments we have, transform the type nonetheless *)
     if List.length es <= List.length ts then
-
+      let _ = self#update_table_current parameter_table unused i es in
       (* Transform the type of the head *)
       let used = List.init (List.length ts) (fun i -> not (unused i)) in
       let ts = KList.filter_mask used ts in
