@@ -5,7 +5,7 @@ module Box = Pulse.Lib.Box
 #lang-pulse
 
 // Stack promotion exposes a trivial let-binding after the regular inliner.
-// Preserve the named local unless aggressive inlining is enabled.
+// Eliminate it even when the local has a user-provided name.
 fn local_value (x: UInt32.t)
   returns UInt32.t
 {
@@ -31,7 +31,15 @@ fn local_value2 (x: UInt32.t)
   !cell
 }
 
-// Stack promotion can also expose an effectful initializer.
+// Eliminate named trivial bindings even when the initializer is effectful.
+fn named_value (f: unit -> fn returns UInt32.t)
+  returns UInt32.t
+{
+  let result = f ();
+  result
+}
+
+// Stack promotion can also expose an effectful initializer late in compilation.
 fn effectful_value (f: unit -> fn returns UInt32.t)
   returns UInt32.t
 {

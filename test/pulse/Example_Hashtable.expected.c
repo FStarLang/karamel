@@ -57,9 +57,7 @@ alloc__size_t_Example_Hashtable_data(size_t (*hashf)(size_t x0), size_t l)
   if (contents != NULL)
     for (uint32_t _i = 0U; _i < l; ++_i)
       contents[_i] = ((cell__size_t_Example_Hashtable_data){ .tag = Clean });
-  ht_t__size_t_Example_Hashtable_data
-  ht = mk_ht__size_t_Example_Hashtable_data(l, hashf, contents);
-  return ht;
+  return mk_ht__size_t_Example_Hashtable_data(l, hashf, contents);
 }
 
 static cell__size_t_Example_Hashtable_data
