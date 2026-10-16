@@ -244,6 +244,20 @@ $(OUTPUT_DIR)/GlobalInit.exe: EXTRA=global_init.c
 
 Failure.test: NEGATIVE=true
 
+# Diagnose the unsupported partial application before later passes obscure it
+# with a type error.
+.PHONY: Issue781.test
+Issue781.test: $(OUTPUT_DIR)/Issue781.krml $(KRML_EXE)
+	$(call run-with-log, \
+	  ! $(KRML) $(EXTRA) -warn-error @0 -skip-compilation -skip-linking \
+	    -tmpdir $(OUTPUT_DIR)/Issue781.out $< > $(OUTPUT_DIR)/Issue781.negative.log 2>&1 && \
+	  grep -Fq 'in top-level declaration Issue781.f' $(OUTPUT_DIR)/Issue781.negative.log && \
+	  grep -Fq 'Unsupported: partial application of a local function (expected 2 arguments; got 1).' $(OUTPUT_DIR)/Issue781.negative.log && \
+	  grep -Fq 'Warning 0 is fatal' $(OUTPUT_DIR)/Issue781.negative.log || \
+	  { cat $(OUTPUT_DIR)/Issue781.negative.log >&2; \
+	    echo 'Expected Issue781 to report an unsupported partial application' >&2; exit 1; } \
+	,[NEGATIVE] Issue781,$(OUTPUT_DIR)/Issue781)
+
 # Some custom targets
 
 SED=$(shell which gsed >/dev/null 2>&1 && echo gsed || echo sed)

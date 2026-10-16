@@ -2101,7 +2101,10 @@ end
  * ridiculous to have that sort of normalization steps happen here. *)
 let remove_local_function_bindings = object(self)
 
-  inherit [_] map
+  inherit [_] map as super
+
+  method! visit_decl _ d =
+    super#visit_decl (lid_of_decl d) d
 
   method! visit_ELet env b e1 e2 =
     let e1 = self#visit_expr env e1 in
@@ -2120,8 +2123,20 @@ let remove_local_function_bindings = object(self)
     let e = self#visit_expr_w env e in
     let es = List.map (self#visit_expr_w env) es in
     match e.node with
-    | EFun (_, body, _) ->
+    | EFun (bs, body, _) when List.length es = List.length bs ->
+        (* The guard is needed so the resulting term is well-scoped.
+           We could support partial applications, but as said above this
+           pass should not really exist. *)
         (safe_substitution es body t).node
+    | EFun (bs, _, _) when List.length es < List.length bs ->
+        (* When we don't inline, reject this right now. Later passes
+           do not handle partial applications well. *)
+        maybe_fatal_error (KPrint.bsprintf "in top-level declaration %a" plid env,
+          Error.Unsupported (Printf.sprintf
+            "partial application of a local function (expected %d arguments; got %d). \
+             Inline the local function in F* before extraction."
+            (List.length bs) (List.length es)));
+        assert false
     | _ ->
         EApp (e, es)
 end
@@ -2307,7 +2322,7 @@ end
 (* Macros that may generate tuples and sequences. Run before data types
  * compilation, once. *)
 let simplify0 (files: file list): file list =
-  let files = remove_local_function_bindings#visit_files () files in
+  let files = remove_local_function_bindings#visit_files dummy_lid files in
   let files = optimize_lets files in
   let files = remove_ignore_unit#visit_files () files in
   let files = remove_proj_is#visit_files () files in
