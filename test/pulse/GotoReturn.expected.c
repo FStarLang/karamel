@@ -222,9 +222,7 @@ int32_t GotoReturn_pulse_early_return(int32_t x)
     _return1 = true;
   }
 
-  bool _return2 = _return1;
-
-  if (!_return2)
+  if (!_return1)
     _return = 99;
 
   return _return;
