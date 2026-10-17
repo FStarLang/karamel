@@ -9,7 +9,7 @@ uint32_t Bug356_test(bool b)
     return 1U;
   else
   {
-    KRML_HOST_EPRINTF("KaRaMeL abort at %s:%d\n%s\n", __FILE__, __LINE__, "");
+    KRML_HOST_EPRINTF("KaRaMeL abort at %s:%d\n%s\n", __FILE__, __LINE__, "Prims.admit");
     KRML_HOST_EXIT(255U);
   }
 }
@@ -20,7 +20,7 @@ uint32_t Bug356_test_final_admit(bool b)
     return 1U;
   else
   {
-    KRML_HOST_EPRINTF("KaRaMeL abort at %s:%d\n%s\n", __FILE__, __LINE__, "");
+    KRML_HOST_EPRINTF("KaRaMeL abort at %s:%d\n%s\n", __FILE__, __LINE__, "Prims.admit");
     KRML_HOST_EXIT(255U);
   }
 }
@@ -28,5 +28,7 @@ uint32_t Bug356_test_final_admit(bool b)
 void Bug356_test_unit_admit(bool x)
 {
   KRML_MAYBE_UNUSED_VAR(x);
+  KRML_HOST_EPRINTF("KaRaMeL abort at %s:%d\n%s\n", __FILE__, __LINE__, "Prims.admit");
+  KRML_HOST_EXIT(255U);
 }
 

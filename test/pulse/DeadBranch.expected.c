@@ -3,9 +3,11 @@
 
 #include "DeadBranch.h"
 
+extern krml_checked_int_t Prims_op_Addition(krml_checked_int_t x, krml_checked_int_t y);
+
 krml_checked_int_t DeadBranch_impure(krml_checked_int_t x)
 {
-  return x;
+  return Prims_op_Addition(x, 1);
 }
 
 krml_checked_int_t DeadBranch_foo(bool b, krml_checked_int_t x, krml_checked_int_t y)
@@ -22,10 +24,10 @@ krml_checked_int_t DeadBranch_foo1(krml_checked_int_t x, krml_checked_int_t y)
   return DeadBranch_impure(x);
 }
 
-krml_checked_int_t DeadBranch_foo2(krml_checked_int_t x, krml_checked_int_t y)
+krml_checked_int_t DeadBranch_foo2(krml_checked_int_t x, krml_checked_int_t x1)
 {
   KRML_MAYBE_UNUSED_VAR(x);
-  return DeadBranch_impure(y);
+  return DeadBranch_impure(x1);
 }
 
 krml_checked_int_t DeadBranch_foo3(krml_checked_int_t x)

@@ -8,7 +8,7 @@ open Pulse
 // an actual if block with true/false conditions gets simplified.
 fn impure (x : int)
   returns int
-{ x }
+{ x + 1 }
 
 inline_for_extraction
 fn foo (b : bool) (x y : int)

@@ -12,25 +12,24 @@ slice__uint8_t;
 
 static slice__uint8_t from_array__uint8_t(uint8_t *a, size_t alen)
 {
-  uint8_t *ptr = a;
-  return ((slice__uint8_t){ .elt = ptr, .len = alen });
+  return ((slice__uint8_t){ .elt = a, .len = alen });
 }
 
-typedef struct __Pulse_Lib_Slice_slice__uint8_t_Pulse_Lib_Slice_slice__uint8_t_s
+typedef struct tuple2__Pulse_Lib_Slice_slice__uint8_t_Pulse_Lib_Slice_slice__uint8_t_s
 {
-  slice__uint8_t fst;
-  slice__uint8_t snd;
+  slice__uint8_t _1;
+  slice__uint8_t _2;
 }
-__Pulse_Lib_Slice_slice__uint8_t_Pulse_Lib_Slice_slice__uint8_t;
+tuple2__Pulse_Lib_Slice_slice__uint8_t_Pulse_Lib_Slice_slice__uint8_t;
 
-static __Pulse_Lib_Slice_slice__uint8_t_Pulse_Lib_Slice_slice__uint8_t
+static tuple2__Pulse_Lib_Slice_slice__uint8_t_Pulse_Lib_Slice_slice__uint8_t
 split__uint8_t(slice__uint8_t s, size_t i)
 {
   uint8_t *elt_ = s.elt + i;
   slice__uint8_t s1 = { .elt = s.elt, .len = i };
   slice__uint8_t s2 = { .elt = elt_, .len = s.len - i };
   return
-    ((__Pulse_Lib_Slice_slice__uint8_t_Pulse_Lib_Slice_slice__uint8_t){ .fst = s1, .snd = s2 });
+    ((tuple2__Pulse_Lib_Slice_slice__uint8_t_Pulse_Lib_Slice_slice__uint8_t){ ._1 = s1, ._2 = s2 });
 }
 
 static slice__uint8_t subslice__uint8_t(slice__uint8_t s, size_t i, size_t j)
@@ -62,18 +61,17 @@ static void copy__uint8_t(slice__uint8_t dst, slice__uint8_t src)
 void Example_Slice_test(uint8_t *arr)
 {
   slice__uint8_t slice = from_array__uint8_t(arr, (size_t)6U);
-  __Pulse_Lib_Slice_slice__uint8_t_Pulse_Lib_Slice_slice__uint8_t
+  tuple2__Pulse_Lib_Slice_slice__uint8_t_Pulse_Lib_Slice_slice__uint8_t
   s_ = split__uint8_t(slice, (size_t)2U);
-  slice__uint8_t s1 = s_.fst;
-  slice__uint8_t s2 = s_.snd;
-  slice__uint8_t res = subslice__uint8_t(s2, (size_t)1U, (size_t)4U);
-  slice__uint8_t s2_ = res;
+  slice__uint8_t s1 = s_._1;
+  slice__uint8_t s2 = s_._2;
+  slice__uint8_t s2_ = subslice__uint8_t(s2, (size_t)1U, (size_t)4U);
   uint8_t x = op_Array_Access__uint8_t(s2_, len__uint8_t(s1));
   op_Array_Assignment__uint8_t(s1, (size_t)1U, x);
-  __Pulse_Lib_Slice_slice__uint8_t_Pulse_Lib_Slice_slice__uint8_t
+  tuple2__Pulse_Lib_Slice_slice__uint8_t_Pulse_Lib_Slice_slice__uint8_t
   s_1 = split__uint8_t(s2, (size_t)2U);
-  slice__uint8_t s3 = s_1.fst;
-  slice__uint8_t s4 = s_1.snd;
+  slice__uint8_t s3 = s_1._1;
+  slice__uint8_t s4 = s_1._2;
   copy__uint8_t(s3, s4);
 }
 

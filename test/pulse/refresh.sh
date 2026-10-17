@@ -4,7 +4,7 @@
 # Run as MAKE=gmake ./refresh.sh from MacOS
 
 if ! [ -d local-fstar ]; then
-  curl -L https://aka.ms/install-fstar | bash -s -- --nightly --version 2026-10-10 --dest local-fstar --no-link
+  curl -L https://aka.ms/install-fstar | bash -s -- --nightly --version 2026-10-17 --dest local-fstar --no-link
 fi
 
 export FSTAR_EXE="$(pwd)/local-fstar/bin/fstar.exe"

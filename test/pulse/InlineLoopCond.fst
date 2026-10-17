@@ -18,7 +18,7 @@ divergent fn test (f : unit -> fn returns UInt32.t)
 divergent fn test_ok (x : UInt32.t)
   returns UInt32.t
 {
-  (* This one could be inlined (it's not at the moment) *)
+  (* This one can be inlined. *)
   let uu__  = x;
   while (uu__ <> 0ul) {
     ()

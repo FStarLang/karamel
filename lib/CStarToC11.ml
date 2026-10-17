@@ -254,6 +254,19 @@ and vars_of_stmt m = function
         vars_of m e6;
       ]
 
+(* Whether a literal is represented by all-zero bits, i.e. can be initialized
+   with memset. Float literals (possibly with a C suffix, e.g. 0.0f) qualify,
+   except for -0.0 (sign bit set). *)
+let is_zero_bits s =
+  match int_of_string_opt s with
+  | Some n -> n = 0
+  | None ->
+      let n = String.length s in
+      let s = if n > 0 && (s.[n - 1] = 'f' || s.[n - 1] = 'F') then String.sub s 0 (n - 1) else s in
+      match float_of_string_opt s with
+      | Some f -> f = 0. && not (Float.sign_bit f)
+      | None -> false
+
 let c99_format w =
   let open K in
   "PRIx" ^ string_of_int (bytes_of_width w * 8)
@@ -495,7 +508,7 @@ and mk_initializer ~null_check t e_array e_size e_value: C.stmt =
   | _ ->
       match e_value with
       | C.Constant (_, s)
-      | C.Cast (_, C.Constant (_, s)) when int_of_string s = 0 ->
+      | C.Cast (_, C.Constant (_, s)) when is_zero_bits s ->
           (* KPrint.bprintf "need memset 0\n"; *)
           if_not_null @@
           mk_memset t e_array e_size (C.Constant (K.UInt8, "0"))

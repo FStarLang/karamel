@@ -19,8 +19,7 @@ uint32_t InlineAcrossIf_basic2(bool b, uint32_t (*i)(void), uint32_t x, uint32_t
 
 uint32_t InlineAcrossIf_basic3(bool b, uint32_t x)
 {
-  uint32_t uu____0 = x;
-  return b ? uu____0 + 1U : uu____0 + 2U;
+  return b ? x + 1U : x + 2U;
 }
 
 uint32_t InlineAcrossIf_should_not_inline1(bool b, uint32_t (*i1)(void), uint32_t (*i2)(void))
