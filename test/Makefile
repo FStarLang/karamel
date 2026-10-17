@@ -194,6 +194,7 @@ endif
 
 # Various flags to be passed to some targets...
 $(OUTPUT_DIR)/NoExtract.exe: EXTRA = -warn-error +2
+$(OUTPUT_DIR)/UnusedParameterUnknown.exe: EXTRA = -warn-error +2
 $(OUTPUT_DIR)/Structs2.exe: EXTRA = -wasm -d force-c wasm-stubs.c
 $(OUTPUT_DIR)/ML16.exe: EXTRA = ml16-native.c
 $(OUTPUT_DIR)/Scope.exe: EXTRA = -ccopt -O3
