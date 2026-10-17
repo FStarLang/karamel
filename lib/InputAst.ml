@@ -178,9 +178,15 @@ type binary_format = version * file list
 
 (** Input / output of ASTs *)
 
+(* F* writes .krml files as JSON; older ones are OCaml Marshal dumps, whose
+   magic number starts with 0x84. *)
+let is_json (f: string): bool =
+  Filename.check_suffix f ".json" ||
+  with_open_in f (fun ic -> try input_char ic <> '\x84' with End_of_file -> false)
+
 let read_file (f: string): file list =
   let contents: binary_format =
-    if Filename.check_suffix f ".json" then
+    if is_json f then
       let open Result in
       match binary_format_of_yojson (with_open_in f Yojson.Safe.from_channel) with
       | Ok x ->
