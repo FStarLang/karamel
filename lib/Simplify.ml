@@ -122,6 +122,10 @@ let safe_readonly_use lvalue e =
 class ['self] safe_pure_use lvalue = object (self: 'self)
   inherit [_] reduce as super
   inherit [_] safe_use lvalue
+  (* Unlike readonly initializers, effectful initializers must not move past
+     break/continue, which would skip their effects. *)
+  method! visit_EBreak _ = Unsafe
+  method! visit_EContinue _ = Unsafe
   method! visit_EBufRead env e1 e2 = self#unordered env [ e1; e2 ]
   method! visit_EApp env e es =
     match e.node with
