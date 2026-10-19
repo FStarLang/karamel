@@ -254,18 +254,20 @@ and vars_of_stmt m = function
         vars_of m e6;
       ]
 
-(* Whether a literal is represented by all-zero bits, i.e. can be initialized
-   with memset. Float literals (possibly with a C suffix, e.g. 0.0f) qualify,
-   except for -0.0 (sign bit set). *)
-let is_zero_bits s =
-  match int_of_string_opt s with
-  | Some n -> n = 0
-  | None ->
-      let n = String.length s in
-      let s = if n > 0 && (s.[n - 1] = 'f' || s.[n - 1] = 'F') then String.sub s 0 (n - 1) else s in
-      match float_of_string_opt s with
-      | Some f -> f = 0. && not (Float.sign_bit f)
-      | None -> false
+(* Whether a literal of width [w] is represented by all-zero bits, i.e. can be
+   initialized with memset. For integers this includes -0. Float literals
+   (possibly with a C suffix, e.g. 0.0f) must be a plain, unsigned zero: -0.0
+   has its sign bit set. *)
+let is_zero_int s =
+  int_of_string_opt s = Some 0
+
+let float_zero_re = Str.regexp "^\\(0+\\(\\.0*\\)?\\|\\.0+\\)[fF]?$"
+
+let is_zero_float s =
+  Str.string_match float_zero_re s 0
+
+let is_zero_bits w s =
+  if K.is_float w then is_zero_float s else is_zero_int s
 
 let c99_format w =
   let open K in
@@ -507,8 +509,8 @@ and mk_initializer ~null_check t e_array e_size e_value: C.stmt =
 
   | _ ->
       match e_value with
-      | C.Constant (_, s)
-      | C.Cast (_, C.Constant (_, s)) when is_zero_bits s ->
+      | C.Constant (w, s)
+      | C.Cast (_, C.Constant (w, s)) when is_zero_bits w s ->
           (* KPrint.bprintf "need memset 0\n"; *)
           if_not_null @@
           mk_memset t e_array e_size (C.Constant (K.UInt8, "0"))

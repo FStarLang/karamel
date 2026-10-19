@@ -100,15 +100,13 @@ endif
 # Custard extracts the whole program reachable from the entry module into a
 # single .krml file. --custard_split keeps the F* module names inside that
 # file, so that -bundle M=* below has a module M to select.
-define extraction_target
-$(OUTPUT_DIR)/$(subst .,_,$(1)).krml: $(CACHE_DIR)/$(1).fst.checked
-endef
-$(foreach f,$(filter %.fst,$(FSTAR_FILES)),$(eval $(call extraction_target,$(basename $(notdir $(f))))))
-
-$(OUTPUT_DIR)/%.krml:
+# Output files are named M_N.krml for module M.N (test module names must not
+# contain underscores).
+.SECONDEXPANSION:
+$(OUTPUT_DIR)/%.krml: $(CACHE_DIR)/$$(subst _,.,%).fst.checked
 	$(call msg, "EXTRACT", $(basename $(notdir $@)))
 	$(FSTAR) --codegen KrmlC --custard_split \
-	  --custard_entry_module $(subst .fst.checked,,$(notdir $<)) $< -o $@
+	  --custard_entry_module $(subst _,.,$*) $< -o $@
 
 $(OUTPUT_DIR)/%.c: $(OUTPUT_DIR)/%.krml
 	$(call msg, "KRML", $(basename $(notdir $@)))

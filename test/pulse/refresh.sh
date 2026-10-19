@@ -2,6 +2,7 @@
 
 # Refresh the outputs from F* nightly.
 # Run as MAKE=gmake ./refresh.sh from MacOS
+# Keep the nightly in sync with FSTAR_REV in .github/workflows/ci.yml.
 
 if ! [ -d local-fstar ]; then
   curl -L https://aka.ms/install-fstar | bash -s -- --nightly --version 2026-10-18 --dest local-fstar --no-link

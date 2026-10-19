@@ -29,9 +29,10 @@ fn basic3 (b : bool)
 {
   (* This could inline, even if uu__ is used "twice", since
   only one branch is executed. However karamel gates inling
-  on "AtMost 1" (syntactic) uses, so it won't inline. *)
+  on "AtMost 1" (syntactic) uses, so it won't inline.
+  (Not a plain [x]: F* would propagate that copy itself.) *)
   open FStar.UInt32;
-  let uu__ = x;
+  let uu__ = x *%^ 3ul;
   let y = (if b then uu__ +%^ 1ul else uu__ +%^ 2ul);
   y
 }
