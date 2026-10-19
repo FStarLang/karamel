@@ -75,7 +75,7 @@ jobs:
     steps:
       - name: Install Z3 with script
         run: |
-          wget "https://raw.githubusercontent.com/FStarLang/FStar/${FSTAR_REV}/.scripts/get_fstar_z3.sh" -O get_fstar_z3.sh
+          wget https://raw.githubusercontent.com/FStarLang/FStar/refs/heads/master/.scripts/get_fstar_z3.sh -O get_fstar_z3.sh
           chmod +x get_fstar_z3.sh
           ./get_fstar_z3.sh /usr/local/bin
        # If these fail, stop right now.
