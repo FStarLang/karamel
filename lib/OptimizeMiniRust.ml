@@ -1409,6 +1409,22 @@ let infer_mut_borrows files =
 
 (* Transformations occuring on the MiniRust AST, after translation and mutability inference *)
 
+let has_loop_control e =
+  let exception LoopControl in
+  let visitor = object (self)
+    inherit [_] map_expr
+    method! visit_Break _ = raise LoopControl
+    method! visit_Continue _ = raise LoopControl
+
+    (* Inner loops are fine. *)
+    method! visit_For env b range body = For (b, self#visit_expr env range, body)
+    method! visit_While _ cond body = While (cond, body)
+  end in
+  try
+    ignore (visitor#visit_expr () e);
+    false
+  with LoopControl -> true
+
 (* Loop unrolling introduces an implicit binder that does not interact well
    with the substitutions occurring in mutability inference.
    We perform it after the translation *)
@@ -1430,6 +1446,9 @@ let unroll_loops = object
         let n_loops = max - init in
 
         if n_loops = 0 then Unit
+
+        (* Both substitution and the macro would remove the jumps' target. *)
+        else if has_loop_control e2 then For (b, e1, e2)
 
         else if n_loops = 1 then subst e_init 0 e2
 

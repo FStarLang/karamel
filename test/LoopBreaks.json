@@ -2,6 +2,13 @@
   34,
   [
     ["LoopBreaks", [
+      ["DExternal", [
+        null, [], [["C", "Loops"], "for"],
+        ["TArrow", [["TInt", ["UInt32"]],
+          ["TArrow", [["TInt", ["UInt32"]],
+            ["TArrow", [["TUnit"],
+              ["TArrow", [["TArrow", [["TInt", ["UInt32"]], ["TUnit"]]], ["TUnit"]]]]]]]]]
+      ]],
       ["DFunction", [
         null, [], 0, ["TUnit"], [["LoopBreaks"], "break_in_switch"],
         [{"name": "x", "typ": ["TInt", ["UInt32"]], "mut": false, "meta": []}],
@@ -16,6 +23,67 @@
             ]
           ]]
         ]]
+      ]],
+      ["DFunction", [
+        null, [], 0, ["TUnit"], [["LoopBreaks"], "break_once"],
+        [{"name": "u", "typ": ["TUnit"], "mut": false, "meta": []}],
+        ["EApp", [["EQualified", [["C", "Loops"], "for"]], [
+          ["EConstant", [["UInt32"], "0"]], ["EConstant", [["UInt32"], "1"]], ["EUnit"],
+          ["EFun", [[{"name": "i", "typ": ["TInt", ["UInt32"]], "mut": false, "meta": []}],
+            ["EBreak"], ["TUnit"]]]
+        ]]]
+      ]],
+      ["DFunction", [
+        null, [], 0, ["TUnit"], [["LoopBreaks"], "continue_once"],
+        [{"name": "u", "typ": ["TUnit"], "mut": false, "meta": []}],
+        ["EApp", [["EQualified", [["C", "Loops"], "for"]], [
+          ["EConstant", [["UInt32"], "0"]], ["EConstant", [["UInt32"], "1"]], ["EUnit"],
+          ["EFun", [[{"name": "i", "typ": ["TInt", ["UInt32"]], "mut": false, "meta": []}],
+            ["EContinue"], ["TUnit"]]]
+        ]]]
+      ]],
+      ["DFunction", [
+        null, [], 0, ["TUnit"], [["LoopBreaks"], "break_in_for_match"],
+        [{"name": "x", "typ": ["TInt", ["UInt32"]], "mut": false, "meta": []}],
+        ["EApp", [["EQualified", [["C", "Loops"], "for"]], [
+          ["EConstant", [["UInt32"], "0"]], ["EConstant", [["UInt32"], "2"]], ["EUnit"],
+          ["EFun", [[{"name": "i", "typ": ["TInt", ["UInt32"]], "mut": false, "meta": []}],
+            ["EMatch", [["EBound", 1], [
+              [["PConstant", [["UInt32"], "0"]], ["EBreak"]],
+              [["PWild"], ["EUnit"]]
+            ]]], ["TUnit"]]]
+        ]]]
+      ]],
+      ["DFunction", [
+        null, [], 0, ["TUnit"], [["LoopBreaks"], "continue_in_for_if"],
+        [{"name": "b", "typ": ["TBool"], "mut": false, "meta": []}],
+        ["EApp", [["EQualified", [["C", "Loops"], "for"]], [
+          ["EConstant", [["UInt32"], "0"]], ["EConstant", [["UInt32"], "2"]], ["EUnit"],
+          ["EFun", [[{"name": "i", "typ": ["TInt", ["UInt32"]], "mut": false, "meta": []}],
+            ["EIfThenElse", [["EBound", 1], ["EContinue"], ["EUnit"]]], ["TUnit"]]]
+        ]]]
+      ]],
+      ["DFunction", [
+        null, [], 0, ["TUnit"], [["LoopBreaks"], "unroll_around_for"],
+        [{"name": "b", "typ": ["TBool"], "mut": false, "meta": []}],
+        ["EApp", [["EQualified", [["C", "Loops"], "for"]], [
+          ["EConstant", [["UInt32"], "0"]], ["EConstant", [["UInt32"], "1"]], ["EUnit"],
+          ["EFun", [[{"name": "i", "typ": ["TInt", ["UInt32"]], "mut": false, "meta": []}],
+            ["EApp", [["EQualified", [["C", "Loops"], "for"]], [
+              ["EConstant", [["UInt32"], "0"]], ["EConstant", [["UInt32"], "1"]], ["EUnit"],
+              ["EFun", [[{"name": "j", "typ": ["TInt", ["UInt32"]], "mut": false, "meta": []}],
+                ["EIfThenElse", [["EBound", 2], ["EBreak"], ["EContinue"]]], ["TUnit"]]]
+            ]]], ["TUnit"]]]
+        ]]]
+      ]],
+      ["DFunction", [
+        null, [], 0, ["TUnit"], [["LoopBreaks"], "unroll_around_while"],
+        [{"name": "u", "typ": ["TUnit"], "mut": false, "meta": []}],
+        ["EApp", [["EQualified", [["C", "Loops"], "for"]], [
+          ["EConstant", [["UInt32"], "0"]], ["EConstant", [["UInt32"], "1"]], ["EUnit"],
+          ["EFun", [[{"name": "i", "typ": ["TInt", ["UInt32"]], "mut": false, "meta": []}],
+            ["EWhile", [["EBool", true], ["EBreak"]]], ["TUnit"]]]
+        ]]]
       ]]
     ]]
   ]
