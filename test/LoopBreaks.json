@@ -1,0 +1,22 @@
+[
+  34,
+  [
+    ["LoopBreaks", [
+      ["DFunction", [
+        null, [], 0, ["TUnit"], [["LoopBreaks"], "break_in_switch"],
+        [{"name": "x", "typ": ["TInt", ["UInt32"]], "mut": false, "meta": []}],
+        ["EWhile", [
+          ["EBool", true],
+          ["EMatch", [
+            ["EBound", 0],
+            [
+              [["PConstant", [["UInt32"], "0"]], ["EBreak"]],
+              [["PConstant", [["UInt32"], "1"]], ["EWhile", [["EBool", true], ["EBreak"]]]],
+              [["PWild"], ["EBreak"]]
+            ]
+          ]]
+        ]]
+      ]]
+    ]]
+  ]
+]
