@@ -35,14 +35,13 @@ uint32_t Inline_tst(uint32_t shared)
 {
   uint32_t uu____0 = shared / 100U;
   uint32_t i = 0U;
-  uint32_t __anf00 = i;
-  bool cond = __anf00 < uu____0;
-  while (cond)
+  while (true)
   {
     uint32_t __anf0 = i;
-    i = __anf0 + 1U;
+    if (!(__anf0 < uu____0))
+      break;
     uint32_t __anf00 = i;
-    cond = __anf00 < uu____0;
+    i = __anf00 + 1U;
   }
   return 1U;
 }

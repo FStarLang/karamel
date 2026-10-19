@@ -1,0 +1,82 @@
+[
+  34,
+  [
+    [
+      "WhileContinue",
+      [
+        [
+          "DFunction",
+          [
+            null,
+            [],
+            0,
+            ["TInt", ["UInt32"]],
+            [["WhileContinue"], "let_condition"],
+            [{"name": "start", "typ": ["TInt", ["UInt32"]], "mut": false, "meta": []}],
+            ["ELet", [
+              {"name": "i", "typ": ["TInt", ["UInt32"]], "mut": true, "meta": []},
+              ["EBound", 0],
+              ["ESequence", [
+                ["EWhile", [
+                  ["ESequence", [
+                    ["EAssign", [
+                      ["EBound", 0],
+                      ["EApp", [["EOp", [["Add"], ["UInt32"]]], [["EBound", 0], ["EConstant", [["UInt32"], "1"]]]]]
+                    ]],
+                    ["EApp", [["EOp", [["Lt"], ["UInt32"]]], [["EBound", 0], ["EConstant", [["UInt32"], "3"]]]]]
+                  ]],
+                  ["ESequence", [
+                    ["EAssign", [
+                      ["EBound", 0],
+                      ["EApp", [["EOp", [["Add"], ["UInt32"]]], [["EBound", 0], ["EConstant", [["UInt32"], "1"]]]]]
+                    ]],
+                    ["EContinue"]
+                  ]]
+                ]],
+                ["EBound", 0]
+              ]]
+            ]]
+          ]
+        ],
+        [
+          "DFunction",
+          [
+            null,
+            [],
+            0,
+            ["TInt", ["UInt32"]],
+            [["WhileContinue"], "if_condition"],
+            [{"name": "start", "typ": ["TInt", ["UInt32"]], "mut": false, "meta": []}],
+            ["ELet", [
+              {"name": "i", "typ": ["TInt", ["UInt32"]], "mut": true, "meta": []},
+              ["EBound", 0],
+              ["ESequence", [
+                ["EWhile", [
+                  ["EIfThenElse", [
+                    ["EApp", [["EOp", [["Lt"], ["UInt32"]]], [["EBound", 0], ["EConstant", [["UInt32"], "3"]]]]],
+                    ["ESequence", [
+                      ["EAssign", [
+                        ["EBound", 0],
+                        ["EApp", [["EOp", [["Add"], ["UInt32"]]], [["EBound", 0], ["EConstant", [["UInt32"], "1"]]]]]
+                      ]],
+                      ["EBool", true]
+                    ]],
+                    ["EBool", false]
+                  ]],
+                  ["ESequence", [
+                    ["EAssign", [
+                      ["EBound", 0],
+                      ["EApp", [["EOp", [["Add"], ["UInt32"]]], [["EBound", 0], ["EConstant", [["UInt32"], "1"]]]]]
+                    ]],
+                    ["EContinue"]
+                  ]]
+                ]],
+                ["EBound", 0]
+              ]]
+            ]]
+          ]
+        ]
+      ]
+    ]
+  ]
+]
