@@ -178,11 +178,18 @@ type binary_format = version * file list
 
 (** Input / output of ASTs *)
 
-(* F* writes .krml files as JSON; older ones are OCaml Marshal dumps, whose
-   magic number starts with 0x84. *)
+(* F* writes .krml files as JSON; older ones are OCaml Marshal dumps.  A
+   binary_format is a JSON array, so look for a leading '[' after optional
+   whitespace. *)
 let is_json (f: string): bool =
   Filename.check_suffix f ".json" ||
-  with_open_in f (fun ic -> try input_char ic <> '\x84' with End_of_file -> false)
+  with_open_in f (fun ic ->
+    let rec go () =
+      match input_char ic with
+      | ' ' | '\t' | '\n' | '\r' -> go ()
+      | c -> c = '['
+    in
+    try go () with End_of_file -> false)
 
 let read_file (f: string): file list =
   let contents: binary_format =
