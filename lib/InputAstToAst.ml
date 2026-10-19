@@ -23,6 +23,7 @@ let rec binders_of_pat p =
   | PRecord fields ->
       List.concat_map binders_of_pat (snd (List.split fields))
   | PConstant _
+  | PWild
   | PUnit
   | PBool _ ->
       []
@@ -249,6 +250,10 @@ and mk_expr = function
       mk (EIfThenElse (mk_expr e1, mk_expr e2, mk_expr e3))
   | I.EWhile (e1, e2) ->
       mk (EWhile (mk_expr e1, mk_expr e2))
+  | I.EBreak ->
+      mk EBreak
+  | I.EContinue ->
+      mk EContinue
   | I.ESequence es ->
       mk (ESequence (List.map mk_expr es))
   | I.EAssign (e1, e2) ->
@@ -351,6 +356,8 @@ and mk_pat binders pat =
       ) fields))
   | I.PConstant k ->
       mk (PConstant (mk_constant k))
+  | I.PWild ->
+      mk PWild
   in
   mk_pat pat
 
