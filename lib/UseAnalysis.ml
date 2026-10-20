@@ -183,13 +183,6 @@ let use_mark_to_remove_or_ignore final = object (self)
 
   inherit [_] map as super
 
-  method private remove_trivial_let e =
-    match e with
-    | ELet (_, e1, { node = EBound 0; _ }) when Helpers.is_readonly_c_expression e1 ->
-        e1.node
-    | _ ->
-        e
-
   method! visit_ELet env b e1 e2 =
     (* Remove unused variables. Important to get rid of calls to [HST.get()]. *)
     let o, u = !(b.node.mark) in
@@ -201,9 +194,9 @@ let use_mark_to_remove_or_ignore final = object (self)
          mechanisms. The last one may result in spurious ignores over values,
          but that's ok. *)
       if is_readonly then
-        self#remove_trivial_let (snd (open_binder b e2)).node
+        remove_trivial_let (snd (open_binder b e2)).node
       else if e1.typ = TUnit then
-        self#remove_trivial_let (ELet ({ b with node = { b.node with meta = b.node.meta @ [ MetaSequence ] }}, e1, e2))
+        remove_trivial_let (ELet ({ b with node = { b.node with meta = b.node.meta @ [ MetaSequence ] }}, e1, e2))
       (* Definitely unused, except we can't generate let _ = ignore (bufcreate
          ...) -- this is a bad idea, as it'll force the hoisting phase to hoist
          the bufcreate back into a let-binding, which will then be named "buf". *)
@@ -228,7 +221,7 @@ let use_mark_to_remove_or_ignore final = object (self)
           DeBruijn.lift 1 e2)))
     else
       (* Nothing to do *)
-      self#remove_trivial_let (ELet (b, e1, e2))
+      remove_trivial_let (ELet (b, e1, e2))
 
   method! visit_DFunction env cc flags n_cgs n ret name binders body =
     if not final then
