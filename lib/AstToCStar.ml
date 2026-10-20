@@ -1073,12 +1073,21 @@ and mk_declaration m env d: (CStar.decl * _) option =
       assert (n = 0);
       let env = locate env (InTop name) in
       let macro = LidSet.mem name env.macros in
+      let body = mk_expr env false false body in
+      let body = match t with
+        | TInt (UInt8 | UInt16) when macro ->
+            (* Unlike a typed global, a macro has no implicit narrowing
+               conversion. Restore it here so mk_arith can treat references
+               to the macro as atomic, even when its body is e.g. ~0U. *)
+            CStar.Cast (body, mk_type env t)
+        | _ -> body
+      in
       Some (CStar.Global (
         name,
         macro,
         flags,
         mk_type env t,
-        mk_expr env false false body), [])
+        body), [])
 
   | DExternal (cc, flags, _, n, name, t, pp) ->
       if LidSet.mem name env.ifdefs || n > 0 then
