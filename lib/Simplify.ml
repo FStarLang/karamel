@@ -682,20 +682,13 @@ let let_to_sequence = object (self)
 
 end
 
-(* Inline [let x = e in x] after late lowering and constant folding, which can
- * create new expressions of this shape, using the same policy as the regular
- * inliner.
- * This does not need use analysis: e is evaluated once, even if effectful.
- * Keep buffer allocations let-bound, since that is required in later passes. *)
+(* Repeat trivial-let elimination after late lowering and constant folding,
+ * which can create new expressions of this shape. *)
 let simplify_trivial_lets = object
   inherit [_] map as super
 
   method! visit_ELet env b e1 e2 =
-    match super#visit_ELet env b e1 e2 with
-    | ELet (b, e1, { node = EBound 0; _ }) when should_inline b && not (is_bufcreate e1) ->
-        e1.node
-    | e ->
-        e
+    remove_trivial_let (super#visit_ELet env b e1 e2)
 end
 
 (* This pass rewrites:

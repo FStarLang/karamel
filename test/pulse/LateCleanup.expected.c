@@ -5,8 +5,7 @@
 
 uint32_t LateCleanup_local_value(uint32_t x)
 {
-  uint32_t cell = x;
-  return cell;
+  return x;
 }
 
 uint32_t LateCleanup_ingored_value(uint32_t x)
@@ -23,11 +22,14 @@ uint32_t LateCleanup_local_value2(uint32_t x)
   return cell;
 }
 
+uint32_t LateCleanup_named_value(uint32_t (*f)(void))
+{
+  return f();
+}
+
 uint32_t LateCleanup_effectful_value(uint32_t (*f)(void))
 {
-  uint32_t __anf0 = f();
-  uint32_t cell = __anf0;
-  return cell;
+  return f();
 }
 
 uint32_t LateCleanup_effectful_sequence(uint32_t (*f)(void), uint32_t (*g)(void))

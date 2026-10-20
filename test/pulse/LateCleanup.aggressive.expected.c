@@ -22,6 +22,11 @@ uint32_t LateCleanup_local_value2(uint32_t x)
   return cell;
 }
 
+uint32_t LateCleanup_named_value(uint32_t (*f)(void))
+{
+  return f();
+}
+
 uint32_t LateCleanup_effectful_value(uint32_t (*f)(void))
 {
   return f();
