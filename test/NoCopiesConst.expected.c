@@ -26,6 +26,11 @@ void NoCopiesConst_forward_nested(NoCopiesConst_nested_lock *x)
   NoCopiesConst_acquire_nested(x);
 }
 
+void NoCopiesConst_set_count(NoCopiesConst_locked_counter *p, uint32_t count)
+{
+  p[0U].count1 = count;
+}
+
 uint32_t NoCopiesConst_read_plain(NoCopiesConst_plain x)
 {
   return x.left;
