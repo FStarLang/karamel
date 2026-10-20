@@ -214,18 +214,12 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
 
-      # magic-nix-cache saves our CI builds in GitHub Actions, while Cachix
-      # downloads dependencies already built in the shared hacl cache.
+      # Cache builds in this repository's GitHub Actions cache.
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@main
         with:
           use-gha-cache: enabled
           use-flakehub: disabled
-
-      - name: Setup Cachix
-        uses: cachix/cachix-action@v15
-        with:
-          name: hacl
 
       - name: Build KaRaMeL and krmllib with F*
         run: nix build -L --no-link --no-write-lock-file .
@@ -236,18 +230,12 @@ jobs:
       - name: Install Nix
         uses: DeterminateSystems/nix-installer-action@main
 
-      # magic-nix-cache saves our CI builds in GitHub Actions, while Cachix
-      # downloads dependencies already built in the shared hacl cache.
+      # Cache Eurydice and its dependencies in this repository's GitHub Actions cache.
       - name: Setup Magic Nix Cache
         uses: DeterminateSystems/magic-nix-cache-action@main
         with:
           use-gha-cache: enabled
           use-flakehub: disabled
-
-      - name: Setup Cachix
-        uses: cachix/cachix-action@v15
-        with:
-          name: hacl
 
       - name: Build and test Eurydice against this Karamel
         run: |
