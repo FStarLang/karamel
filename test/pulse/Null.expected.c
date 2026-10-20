@@ -15,8 +15,8 @@ krml_checked_int_t *Null_foo(void)
   return NULL;
 }
 
-krml_checked_int_t Null_test(krml_checked_int_t *x1)
+krml_checked_int_t Null_test(krml_checked_int_t *x)
 {
-  return x1 == NULL ? 0 : *x1;
+  return x == NULL ? 0 : *x;
 }
 

@@ -254,6 +254,21 @@ and vars_of_stmt m = function
         vars_of m e6;
       ]
 
+(* Whether a literal of width [w] is represented by all-zero bits, i.e. can be
+   initialized with memset. For integers this includes -0. Float literals
+   (possibly with a C suffix, e.g. 0.0f) must be a plain, unsigned zero: -0.0
+   has its sign bit set. *)
+let is_zero_int s =
+  int_of_string_opt s = Some 0
+
+let float_zero_re = Str.regexp "^\\(0+\\(\\.0*\\)?\\|\\.0+\\)[fF]?$"
+
+let is_zero_float s =
+  Str.string_match float_zero_re s 0
+
+let is_zero_bits w s =
+  if K.is_float w then is_zero_float s else is_zero_int s
+
 let c99_format w =
   let open K in
   "PRIx" ^ string_of_int (bytes_of_width w * 8)
@@ -494,8 +509,8 @@ and mk_initializer ~null_check t e_array e_size e_value: C.stmt =
 
   | _ ->
       match e_value with
-      | C.Constant (_, s)
-      | C.Cast (_, C.Constant (_, s)) when int_of_string s = 0 ->
+      | C.Constant (w, s)
+      | C.Cast (_, C.Constant (w, s)) when is_zero_bits w s ->
           (* KPrint.bprintf "need memset 0\n"; *)
           if_not_null @@
           mk_memset t e_array e_size (C.Constant (K.UInt8, "0"))

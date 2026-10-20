@@ -97,11 +97,18 @@ endif
 	$(FSTAR) -c $< -o $@
 	touch -c $@
 
-$(OUTPUT_DIR)/$(subst .,_,%).krml:
+# Custard extracts the whole program reachable from the entry module into a
+# single .krml file. --custard_split keeps the F* module names inside that
+# file, so that -bundle M=* below has a module M to select.
+# Output files are named M_N.krml for module M.N (test module names must not
+# contain underscores).
+.SECONDEXPANSION:
+$(OUTPUT_DIR)/%.krml: $(CACHE_DIR)/$$(subst _,.,%).fst.checked
 	$(call msg, "EXTRACT", $(basename $(notdir $@)))
-	$(FSTAR) $< --codegen krml --extract_module $(subst .fst.checked,,$(notdir $<))
+	$(FSTAR) --codegen KrmlC --custard_split \
+	  --custard_entry_module $(subst _,.,$*) $< -o $@
 
-$(OUTPUT_DIR)/%.c: $(OUTPUT_DIR)/%.krml $(OUTPUT_DIR)/Pulse_Lib_Pervasives.krml
+$(OUTPUT_DIR)/%.c: $(OUTPUT_DIR)/%.krml
 	$(call msg, "KRML", $(basename $(notdir $@)))
 	@# Note, we are probably running karamel minimal. We will fail without -skip-makefiles.
 	$(KRML_EXE) $(KRML_FLAGS) -skip-makefiles -skip-compilation -header=../krmlheader -bundle $*=* -skip-linking $+ -tmpdir $(OUTPUT_DIR)

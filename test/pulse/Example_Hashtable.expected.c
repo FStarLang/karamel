@@ -97,14 +97,14 @@ typedef struct option__size_t_s
 option__size_t;
 
 typedef struct
-__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_FStar_Pervasives_Native_option__size_t_s
+tuple2__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_FStar_Pervasives_Native_option__size_t_s
 {
-  ht_t__size_t_Example_Hashtable_data fst;
-  option__size_t snd;
+  ht_t__size_t_Example_Hashtable_data _1;
+  option__size_t _2;
 }
-__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_FStar_Pervasives_Native_option__size_t;
+tuple2__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_FStar_Pervasives_Native_option__size_t;
 
-static __Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_FStar_Pervasives_Native_option__size_t
+static tuple2__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_FStar_Pervasives_Native_option__size_t
 lookup__size_t_Example_Hashtable_data(ht_t__size_t_Example_Hashtable_data ht, size_t k)
 {
   size_t (*hashf)(size_t x0) = ht.hashf;
@@ -194,9 +194,9 @@ lookup__size_t_Example_Hashtable_data(ht_t__size_t_Example_Hashtable_data ht, si
   ht1 = mk_ht__size_t_Example_Hashtable_data(ht.sz, ht.hashf, vcontents);
   return
     (
-      (__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_FStar_Pervasives_Native_option__size_t){
-        .fst = ht1,
-        .snd = o
+      (tuple2__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_FStar_Pervasives_Native_option__size_t){
+        ._1 = ht1,
+        ._2 = o
       }
     );
 }
@@ -207,14 +207,14 @@ mk_used_cell__size_t_Example_Hashtable_data(size_t k, Example_Hashtable_data v)
   return ((cell__size_t_Example_Hashtable_data){ .tag = Used, .k = k, .v = v });
 }
 
-typedef struct __Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_bool_s
+typedef struct tuple2__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_bool_s
 {
-  ht_t__size_t_Example_Hashtable_data fst;
-  bool snd;
+  ht_t__size_t_Example_Hashtable_data _1;
+  bool _2;
 }
-__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_bool;
+tuple2__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_bool;
 
-static __Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_bool
+static tuple2__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_bool
 insert__size_t_Example_Hashtable_data(
   ht_t__size_t_Example_Hashtable_data ht,
   size_t k,
@@ -270,10 +270,10 @@ insert__size_t_Example_Hashtable_data(
       cell__size_t_Example_Hashtable_data *vcontents = contents;
       ht_t__size_t_Example_Hashtable_data
       ht1 = { .sz = ht.sz, .hashf = hashf, .contents = vcontents };
-      __Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_FStar_Pervasives_Native_option__size_t
+      tuple2__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_FStar_Pervasives_Native_option__size_t
       res = lookup__size_t_Example_Hashtable_data(ht1, k);
-      contents = res.fst.contents;
-      option__size_t o = res.snd;
+      contents = res._1.contents;
+      option__size_t o = res._2;
       if (o.tag == Some)
       {
         size_t p = o.v;
@@ -315,22 +315,22 @@ insert__size_t_Example_Hashtable_data(
   ht1 = mk_ht__size_t_Example_Hashtable_data(ht.sz, hashf, __anf01);
   return
     (
-      (__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_bool){
-        .fst = ht1,
-        .snd = true
+      (tuple2__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_bool){
+        ._1 = ht1,
+        ._2 = true
       }
     );
 }
 
 typedef struct
-__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_Example_Hashtable_data_s
+tuple2__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_Example_Hashtable_data_s
 {
-  ht_t__size_t_Example_Hashtable_data fst;
-  Example_Hashtable_data snd;
+  ht_t__size_t_Example_Hashtable_data _1;
+  Example_Hashtable_data _2;
 }
-__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_Example_Hashtable_data;
+tuple2__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_Example_Hashtable_data;
 
-static __Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_Example_Hashtable_data
+static tuple2__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_Example_Hashtable_data
 replace__size_t_Example_Hashtable_data(
   ht_t__size_t_Example_Hashtable_data ht,
   size_t idx,
@@ -353,27 +353,11 @@ replace__size_t_Example_Hashtable_data(
     Example_Hashtable_data v_1 = v_.v;
     return
       (
-        (__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_Example_Hashtable_data){
-          .fst = ht1,
-          .snd = v_1
+        (tuple2__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_Example_Hashtable_data){
+          ._1 = ht1,
+          ._2 = v_1
         }
       );
-  }
-  else if (v_.tag == Clean)
-  {
-    KRML_HOST_EPRINTF("KaRaMeL abort at %s:%d\n%s\n",
-      __FILE__,
-      __LINE__,
-      "Pulse.Lib.Dv.unreachable");
-    KRML_HOST_EXIT(255U);
-  }
-  else if (v_.tag == Zombie)
-  {
-    KRML_HOST_EPRINTF("KaRaMeL abort at %s:%d\n%s\n",
-      __FILE__,
-      __LINE__,
-      "Pulse.Lib.Dv.unreachable");
-    KRML_HOST_EXIT(255U);
   }
   else
   {
@@ -394,26 +378,26 @@ void Example_Hashtable_insert_lookup_and_replace(void)
 {
   ht_t__size_t_Example_Hashtable_data
   h = alloc__size_t_Example_Hashtable_data(Example_Hashtable_hash, (size_t)100U);
-  __Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_bool
+  tuple2__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_bool
   _letpattern =
     insert__size_t_Example_Hashtable_data(h,
       (size_t)1U,
       ((Example_Hashtable_data){ .left = true, .right = false }));
-  ht_t__size_t_Example_Hashtable_data h1 = _letpattern.fst;
-  __Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_FStar_Pervasives_Native_option__size_t
+  ht_t__size_t_Example_Hashtable_data h1 = _letpattern._1;
+  tuple2__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_FStar_Pervasives_Native_option__size_t
   _letpattern1 = lookup__size_t_Example_Hashtable_data(h1, (size_t)1U);
-  ht_t__size_t_Example_Hashtable_data h2 = _letpattern1.fst;
-  option__size_t found = _letpattern1.snd;
+  ht_t__size_t_Example_Hashtable_data h2 = _letpattern1._1;
+  option__size_t found = _letpattern1._2;
   if (found.tag == Some)
   {
     size_t i = found.v;
-    __Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_Example_Hashtable_data
+    tuple2__Pulse_Lib_HashTable_Type_ht_t__size_t_Example_Hashtable_data_Example_Hashtable_data
     _letpattern2 =
       replace__size_t_Example_Hashtable_data(h2,
         i,
         (size_t)1U,
         ((Example_Hashtable_data){ .left = false, .right = true }));
-    ht_t__size_t_Example_Hashtable_data h3 = _letpattern2.fst;
+    ht_t__size_t_Example_Hashtable_data h3 = _letpattern2._1;
     dealloc__size_t_Example_Hashtable_data(h3);
   }
   else if (found.tag == None)

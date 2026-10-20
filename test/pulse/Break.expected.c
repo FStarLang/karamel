@@ -74,14 +74,14 @@ size_t Break_find_zero_with_break(int32_t *a, size_t sz)
   }
   while (cond)
   {
-    size_t __anf01 = i;
-    int32_t __anf1 = a[__anf01];
+    size_t __anf00 = i;
+    int32_t __anf1 = a[__anf00];
     if (__anf1 == 0)
       _break = true;
     if (!_break)
     {
-      size_t __anf02 = i;
-      i = __anf02 + (size_t)1U;
+      size_t __anf01 = i;
+      i = __anf01 + (size_t)1U;
     }
     bool ite;
     if (_break)

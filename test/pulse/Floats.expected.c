@@ -5,12 +5,12 @@
 
 float Floats_neg32(float x)
 {
-  return (float)0LL - x;
+  return (float)0.0f - x;
 }
 
 double Floats_neg64(double x)
 {
-  return (double)0LL - x;
+  return (double)0.0 - x;
 }
 
 float Floats_float_array(void)

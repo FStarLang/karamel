@@ -153,8 +153,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-deps
     env:
-      # Last master commit before FStarLang/FStar#4653 removed legacy extraction.
-      FSTAR_REV: 334c989ed27b617e694e1d7db35c242735ecceac
+      # The F* commit of nightly-2026-10-18. Keep in sync with the nightly in
+      # test/pulse/refresh.sh, and bump both together (e.g. weekly), so that
+      # unrelated F* changes do not break karamel CI.
+      FSTAR_REV: 479825350e902c868b7b8c2ad918eaac073f3494
     steps:
       - name: Setup ocaml
         uses: ocaml/setup-ocaml@v3
@@ -170,7 +172,6 @@ jobs:
           restore-keys: |
             opam-${{ runner.os }}-${{ runner.arch }}-pulse-${{ env.FSTAR_REV }}-
 
-      # Retain --codegen krml until the Pulse tests are migrated to Custard.
       - run: opam update
       - run: opam pin -n fstar "git+https://github.com/FStarLang/FStar#${FSTAR_REV}"
       - run: opam install fstar
@@ -189,7 +190,7 @@ jobs:
           ./get_fstar_z3.sh /usr/local/bin
        # If these fail, stop right now.
       - run: which z3-4.8.5
-      - run: which z3-4.13.3
+      - run: which z3-5.3.0
 
       - uses: actions/checkout@master
         with:

@@ -27,18 +27,18 @@ size_t Goto_find_zero(int32_t *a, size_t sz)
   }
   while (cond)
   {
-    size_t __anf01 = i;
-    int32_t __anf1 = a[__anf01];
+    size_t __anf00 = i;
+    int32_t __anf1 = a[__anf00];
     if (__anf1 == 0)
     {
-      size_t __anf02 = i;
-      _return = __anf02;
+      size_t __anf01 = i;
+      _return = __anf01;
       _return1 = true;
     }
     if (!_return1)
     {
-      size_t __anf02 = i;
-      i = __anf02 + (size_t)1U;
+      size_t __anf01 = i;
+      i = __anf01 + (size_t)1U;
     }
     bool ite;
     if (_return1)

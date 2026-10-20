@@ -20,10 +20,10 @@ uint32_t DerefZero_add(uint32_t x)
   return x + 0U;
 }
 
-static DerefZero_pair zeros = { .a = 0U, .b = 0U };
+DerefZero_pair DerefZero_zeros = { .a = 0U, .b = 0U };
 
 uint32_t DerefZero_record_field(void)
 {
-  return zeros.a;
+  return DerefZero_zeros.a;
 }
 

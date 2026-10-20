@@ -3,11 +3,11 @@
 
 #include "GcDereference.h"
 
-int32_t GcDereference_head(Prims_list__int32_t *xs)
+int32_t GcDereference_head(prims_list__int32_t *xs)
 {
-  if (xs->tag == Prims_Nil)
+  if (xs->tag == prims_Nil)
     return 0;
-  else if (xs->tag == Prims_Cons)
+  else if (xs->tag == prims_Cons)
     return xs->hd;
   else
   {

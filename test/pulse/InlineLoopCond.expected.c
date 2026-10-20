@@ -15,7 +15,7 @@ uint32_t InlineLoopCond_test(uint32_t (*f)(void))
 
 uint32_t InlineLoopCond_test_ok(uint32_t x)
 {
-  uint32_t uu____0 = x;
+  uint32_t uu____0 = x * 3U;
   while (uu____0 != 0U)
   {
 
