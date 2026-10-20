@@ -17,18 +17,20 @@ size_t Goto_find_zero(int32_t *a, size_t sz)
   size_t _return;
   bool _return1 = false;
   size_t i = (size_t)0U;
-  bool cond;
-  if (_return1)
-    cond = false;
-  else
+  while (true)
   {
+    bool ite;
+    if (_return1)
+      ite = false;
+    else
+    {
+      size_t __anf0 = i;
+      ite = __anf0 < sz;
+    }
+    if (!ite)
+      break;
     size_t __anf0 = i;
-    cond = __anf0 < sz;
-  }
-  while (cond)
-  {
-    size_t __anf00 = i;
-    int32_t __anf1 = a[__anf00];
+    int32_t __anf1 = a[__anf0];
     if (__anf1 == 0)
     {
       size_t __anf01 = i;
@@ -40,15 +42,6 @@ size_t Goto_find_zero(int32_t *a, size_t sz)
       size_t __anf01 = i;
       i = __anf01 + (size_t)1U;
     }
-    bool ite;
-    if (_return1)
-      ite = false;
-    else
-    {
-      size_t __anf0 = i;
-      ite = __anf0 < sz;
-    }
-    cond = ite;
   }
   if (!_return1)
     _return = i;

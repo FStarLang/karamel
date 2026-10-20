@@ -109,6 +109,10 @@ and expr =
   | ESizeof of typ
   | EZeroForDeref of K.width
     (** Zero with an explicit width; requests dereference syntax when used as a buffer index. *)
+  | EBreak
+    (** Exit the innermost loop, even if inside EMatch. *)
+  | EContinue
+    (** Continue the innermost loop. *)
 
 and branches =
   branch list
@@ -124,6 +128,7 @@ and pattern =
   | PTuple of pattern list
   | PRecord of (ident * pattern) list
   | PConstant of K.t
+  | PWild
 
 and var =
   int (** a De Bruijn index *)
@@ -168,7 +173,7 @@ let flatten_arrow =
 
 type version = int
   [@@deriving yojson]
-let current_version: version = 33
+let current_version: version = 34
 
 type file = string * program
   [@@deriving yojson]

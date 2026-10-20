@@ -16,18 +16,20 @@ void Break_break_continue_and_return(uint8_t which)
   bool _return = false;
   uint32_t i = 0U;
   bool _break = false;
-  bool cond;
-  if (_break)
-    cond = false;
-  else if (_return)
-    cond = false;
-  else
+  while (true)
   {
-    uint32_t __anf0 = i;
-    cond = __anf0 < 1000U;
-  }
-  while (cond)
-  {
+    bool ite;
+    if (_break)
+      ite = false;
+    else if (_return)
+      ite = false;
+    else
+    {
+      uint32_t __anf0 = i;
+      ite = __anf0 < 1000U;
+    }
+    if (!ite)
+      break;
     bool _continue = false;
     if (which == 0U)
       _break = true;
@@ -46,17 +48,6 @@ void Break_break_continue_and_return(uint8_t which)
         }
       }
     }
-    bool ite;
-    if (_break)
-      ite = false;
-    else if (_return)
-      ite = false;
-    else
-    {
-      uint32_t __anf0 = i;
-      ite = __anf0 < 1000U;
-    }
-    cond = ite;
   }
 }
 
@@ -64,25 +55,8 @@ size_t Break_find_zero_with_break(int32_t *a, size_t sz)
 {
   size_t i = (size_t)0U;
   bool _break = false;
-  bool cond;
-  if (_break)
-    cond = false;
-  else
+  while (true)
   {
-    size_t __anf0 = i;
-    cond = __anf0 < sz;
-  }
-  while (cond)
-  {
-    size_t __anf00 = i;
-    int32_t __anf1 = a[__anf00];
-    if (__anf1 == 0)
-      _break = true;
-    if (!_break)
-    {
-      size_t __anf01 = i;
-      i = __anf01 + (size_t)1U;
-    }
     bool ite;
     if (_break)
       ite = false;
@@ -91,7 +65,17 @@ size_t Break_find_zero_with_break(int32_t *a, size_t sz)
       size_t __anf0 = i;
       ite = __anf0 < sz;
     }
-    cond = ite;
+    if (!ite)
+      break;
+    size_t __anf0 = i;
+    int32_t __anf1 = a[__anf0];
+    if (__anf1 == 0)
+      _break = true;
+    if (!_break)
+    {
+      size_t __anf01 = i;
+      i = __anf01 + (size_t)1U;
+    }
   }
   return i;
 }

@@ -188,6 +188,8 @@ and vars_of_stmt m = function
   | Return _
   | Break
   | Continue
+  | Goto _
+  | Label _
   | Comment _ ->
       S.empty
   | Ignore e
@@ -740,6 +742,12 @@ and mk_stmt m (stmt: stmt): C.stmt list =
   | Continue ->
       [ Continue ]
 
+  | Goto label ->
+      [ Goto label ]
+
+  | Label label ->
+      [ Label label ]
+
   (* Ignore injects `expr`s into `stmt`s by ignoring their return value. No need
      to double-ignore, since C does it for us automatically, and C compilers
      treat this as 100% normal UNLESS the programmer uses extensions like
@@ -987,7 +995,7 @@ and mk_stmt m (stmt: stmt): C.stmt list =
             let block = mk_stmts m block in
             if List.length block > 0 then
               match KList.last block with
-              | Return _ -> Compound block
+              | Return _ | Goto _ -> Compound block
               | _ -> Compound (block @ [ Break ])
             else
               Compound [ Break ]

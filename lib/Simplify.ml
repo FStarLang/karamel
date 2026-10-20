@@ -122,6 +122,10 @@ let safe_readonly_use lvalue e =
 class ['self] safe_pure_use lvalue = object (self: 'self)
   inherit [_] reduce as super
   inherit [_] safe_use lvalue
+  (* Unlike readonly initializers, effectful initializers must not move past
+     break/continue, which would skip their effects. *)
+  method! visit_EBreak _ = Unsafe
+  method! visit_EContinue _ = Unsafe
   method! visit_EBufRead env e1 e2 = self#unordered env [ e1; e2 ]
   method! visit_EApp env e es =
     match e.node with
@@ -2290,11 +2294,20 @@ let combinators = object(self)
 
 end
 
+(* C requires an expression as a while condition, but our conditions may contain
+ * let-bindings or statement-level conditionals. Translate loops with complex
+ * guards as [while (true) { if (!cond) break; body }]. Hoisting can
+ * then place the condition's statements before the guard on every iteration.
+ *
+ * We used to generate [bool cond = ...; while(cond) { body; cond = ...; }],
+ * updating the condition variable at the tail of the loop. This duplicates code
+ * and also is incorrect if [body] can have a [continue].
+ *)
 let fixup_while_tests = object (self)
 
   inherit [_] map as super
 
-  method! visit_EWhile (_, t) cond body =
+  method! visit_EWhile env cond body =
     match cond.node with
     (* TODO: Helpers.unlikely_expression *)
     | ELet _
@@ -2302,23 +2315,15 @@ let fixup_while_tests = object (self)
         let body = self#visit_expr_w () body in
         let cond = self#visit_expr_w () cond in
 
-        let b_cond, def_cond, _ =
-          mk_named_binding "cond" cond.typ cond.node
-        in
-        let b_cond = mark_mut b_cond in
-
-        (* let cond = <cond> in *)
-        ELet (b_cond, def_cond,
-          (* while (cond) { *)
-          with_type t (EWhile (with_type cond.typ (EBound 0),
-            (* let _ = <body> in *)
-            with_type body.typ (ELet (sequence_binding (),
-              DeBruijn.lift 1 body,
-              (* cond <- <cond> *)
-              with_unit (EAssign (with_type cond.typ (EBound 1), DeBruijn.lift 2 def_cond)))))))
+        EWhile (etrue, with_type body.typ (
+          (* let _ = (if not (cond ()) then break else ()) in
+             body *)
+          ELet (sequence_binding (),
+            with_unit (EIfThenElse (mk_not cond, with_unit EBreak, eunit)),
+            DeBruijn.lift 1 body)))
 
     | _ ->
-        super#visit_EWhile ((), t) cond body
+        super#visit_EWhile env cond body
 
 end
 

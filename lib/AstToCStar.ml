@@ -30,6 +30,13 @@ open Helpers
 module C = Checker
 module LidSet = Idents.LidSet
 
+type loop_exit = {
+  label: string Lazy.t;
+  used: bool ref;
+}
+
+type scope = Loop of loop_exit | Switch
+
 type env = {
   location: loc list;
   names: ident list;
@@ -38,6 +45,7 @@ type env = {
   in_block: ident list;
   ifdefs: LidSet.t;
   macros: LidSet.t;
+  scopes: scope list;
 }
 
 let locate env loc =
@@ -50,6 +58,7 @@ let empty: env = {
   location = [];
   ifdefs = LidSet.empty;
   macros = LidSet.empty;
+  scopes = [];
 }
 
 let reset_block env = {
@@ -62,7 +71,8 @@ let push env binder = CStar.{
   in_block = binder.name :: env.in_block;
   location = env.location;
   ifdefs = env.ifdefs;
-  macros = env.macros
+  macros = env.macros;
+  scopes = env.scopes
 }
 
 let pnames buf env =
@@ -214,6 +224,29 @@ let no_return_type_lids = ref []
    global mapping of fields (per type), just like we do for enums -- see lib/Simplify.ml,
    specifically, record_names. *)
 let avoid_keywords name = mk_fresh name (fun name -> List.mem name GlobalNames.keywords)
+
+(* Unrolling must preserve the target of loop control. *)
+let cannot_unroll = object (self)
+  inherit [_] reduce
+  method private zero = false
+  method private plus = (||)
+
+  (* if [in_switch], this break will need a loop-exit label. The KRML_MAYBE_FOR
+   * macro would duplicate that label, and fail to compile. *)
+  method! visit_EBreak ((in_loop, in_switch), _) = not in_loop || in_switch
+  method! visit_EContinue ((in_loop, _), _) = not in_loop
+
+  method! visit_EWhile (env, _) cond body =
+    self#visit_expr_w env cond || self#visit_expr_w (true, false) body
+
+  method! visit_EFor (env, _) _ init cond incr body =
+    self#visit_expr_w env init ||
+    List.exists (self#visit_expr_w (true, false)) [cond; incr; body]
+
+  method! visit_ESwitch (env, _) scrut branches =
+    self#visit_expr_w env scrut ||
+    List.exists (fun (_, body) -> self#visit_expr_w (fst env, true) body) branches
+end
 
 let rec unit_to_void env e es extra =
   let mk_expr env e = mk_expr env false false e in
@@ -528,6 +561,32 @@ and mk_ignored_stmt env e =
     env, [s]
 
 and mk_stmts env e ret_type =
+  (* Labels have function scope. Allocate them only when a break needs a goto,
+   * with a counter shared by all the loops in this function. *)
+  let next_label = ref 0 in
+  let fresh_loop () = {
+    label = lazy (
+      let label = "loop_exit" ^ string_of_int !next_label in
+      incr next_label;
+      label);
+    used = ref false;
+  } in
+  let add_loop_exit loop acc =
+    (* [acc] holds statements in reverse order. *)
+    if !(loop.used) then CStar.Label (Lazy.force loop.label) :: acc else acc
+  in
+  let rec break_target in_switch = function
+    | Loop loop :: _ ->
+        if in_switch then begin
+          loop.used := true;
+          CStar.Goto (Lazy.force loop.label)
+        end else
+          CStar.Break
+    | Switch :: scopes ->
+        break_target true scopes
+    | [] ->
+        fatal_error "[AstToCStar] break outside a loop"
+  in
   let rec collect (env, acc) (return_pos: return_pos) e =
     (* If we reach the end of the list of statements and are at a terminal atomic
      * node (not a disjunction in the control-flow), we may be required when `ret_type
@@ -553,8 +612,10 @@ and mk_stmts env e ret_type =
         collect (env, acc) return_pos e2
 
     | EWhile (e1, e2) ->
-        let e' = CStar.While (mk_expr env false false e1, mk_block env Not e2) in
-        env, maybe_return (e' :: comment e.meta @ acc)
+        let loop = fresh_loop () in
+        let body = mk_block { env with scopes = Loop loop :: env.scopes } Not e2 in
+        let e' = CStar.While (mk_expr env false false e1, body) in
+        env, maybe_return (add_loop_exit loop (e' :: comment e.meta @ acc))
 
     | EFor (binder, ({ node = EZeroForDeref w; _ } as init), cond, incr, body) ->
         (* The initializer is a numeric value. Keep loop unrolling available and
@@ -580,7 +641,8 @@ and mk_stmts env e ret_type =
         let max = int_of_string max in
         let incr = int_of_string incr in
         let n_loops = (max - init + incr - 1) / incr in
-        n_loops <= !Options.unroll_loops
+        n_loops <= !Options.unroll_loops &&
+        not (cannot_unroll#visit_expr_w (false, false) body)
       )
       ->
         let init = int_of_string init in
@@ -617,7 +679,8 @@ and mk_stmts env e ret_type =
         let env', binder = mk_and_push_binder env binder Local (Some e1) [ e2; e3; e4 ] in
         let e2 = mk_expr env' false false e2 in
         let e3 = KList.last (mk_block env' Not e3) in
-        let e4 = mk_block env' Not e4 in
+        let loop = fresh_loop () in
+        let e4 = mk_block { env' with scopes = Loop loop :: env'.scopes } Not e4 in
         let e' =
           if is_solo_assignment then
             let e1 = match mk_block env Not e1 with
@@ -630,7 +693,7 @@ and mk_stmts env e ret_type =
             let e1 = mk_expr env false false e1 in
             CStar.For (`Decl (binder, e1), e2, e3, e4)
         in
-        env', maybe_return (e' :: comment e.meta @ acc)
+        env', maybe_return (add_loop_exit loop (e' :: comment e.meta @ acc))
 
     | EIfThenElse (e1, e2, e3) ->
         begin try
@@ -725,11 +788,12 @@ and mk_stmts env e ret_type =
         env, CStar.Abort (Option.value ~default:"" s) :: comment e.meta @ acc
 
     | ESwitch (e0, branches) ->
+        let branch_env = { env with scopes = Switch :: env.scopes } in
         let default, branches =
           List.partition (function (SWild, _) -> true | _ -> false) branches
         in
         let default = match default with
-          | [ SWild, e ] -> Some (mk_block env return_pos e)
+          | [ SWild, e ] -> Some (mk_block branch_env return_pos e)
           | [] -> None
           | _ -> failwith "impossible"
         in
@@ -748,7 +812,7 @@ and mk_stmts env e ret_type =
             | SConstant k -> `Int k
             | SEnum lid -> `Ident (GlobalNames.mangle_enum lid e0.typ)
             | _ -> failwith "impossible"),
-            mk_block env return_pos e
+            mk_block branch_env return_pos e
           ) branches, default) :: comment e0.meta @ acc
 
     | EReturn e ->
@@ -762,7 +826,7 @@ and mk_stmts env e ret_type =
         env, maybe_return (s @ comment e.meta @ acc)
 
     | EBreak ->
-        env, CStar.Break :: comment e.meta @ acc
+        env, break_target false env.scopes :: comment e.meta @ acc
 
     | EContinue ->
         env, CStar.Continue :: comment e.meta @ acc

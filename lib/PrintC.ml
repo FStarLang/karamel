@@ -509,6 +509,12 @@ and p_stmt (s: stmt) =
      string "break" ^^ semi
   | Continue ->
      string "continue" ^^ semi
+  | Goto label ->
+      group (string "goto" ^/^ string label ^^ semi)
+  | Label label ->
+      (* A label must precede a statement, even at the end of a block or before
+       * a declaration. *)
+      string label ^^ colon ^^ space ^^ semi
 
 and p_stmts stmts = separate_map hardline p_stmt stmts
 

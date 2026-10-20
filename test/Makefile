@@ -151,6 +151,19 @@ $(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_EXE) krmlheader
 	    -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack$(comma)\* \
 	,[KRML] $*,$(OUTPUT_DIR)/$*)
 
+# F*/Pulse do not generate EContinue, so this test input is in JSON format.
+$(OUTPUT_DIR)/WhileContinue.out/WhileContinue.c: WhileContinue.json $(KRML_EXE) krmlheader
+	$(call run-with-log, \
+	  $(KRML) -header krmlheader -tmpdir $(OUTPUT_DIR)/WhileContinue.out \
+	    -skip-compilation WhileContinue.json \
+	,[KRML] WhileContinue,$(OUTPUT_DIR)/WhileContinue)
+
+# F*/Pulse do not generate EBreak, so this test input is in JSON format.
+$(OUTPUT_DIR)/LoopBreaks.out/LoopBreaks.c: LoopBreaks.json $(KRML_EXE) krmlheader
+	$(call run-with-log, \
+	  $(KRML) -funroll-loops 2 -skip-compilation -header krmlheader -tmpdir $(dir $@) $< \
+	,[KRML] LoopBreaks,$(OUTPUT_DIR)/LoopBreaks)
+
 $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c: EXTRA := -fnostruct-passing
 
 $(OUTPUT_DIR)/NoCopiesConst.out/NoCopiesConst.c $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c: \
@@ -173,7 +186,7 @@ TEST_C = $(OUTPUT_DIR)/$(TEST_NAME).out/$(TEST_NAME).c
 TEST_OUTPUT = $(OUTPUT_DIR)/$(TEST_NAME).exe
 
 # These tests only generate C; the by-reference variant keeps its module name.
-ArrayReborrow.test NoCopiesConst.test NoCopiesConst.byref.test: TEST_OUTPUT = $(TEST_C)
+ArrayReborrow.test NoCopiesConst.test NoCopiesConst.byref.test WhileContinue.test LoopBreaks.test: TEST_OUTPUT = $(TEST_C)
 NoCopiesConst.byref.test: TEST_C = $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c
 
 # Include snapshots with custom generation rules and no corresponding .fst file.
@@ -402,11 +415,21 @@ WasmTrap.wasm-test: NEGATIVE = true
 # Rust #
 ########
 
-.PRECIOUS: %.rs
-%.rs: $(ALL_KRML_FILES) $(KRML_EXE)
+$(OUTPUT_DIR)/LoopBreaks.out/loopbreaks.rs: LoopBreaks.json $(KRML_EXE)
+	$(call run-with-log, \
+	  $(KRML) -backend rust -funroll-loops 2 -skip-compilation -tmpdir $(dir $@) $< \
+	,[KRML-RS] LoopBreaks,$(OUTPUT_DIR)/LoopBreaks.rust)
+
+LoopBreaks.rust-test: $(OUTPUT_DIR)/LoopBreaks.out/loopbreaks.rs LoopBreaks.expected.rs
+	bash pulse/diff.sh $< LoopBreaks.expected.rs
+
+rust: LoopBreaks.rust-test
+
+.PRECIOUS: $(OUTPUT_DIR)/%.rs
+$(OUTPUT_DIR)/%.rs: $(ALL_KRML_FILES) $(KRML_EXE)
 	$(call run-with-log,$(KRML) -minimal -bundle $(notdir $(subst rust,Rust,$*))=\* \
 	  -backend rust $(EXTRA) -tmpdir $(dir $@) $(filter %.krml,$^)\
-	  ,[KRML-RS] $(basename $*),$*)
+	  ,[KRML-RS] $(basename $*),$(basename $@))
 	$(SED) -i 's/\(patterns..\)/\1\nmod lowstar { pub mod ignore { pub fn ignore<T>(_x: T) {}}}\n/' $@
 	echo 'fn main () { let r = main_ (); if r != 0 { println!("main_ returned: {}\\n", r); panic!() } }' >> $@
 

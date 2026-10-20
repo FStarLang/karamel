@@ -25,6 +25,8 @@ and stmt =
   | Return of expr option
   | Break
   | Continue
+  | Goto of ident
+  | Label of ident
   | Ignore of expr
   | Decl of binder * expr
     (** Scope is: statements that follow. *)
@@ -39,6 +41,7 @@ and stmt =
   | Assign of expr * typ * expr
     (** Destination (i.e. Var), Source *)
   | Switch of expr * ([`Ident of lident | `Int of K.t] * block) list * block option
+    (** Arms terminate implicitly; CStarToC11 inserts their breaks. *)
   | BufWrite of expr * expr * expr
     (** First expression has to be a [Bound] or [Open]. *)
   | BufBlit of typ * expr * expr * expr * expr * expr
