@@ -45,6 +45,8 @@ and stmt =
   | BufFill of typ * expr * expr * expr
   | BufFree of typ * expr
   | Block of block
+  | Goto of ident
+  | Label of ident
   | Comment of string
 
 and expr =

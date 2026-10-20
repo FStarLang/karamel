@@ -188,6 +188,8 @@ and vars_of_stmt m = function
   | Return _
   | Break
   | Continue
+  | Goto _
+  | Label _
   | Comment _ ->
       S.empty
   | Ignore e
@@ -733,6 +735,12 @@ and mk_stmt m (stmt: stmt): C.stmt list =
 
   | Block stmts ->
       [ Compound (mk_stmts m stmts) ]
+
+  | Goto label ->
+      [ Goto label ]
+
+  | Label label ->
+      [ Label label ]
 
   | Break ->
       [ Break ]
