@@ -170,6 +170,12 @@ $(OUTPUT_DIR)/LoopBreaks.out/LoopBreaks.c: LoopBreaks.json $(KRML_EXE) krmlheade
 	  $(KRML) -funroll-loops 2 -skip-compilation -header krmlheader -tmpdir $(dir $@) $< \
 	,[KRML] LoopBreaks,$(OUTPUT_DIR)/LoopBreaks)
 
+# Keep nested negations explicit to exercise C token boundaries.
+$(OUTPUT_DIR)/UnaryMinus.out/UnaryMinus.c: UnaryMinus.json $(KRML_EXE) krmlheader
+	$(call run-with-log, \
+	  $(KRML) -skip-compilation -header krmlheader -tmpdir $(dir $@) $< \
+	,[KRML] UnaryMinus,$(OUTPUT_DIR)/UnaryMinus)
+
 $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c: EXTRA := -fnostruct-passing
 
 $(OUTPUT_DIR)/NoCopiesConst.out/NoCopiesConst.c $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c: \
@@ -192,7 +198,7 @@ TEST_C = $(OUTPUT_DIR)/$(TEST_NAME).out/$(TEST_NAME).c
 TEST_OUTPUT = $(OUTPUT_DIR)/$(TEST_NAME).exe
 
 # These tests only generate C; the by-reference variant keeps its module name.
-ArrayReborrow.test NoCopiesConst.test NoCopiesConst.byref.test WhileContinue.test LoopBreaks.test SmallIntMacro.test: TEST_OUTPUT = $(TEST_C)
+ArrayReborrow.test NoCopiesConst.test NoCopiesConst.byref.test WhileContinue.test LoopBreaks.test SmallIntMacro.test UnaryMinus.test: TEST_OUTPUT = $(TEST_C)
 NoCopiesConst.byref.test: TEST_C = $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c
 
 # Include snapshots with custom generation rules and no corresponding .fst file.

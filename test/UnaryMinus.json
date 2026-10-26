@@ -1,0 +1,21 @@
+[
+  34,
+  [
+    ["UnaryMinus", [
+      ["DFunction", [
+        null, [], 0, ["TInt", ["Int32"]], [["UnaryMinus"], "double_negation"],
+        [{"name": "x", "typ": ["TInt", ["Int32"]], "mut": false, "meta": []}],
+        ["EApp", [["EOp", [["Neg"], ["Int32"]]], [
+          ["EApp", [["EOp", [["Neg"], ["Int32"]]], [["EBound", 0]]]]
+        ]]]
+      ]],
+      ["DFunction", [
+        null, [], 0, ["TInt", ["Int32"]], [["UnaryMinus"], "negative_constant"],
+        [{"name": "u", "typ": ["TUnit"], "mut": false, "meta": []}],
+        ["EApp", [["EOp", [["Neg"], ["Int32"]]], [
+          ["EConstant", [["Int32"], "-1"]]
+        ]]]
+      ]]
+    ]]
+  ]
+]
