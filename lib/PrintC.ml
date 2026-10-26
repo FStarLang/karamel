@@ -253,7 +253,14 @@ and p_constant w (s : string) : document =
 and p_expr' curr = function
   | Op1 (op, e1) ->
       let mine = prec_of_op1 op in
-      let e1 = p_expr' mine e1 in
+      let e1_doc = p_expr' mine e1 in
+      let e1 = match op, e1 with
+        (* Make sure to not output --x or --1 for double negations. We use parentheses,
+           though we could also use an extra space to prevent the bad tokenization. *)
+        | Constant.Neg, Op1 ((Constant.Neg | Constant.PreDecr), _) -> parens e1_doc
+        | Constant.Neg, Constant (_, s) when KString.starts_with s "-" -> parens e1_doc
+        | _ -> e1_doc
+      in
       paren_if curr mine (if is_prefix op then print_op op ^^ e1 else e1 ^^ print_op op)
   | Op2 (op, e1, e2) ->
       let mine, left, right = prec_of_op2 op in
