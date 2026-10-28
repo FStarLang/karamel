@@ -14,6 +14,8 @@ let debug = false
 type env = {
   bindings: (Atom.t * (typ * bool * ident)) list;
   address_taken: S.t;
+  (* Values needed by an enclosing continuation, independently of storage reuse. *)
+  live_after: S.t;
 }
 
 (* A syntactically dead local may still be read through a pointer. Collect the
@@ -68,7 +70,8 @@ let replace_atom (a: Atom.t) (a': Atom.t) (e: expr) =
   end)#visit_expr_w () e
 
 (* This function receives:
- * - env, an associative list of all the variables in scope to their types
+ * - env, the variables in scope, their storage constraints, and the values
+ *   needed by enclosing continuations
  * - the set U of variables from env that are no longer dead because they
  *   were used and assigned to at some point
  * - an expression e to rewrite
@@ -77,7 +80,7 @@ let replace_atom (a: Atom.t) (a': Atom.t) (e: expr) =
  * - the set D of variables from env that were dead in e pre-rewriting
  * - an updated set U'.
  * Therefore, the set of dead variables in e' (rewritten) is D - U'.
- * Therefore, the set of candidates for reusing a variable slot is env - U'. *)
+ * A reusable variable must also be absent from env.live_after. *)
 let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
   let w = with_type e.typ in
   match e.node with
@@ -168,6 +171,8 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
               not (Atom.equal x b.node.atom) &&
               (* Must be dead *)
               S.mem x d2 &&
+              (* Its value must not be needed by an enclosing continuation. *)
+              not (S.mem x env.live_after) &&
               (* Ignore sequence let-bindings *)
               not (t = TUnit) &&
               (* Arrays and locals whose address is taken need their own storage. *)
@@ -178,8 +183,12 @@ let rec merge' (env: env) (u: S.t) (e: expr): S.t * S.t * expr =
             List.find_map (fun (x, (t, h, i)) -> if fits x t h i then Some (x, i) else None) env.bindings
       in
 
-      (* For later *)
-      let d1, u_final, e1 = merge env u e1 in
+      (* Nested bindings in e1 must preserve values used in e2. Keep this
+         separate from u, which also determines which binders become mutable. *)
+      let env1 = { env with
+        live_after = S.union env.live_after (S.diff (keys env) d2)
+      } in
+      let d1, u_final, e1 = merge env1 u e1 in
       let d_final = S.inter d1 d2 in
 
       (* Note: thanks to the fact we encode the environment as a list, we can
@@ -368,7 +377,11 @@ let merge_visitor = object(_)
     if debug then
       KPrint.bprintf "Variable merge: visiting %a\n%a\n" plid name ppexpr body;
     let binders, body = open_binders binders body in
-    let env = { bindings = []; address_taken = collect_address_taken#visit_expr_w [] body } in
+    let env = {
+      bindings = [];
+      address_taken = collect_address_taken#visit_expr_w [] body;
+      live_after = S.empty;
+    } in
     let _, _, body = merge env S.empty body in
     let body = close_binders binders body in
     DFunction (cc, flags, n_cgs, n, ret, name, binders, body)
