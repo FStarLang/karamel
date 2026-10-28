@@ -267,6 +267,8 @@ $(OUTPUT_DIR)/MonomorphizationCrash.exe: EXTRA=monomorphization_crash.c -add-inc
 $(OUTPUT_DIR)/MonomorphizationSeparate2.exe: EXTRA=-bundle MonomorphizationSeparate1=
 $(OUTPUT_DIR)/Loops.exe: EXTRA=-funroll-loops 16
 $(OUTPUT_DIR)/GlobalInit.exe: EXTRA=global_init.c
+$(OUTPUT_DIR)/Issue216.exe: EXTRA = -fmerge aggressive
+$(OUTPUT_DIR)/Issue216TailCalls.exe: EXTRA = -fmerge aggressive -ftail-calls
 
 Failure.test: NEGATIVE=true
 
