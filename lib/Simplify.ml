@@ -78,10 +78,14 @@ class ['self] safe_use lvalue = object (self: 'self)
     | EBound i when i = j && not lvalue -> Unsafe
     | _ -> self#unordered env [ e1; e2 ]
   method! visit_EApp env e es =
-    match e.node with
-    | EOp _ -> super#visit_EApp env e es
-    | EQualified _ when Helpers.is_readonly_builtin_lid e -> super#visit_EApp env e es
-    | ETApp ({ node = EQualified _; _ } as e, _, _, _) when Helpers.is_readonly_builtin_lid e -> super#visit_EApp env e es
+    match e.node, es with
+    | EOp ((K.And | K.Or), TBool), [ e1; _ ] ->
+        (* Only the left operand is guaranteed to run. Substituting into the
+           right operand could skip an initializer that was unconditional. *)
+        self#sequential env e1 None
+    | EOp _, _ -> super#visit_EApp env e es
+    | EQualified _, _ when Helpers.is_readonly_builtin_lid e -> super#visit_EApp env e es
+    | ETApp ({ node = EQualified _; _ } as e, _, _, _), _ when Helpers.is_readonly_builtin_lid e -> super#visit_EApp env e es
     | _ -> self#unordered env (e :: es)
 
   method! visit_ELet env _ e1 e2 = self#sequential env e1 (Some e2)
@@ -120,8 +124,7 @@ let safe_readonly_use lvalue e =
   | Safe -> failwith "F* isn't supposed to nest uu__'s this deep, how did we miss it?"
 
 class ['self] safe_pure_use lvalue = object (self: 'self)
-  inherit [_] reduce as super
-  inherit [_] safe_use lvalue
+  inherit [_] safe_use lvalue as super
   (* Unlike readonly initializers, effectful initializers must not move past
      break/continue, which would skip their effects. *)
   method! visit_EBreak _ = Unsafe
