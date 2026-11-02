@@ -538,7 +538,7 @@ let constant_fold = object (self)
         let e2 = self#visit_expr env e2 in
         match e1.node, e2.node with
         | EBool false, _ -> EBool false
-        | _, EBool false -> EBool false
+        | _, EBool false when is_readonly_c_expression e1 -> EBool false
         | EBool true, e2 -> e2
         | e1, EBool true -> e1
         | _ -> EApp (e, [e1; e2])
@@ -549,7 +549,7 @@ let constant_fold = object (self)
         let e2 = self#visit_expr env e2 in
         match e1.node, e2.node with
         | EBool true, _ -> EBool true
-        | _, EBool true -> EBool true
+        | _, EBool true when is_readonly_c_expression e1 -> EBool true
         | EBool false, e2 -> e2
         | e1, EBool false -> e1
         | _ -> EApp (e, [e1; e2])
