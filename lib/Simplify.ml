@@ -511,7 +511,9 @@ let constant_fold = object (self)
         match e1.node, e2.node with
         (* Division of literals. Note, ZArith div/rem coincides with C semantics. *)
         | EConstant (w1, s1), EConstant (w2, s2) when w = w1 && w1 = w2 ->
-          EConstant (w1, op_on_strings Z.div w s1 s2)
+          if Z.equal (Z.of_string s2) Z.zero
+            then EApp (e, [ e1; e2 ])
+            else EConstant (w1, op_on_strings Z.div w s1 s2)
         (* 0/x ~> 0 *)
         | EConstant (w2, "0"), _ when w = w2 && is_readonly_c_expression e2 -> EConstant(w2, "0")
         (* x/1 ~> x *)
@@ -525,7 +527,9 @@ let constant_fold = object (self)
         match e1.node, e2.node with
         (* Mod of literals. Note, ZArith div/rem coincides with C semantics. *)
         | EConstant (w1, s1), EConstant (w2, s2) when w = w1 && w1 = w2 ->
-          EConstant (w1, op_on_strings Z.rem w s1 s2)
+          if Z.equal (Z.of_string s2) Z.zero
+            then EApp (e, [ e1; e2 ])
+            else EConstant (w1, op_on_strings Z.rem w s1 s2)
         (* 0 % x ~> 0 *)
         | EConstant (w2, "0"), _ when w = w2 && is_readonly_c_expression e2 -> EConstant(w2, "0")
         (* x % 1 ~> 0 *)
@@ -535,24 +539,30 @@ let constant_fold = object (self)
 
     | EOp (K.And, _), [e1; e2] -> (
         let e1 = self#visit_expr env e1 in
-        let e2 = self#visit_expr env e2 in
-        match e1.node, e2.node with
-        | EBool false, _ -> EBool false
-        | _, EBool false when is_readonly_c_expression e1 -> EBool false
-        | EBool true, e2 -> e2
-        | e1, EBool true -> e1
-        | _ -> EApp (e, [e1; e2])
+        match e1.node with
+        | EBool false -> EBool false
+        | EBool true -> (self#visit_expr env e2).node
+        | _ ->
+          let e2 = self#visit_expr env e2 in
+          (* Take care to not drop the effects of e1, if any. *)
+          match e2.node with
+          | EBool false when is_readonly_c_expression e1 -> EBool false
+          | EBool true -> e1.node
+          | _ -> EApp (e, [e1; e2])
     )
 
     | EOp (K.Or, _), [e1; e2] -> (
         let e1 = self#visit_expr env e1 in
-        let e2 = self#visit_expr env e2 in
-        match e1.node, e2.node with
-        | EBool true, _ -> EBool true
-        | _, EBool true when is_readonly_c_expression e1 -> EBool true
-        | EBool false, e2 -> e2
-        | e1, EBool false -> e1
-        | _ -> EApp (e, [e1; e2])
+        match e1.node with
+        | EBool true -> EBool true
+        | EBool false -> (self#visit_expr env e2).node
+        | _ ->
+          let e2 = self#visit_expr env e2 in
+          (* Take care to not drop the effects of e1, if any. *)
+          match e2.node with
+          | EBool true when is_readonly_c_expression e1 -> EBool true
+          | EBool false -> e1.node
+          | _ -> EApp (e, [e1; e2])
     )
 
     | EOp (K.Not, _), [e1] -> (
