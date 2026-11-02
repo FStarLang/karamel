@@ -835,29 +835,6 @@ let is_special name =
   name = "scrutinee" ||
   Helpers.is_uu name
 
-let rec is_trivially_true e =
-  match e.node with
-  | EBool b ->
-      b = true
-  | EApp ({ node = EOp (K.And, TBool); _ }, [ e1; e2 ]) ->
-      is_trivially_true e1 && is_trivially_true e2
-  | EApp ({ node = EOp (K.Or, TBool); _ }, [ e1; e2 ]) ->
-      is_trivially_true e1 || is_trivially_true e2
-  | _ ->
-      false
-
-and is_trivially_false e =
-  match e.node with
-  | EBool b ->
-      b = false
-  | EApp ({ node = EOp (K.And, TBool); _ }, [ e1; e2 ]) ->
-      is_trivially_false e1 || is_trivially_false e2
-  | EApp ({ node = EOp (K.Or, TBool); _ }, [ e1; e2 ]) ->
-      is_trivially_false e1 && is_trivially_false e2
-  | _ ->
-      false
-
-
 let remove_trivial_matches = object (self)
 
   inherit [_] map
@@ -884,12 +861,12 @@ let remove_trivial_matches = object (self)
         let b1 = self#visit_expr_w () b1 in
         let _, b2 = open_binder v b2 in
         let b2 = self#visit_expr_w () b2 in
-        if is_trivially_true e then
-          b1.node
-        else if is_trivially_false e then
-          b2.node
-        else
-          EIfThenElse (e, b1, b2)
+        let e = Simplify.constant_fold#visit_expr_w () e in
+        begin match e.node with
+        | EBool true -> b1.node
+        | EBool false -> b2.node
+        | _ -> EIfThenElse (e, b1, b2)
+        end
     | _ ->
         EMatch (c, e, self#visit_branches env branches)
 
