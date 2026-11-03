@@ -980,31 +980,8 @@ and mk_stmt m (stmt: stmt): C.stmt list =
   | BufFree (t, e) ->
       [ Expr (mk_free t (mk_expr m e)) ]
 
-  | While (e1, e2) -> (
-    let decons (blk : C11.stmt list) : (C11.stmt list * C11.expr) option =
-      if not !Options.auto_for_loops then
-        None
-      else
-      match KList.split_at_last blk with
-      | init, Expr e ->
-        (* let vs = vars_of m e in *)
-        (* This here can cause things to not compile since the last
-        statement in the loop might refer to variables defined within
-        the body. I'm just keeping this temporarilly to get nicer code.
-        We avoid this issue in all of our kuiper programs, for now. *)
-        if true || List.for_all (fun (x : C11.stmt) ->
-                         match x with C.Decl _ -> false | _ -> true) init
-        then Some (init, e)
-        else None
-      | _ -> None
-    in
-    let e2 = mk_stmts m e2 in
-    match decons e2 with
-    | None ->
-      [ While (mk_expr m e1, mk_compound_if e2 false) ]
-    | Some (body, incr) ->
-      [ For (`Expr ESkip, mk_expr m e1, incr, mk_compound_if body false) ]
-  )
+  | While (e1, e2) ->
+      [ While (mk_expr m e1, mk_compound_if (mk_stmts m e2) false) ]
 
   | Switch (e, branches, default) ->
       [ Switch (

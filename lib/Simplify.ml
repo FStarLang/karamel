@@ -1789,25 +1789,50 @@ class hoist = object
     DFunction (cc, flags, n_cgs, n, ret, name, binders, expr)
 end
 
+(* A continue would start executing the moved step. Conservatively decline
+   loops containing one, even when it belongs to a nested loop. *)
+let has_continue = (object
+  inherit [_] reduce
+  method private zero = false
+  method private plus = (||)
+  method! visit_EContinue _ = true
+end)#visit_expr_w ()
+
+(* Scalar arithmetic may move out of a block; memory reads may depend on
+   objects whose lifetime ends with that block. *)
+let rec is_scalar_arithmetic e =
+  match e.typ, e.node with
+  | (TInt _ | TBool), (EBound _ | EConstant _) -> true
+  | (TInt _ | TBool), EApp ({ node = EOp (op, _); _ }, args) when K.is_pure_op op ->
+      List.for_all is_scalar_arithmetic args
+  | _ -> false
+
+(* Split off an integer-counter update, using the existing binder-aware
+   occurrence check before taking it out of each let's scope. Everything
+   else stays a while loop; in particular, never replace saved values by reads. *)
+let rec split_for_step body =
+  match body.node with
+  | ELet (b, init, rest) ->
+      (match split_for_step rest with
+       | Some (rest, step) when not (occurs 0 step) ->
+           Some ({ body with node = ELet (b, init, rest) }, lift (-1) step)
+       | _ -> None)
+  | EAssign ({ node = EBound _; typ = TInt _; _ },
+      { node = EApp ({ node = EOp ((Add | Sub), _); _ }, args); _ })
+      when List.for_all is_scalar_arithmetic args ->
+      Some (eunit, body)
+  | _ -> None
+
 class auto_for = object (self)
-  inherit [_] map as super
+  inherit [_] map
 
-  val field_types = Hashtbl.create 42
-
-  method! visit_file () file =
-    super#visit_file () file
-
-  method! visit_DFunction () cc flags n_cgs n ret name binders expr =
-    let expr = self#visit_expr_w () expr in
-    DFunction (cc, flags, n_cgs, n, ret, name, binders, expr)
-
-  method! visit_EWhile (_, _t) cond body =
-    (* if true then
-      let body, incr = decons body in
-      EGFor (with_type TUnit EUnit, self#visit_expr_w () cond, self#visit_expr_w () incr, self#visit_expr_w () body)
-    else *)
-      EWhile (self#visit_expr_w () cond, self#visit_expr_w () body)
-
+  method! visit_EWhile _ cond body =
+    let cond = self#visit_expr_w () cond in
+    let body = self#visit_expr_w () body in
+    match split_for_step body with
+    | Some (body, step) when not (has_continue body) ->
+        EFor (sequence_binding (), eunit, lift 1 cond, lift 1 step, lift 1 body)
+    | _ -> EWhile (cond, body)
 end
 
 (* Relax the criterion a little bit for terminal positions ********************)
@@ -2497,7 +2522,6 @@ let simplify2 ifdefs (files: file list): file list =
   let files = (use_ternary_op ifdefs)#visit_files () files in
   let files = if Options.wasm () then files else fixup_while_tests#visit_files () files in
   let files = (new hoist)#visit_files [] files in
-  let files = if !Options.auto_for_loops then (new auto_for)#visit_files () files else files in
   let files = if !Options.c89_scope then SimplifyC89.hoist_lets#visit_files (ref []) files else files in
   let files = if Options.wasm () then files else fixup_hoist#visit_files () files in
   (* Disabled in Rust because this results in uninitialized variables *)
@@ -2511,6 +2535,8 @@ let simplify2 ifdefs (files: file list): file list =
   let functional_updates = functional_updates () in
   let files = functional_updates#visit_files false files in
   let files = functional_updates#visit_files true files in
+  (* Stack-cell counters have become scalar assignments by this point. *)
+  let files = if !Options.auto_for_loops then (new auto_for)#visit_files () files else files in
   let files = let_to_sequence#visit_files () files in
   let files = euclid_simpl#visit_files () files in
   let files = constant_fold#visit_files () files in
