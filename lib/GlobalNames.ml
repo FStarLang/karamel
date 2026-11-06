@@ -39,7 +39,12 @@ let dump (env: t) =
     KPrint.bprintf "%s is an other\n" c_name
   ) (snd env).other
 
+(* Keywords and other names we should not emit. *)
 let keywords = [
+  "int8_t"; "int16_t"; "int32_t"; "int64_t";
+  "uint8_t"; "uint16_t"; "uint32_t"; "uint64_t";
+  "size_t"; "ptrdiff_t"; "krml_checked_int_t";
+  "BOOLEAN"; (* bool under -microsoft *)
   "_Alignas";
   "_Alignof";
   "_Atomic";
