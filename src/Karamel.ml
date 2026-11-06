@@ -252,6 +252,10 @@ Supported options:|}
     "-static-header", Arg.String (fun s ->
       List.iter (prepend Options.static_header) (Parsers.drop s)), " generate a \
       .h for the given module where all functions are marked a static inline";
+    "-reserved-names", Arg.String (fun s ->
+      Options.reserved_names := String.split_on_char ',' s @ !Options.reserved_names), " \
+      comma-separated names (e.g. of types and functions declared by included \
+      headers) that generated C must not declare; clashing names are renamed";
     "-no-prefix", Arg.String (fun s -> List.iter (prepend Options.no_prefix) (Parsers.drop s)),
       " don't prepend the module name to declarations from module matching this \
       pattern";
