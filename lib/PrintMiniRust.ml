@@ -423,8 +423,15 @@ and print_expr env ?(lbrace_conflict=Fine) (context: int) (e: expr): document =
       let mine = 6 in
       paren_if mine @@
       group (ampersand ^^ print_borrow_kind k ^^ print_expr env mine e)
-  | Constant c ->
-      print_constant c
+  | Constant ((_, s) as c) ->
+      (* In Rust's grammar a negative literal is unary negation applied to a
+         positive literal, so it binds more loosely than method calls, field
+         accesses, indexing and calls: `-1i32.wrapping_sub(x)` parses as
+         `-(1i32.wrapping_sub(x))`. Give it the precedence of Neg. *)
+      if String.length s > 0 && s.[0] = '-' then
+        paren_if (prec_of_op1 Constant.Neg) (print_constant c)
+      else
+        print_constant c
   | Bool b ->
       string (if b then "true" else "false")
   | Let _ ->
