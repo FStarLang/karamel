@@ -162,7 +162,7 @@ let reserve_keywords used_c_names =
   (* Some stuff that's already almost always in scope. *)
   let std = [
     "errno"
-  ] in
+  ] @ !Options.reserved_names in
   List.iter (fun k -> Hashtbl.add used_c_names k ()) std
 
 let create () =
