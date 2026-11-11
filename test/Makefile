@@ -24,7 +24,7 @@ endif
 ifneq ($(CRYPTO),)
   CRYPTO_OPTS	= -I $(CRYPTO) -I $(CRYPTO)/real
 endif
-TEST_OPTS	= -warn-error @4 -skip-makefiles
+TEST_OPTS	= -warn-error @4 -skip-makefiles -ccopt -Werror=dangling-else
 
 # Make sure children invocations use the same KRML.
 KRML_EXE	= ../out/bin/krml
