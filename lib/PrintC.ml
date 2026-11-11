@@ -46,10 +46,13 @@ let nest_if f stmt =
  * -Wnoparentheses is given, will produce a warning for the former case.
  * [protect_ite_if_needed] adds braces to the former case, when the user has
  * requested the extra, unnecessary parentheses needed to silence -Wparentheses.
+ * Note: we also braces even if the internal if has an else-branch: the precise
+ * check would be to follow the IfElse chain and check if the tail contains an else,
+ * but it doesn't hurt to generate code that is slightly more explicit.
  * *)
 let protect_solo_if s =
   match s with
-  | If _ -> Compound [ s ]
+  | If _ | IfElse _ -> Compound [ s ]
   | _ -> s
 
 let protect_ite_if_needed s =
