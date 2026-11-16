@@ -8,7 +8,8 @@ code, but the bulk of the testing is done elsewhere (see [project
 everest](https://github.com/project-everest/everest-ci)).
 
 Every `X.expected.c` file is automatically included in `make all` as `X.test`.
-The shared rule compares the generated C and then runs the executable, if any.
+The shared rule compares the generated C, checks optional `X.expected.h` and
+`X.internal.expected.h` snapshots, then runs the executable, if any.
 
 ## WASM backend
 

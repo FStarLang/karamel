@@ -151,12 +151,6 @@ $(OUTPUT_DIR)/%.exe: $(ALL_KRML_FILES) $(KRML_EXE) krmlheader
 	    -o $@ $(filter %.krml,$^) -bundle $(subst _,.,$*)=WindowsHack$(comma)\* \
 	,[KRML] $*,$(OUTPUT_DIR)/$*)
 
-# Private macros appear in the C snapshot.
-$(OUTPUT_DIR)/SmallIntMacro.out/SmallIntMacro.c: $(OUTPUT_DIR)/SmallIntMacro.krml $(KRML_EXE) krmlheader
-	$(call run-with-log, \
-	  $(KRML) -skip-compilation -header krmlheader -tmpdir $(dir $@) $< \
-	,[KRML] SmallIntMacro,$(OUTPUT_DIR)/SmallIntMacro)
-
 # F*/Pulse do not generate EContinue, so this test input is in JSON format.
 $(OUTPUT_DIR)/WhileContinue.out/WhileContinue.c: WhileContinue.json $(KRML_EXE) krmlheader
 	$(call run-with-log, \
@@ -198,7 +192,7 @@ TEST_C = $(OUTPUT_DIR)/$(TEST_NAME).out/$(TEST_NAME).c
 TEST_OUTPUT = $(OUTPUT_DIR)/$(TEST_NAME).exe
 
 # These tests only generate C; the by-reference variant keeps its module name.
-ArrayReborrow.test NoCopiesConst.test NoCopiesConst.byref.test WhileContinue.test LoopBreaks.test SmallIntMacro.test UnaryMinus.test: TEST_OUTPUT = $(TEST_C)
+ArrayReborrow.test NoCopiesConst.test NoCopiesConst.byref.test WhileContinue.test LoopBreaks.test UnaryMinus.test: TEST_OUTPUT = $(TEST_C)
 NoCopiesConst.byref.test: TEST_C = $(OUTPUT_DIR)/NoCopiesConst.byref.out/NoCopiesConst.c
 
 # Include snapshots with custom generation rules and no corresponding .fst file.
@@ -206,8 +200,10 @@ all: $(patsubst %.expected.c,%.test,$(wildcard *.expected.c))
 
 .SECONDEXPANSION:
 # Compare every snapshot, then run the executable if the test builds one.
-%.test: $$(TEST_OUTPUT) %.expected.c
+%.test: $$(TEST_OUTPUT) %.expected.c $$(wildcard $$*.expected.h $$*.internal.expected.h)
 	bash pulse/diff.sh $(TEST_C) $*.expected.c
+	$(if $(wildcard $*.expected.h),bash pulse/diff.sh $(TEST_C:.c=.h) $*.expected.h)
+	$(if $(wildcard $*.internal.expected.h),bash pulse/diff.sh $(dir $(TEST_C))internal/$(notdir $(TEST_C:.c=.h)) $*.internal.expected.h)
 	$(filter %.exe,$(TEST_OUTPUT))
 
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe

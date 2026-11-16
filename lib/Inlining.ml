@@ -359,6 +359,7 @@ let cross_call_analysis files =
     List.iter (fun (d: decl) ->
       let lid = lid_of_decl d in
       let my_info = Hashtbl.find info_map lid in
+      let self_function = match d with DFunction _ -> Some lid | _ -> None in
 
       (* if `lid` calls into `name` across translation units, then `name` must
          lose its inline qualifier, if any *)
@@ -467,9 +468,10 @@ let cross_call_analysis files =
           (* See above *)
           if cross_crate lid name then
             raise name Workspace;
-          (* Mutually recursive calls require the prototype to be in scope, at
-             least through the internal header. *)
-          if not (LidSet.mem name !seen) then
+          (* Forward and mutually recursive calls require a prototype in scope.
+             A function's own name is already in scope within its body, even
+             though [seen] is only updated after visiting the declaration. *)
+          if Some name <> self_function && not (LidSet.mem name !seen) then
             raise name Internal;
           (* Static inline definitions force the callee to be at least as
              visible as the caller, so that the callee is in scope of the

@@ -29,3 +29,5 @@ let signed_max16 () : FStar.Int16.t =
 let equal16 (x : U16.t) : bool = x = max16
 let wide16 () : FStar.UInt32.t = Cast.uint16_to_uint32 max16
 let half16 () : U16.t = U16.div max16 2us
+
+let main () = 0l
