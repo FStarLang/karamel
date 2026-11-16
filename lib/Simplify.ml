@@ -448,6 +448,23 @@ let constant_fold = object (self)
 
   inherit [_] map
 
+  method private negate e =
+    (* Folding !(a == b) into a != b, etc. Ordering comparisons can also be
+       complemented for integral types, but NOT for floats due to NaNs. *)
+    match e.node with
+    | EBool b -> EBool (not b)
+    | EApp ({ node = EOp (K.Not, _); _ }, [ e1 ]) when e1.typ = TBool ->
+        e1.node
+    | EApp (({ node = EOp ((K.Eq | K.Neq as op), t); _ } as f), [ e1; e2 ]) ->
+        EApp ({ f with node = EOp (K.comp_neg op, t) }, [ e1; e2 ])
+    | EApp (({ node = EOp ((K.Lt | K.Lte | K.Gt | K.Gte as op), (TInt w as t)); _ } as f), [ e1; e2 ])
+        when not (K.is_float w) ->
+        EApp ({ f with node = EOp (K.comp_neg op, t) }, [ e1; e2 ])
+    | EApp (({ node = EPolyComp (op, t); _ } as f), [ e1; e2 ]) ->
+        let op = match op with K.PEq -> K.PNeq | K.PNeq -> K.PEq in
+        EApp ({ f with node = EPolyComp (op, t) }, [ e1; e2 ])
+    | _ -> (mk_not e).node
+
   method! visit_EApp env e es =
     let fit (w:width) (x:Z.t) : Z.t =
       (* Fit an integer into the allowed values for a width.
@@ -565,12 +582,8 @@ let constant_fold = object (self)
           | _ -> EApp (e, [e1; e2])
     )
 
-    | EOp (K.Not, _), [e1] -> (
-        let e1 = self#visit_expr env e1 in
-        match e1.node with
-        | EBool b -> EBool (not b)
-        | _ -> EApp (e, [e1])
-    )
+    | EOp (K.Not, _), [e1] ->
+        self#negate (self#visit_expr env e1)
 
     | _ ->
         EApp (self#visit_expr env e, List.map (self#visit_expr env) es)
@@ -590,6 +603,7 @@ let constant_fold = object (self)
     let t = self#visit_expr env t in
     let e = self#visit_expr env e in
     assert (c.typ = TBool);
+    let negate c = with_type TBool (self#negate c) in
     (* Some of the rules below are gated with type information, to make sure we
     don't end up rewriting something like `p ? true : 42` into `p || 42`, which
     would booleanize the 42 into 1. Karamel's typechecker should prevent this
@@ -604,7 +618,7 @@ let constant_fold = object (self)
       e.node
     | _, EBool false, EBool true ->
       (* c ? false : true  ~>  !c *)
-      (mk_not c).node
+      (negate c).node
     | _, EBool true, EBool false ->
       (* c ? true : false  ~>  c. Note, we know that c is TBool. *)
       c.node
@@ -613,10 +627,10 @@ let constant_fold = object (self)
       (mk_or c e).node
     | _, EBool false, _ when e.typ = TBool ->
       (* c ? false : e  ~>  !c && e *)
-      (mk_and (mk_not c) e).node
+      (mk_and (negate c) e).node
     | _, _, EBool true when t.typ = TBool ->
       (* c ? t : true  ~>  !c || t *)
-      (mk_or (mk_not c) t).node
+      (mk_or (negate c) t).node
     | _, _, EBool false when t.typ = TBool ->
       (* c ? t : false  ~>  c && t *)
       (mk_and c t).node
@@ -1117,7 +1131,6 @@ let misc_cosmetic = object (self)
     let e3 = self#visit_expr env e3 in
     match e2.node with
     | EUnit when e3.node <> EUnit ->
-        (* TODO: if e1 is an equality, make it a != *)
         EIfThenElse (Helpers.mk_not e1, e3, e2)
     | _ ->
         EIfThenElse (e1, e2, e3)

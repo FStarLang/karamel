@@ -9,7 +9,7 @@ uint32_t WhileContinue_let_condition(uint32_t start)
   while (true)
   {
     i++;
-    if (!(i < 3U))
+    if (i >= 3U)
       break;
     i++;
     continue;

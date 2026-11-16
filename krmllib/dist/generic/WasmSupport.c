@@ -8,7 +8,7 @@
 
 uint32_t WasmSupport_align_64(uint32_t x)
 {
-  return !((x & 0x07U) == 0U) ? (x & 4294967288U) + 0x08U : x;
+  return (x & 0x07U) != 0U ? (x & 4294967288U) + 0x08U : x;
 }
 
 void WasmSupport_check_buffer_size(uint32_t s)
