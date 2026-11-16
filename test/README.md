@@ -11,6 +11,11 @@ Every `X.expected.c` file is automatically included in `make all` as `X.test`.
 The shared rule compares the generated C, checks optional `X.expected.h` and
 `X.internal.expected.h` snapshots, then runs the executable, if any.
 
+Prefer F* regression tests whenever possible, with expected C/header snapshots
+for generated-code checks. Include a `main` (even just `let main () = 0l`) to use
+the standard build and comparison rules. Use JSON only for inputs that F* cannot
+express; do not add new OCaml-driven tests.
+
 ## WASM backend
 
 This is all super experimental. Roughly, compile V8 from source (good luck).
