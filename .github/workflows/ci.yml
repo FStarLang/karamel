@@ -20,83 +20,74 @@ defaults:
   run:
     shell: bash
 
+env:
+  OCAML_VERSION: 5.3.0
+  FRESH_FSTAR_BUILD: ${{ inputs.nocache || github.event_name == 'schedule' }}
+
 jobs:
-  build-deps:
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
-
       - name: Setup ocaml
         uses: ocaml/setup-ocaml@v3
         with:
-           ocaml-compiler: 5.3.0
+           ocaml-compiler: ${{ env.OCAML_VERSION }}
 
       - uses: actions/checkout@master
         with:
           path: karamel
 
-      # We keep the OPAM state fully cached between runs, and rely on OPAM to
-      # update itself. This means we don't build F* again if it doesn't change.
-      # The nightly build will start from scratch.
-      - name: Try restore OPAM state
-        if: ${{ !inputs.nocache && github.event_name != 'schedule' }}
+      - name: Resolve F*1 revision
+        id: fstar
+        run: |
+          rev=$(git ls-remote --exit-code https://github.com/FStarLang/FStar.git refs/heads/fstar1 | cut -f1)
+          echo "rev=$rev" >> "$GITHUB_OUTPUT"
+
+      # Cache the standalone F* distribution, including its libraries and Z3.
+      - name: Restore F*1 package
+        id: fstar-cache
         uses: actions/cache/restore@v4
         with:
-          path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }}
-          restore-keys: |
-            opam-${{ runner.os }}-${{ runner.arch }}-fstar1-
+          path: fstar.tar.gz
+          lookup-only: ${{ env.FRESH_FSTAR_BUILD == 'true' }}
+          key: fstar1-v1-${{ runner.os }}-${{ runner.arch }}-${{ env.OCAML_VERSION }}-${{ steps.fstar.outputs.rev }}
 
-      # Build F*, from the fstar1 branch.
-      - run: opam update
-      - run: opam pin -n fstar git+https://github.com/FStarLang/FStar#fstar1
-      - run: opam install fstar
+      - name: Checkout F*1
+        if: steps.fstar-cache.outputs.cache-hit != 'true' || env.FRESH_FSTAR_BUILD == 'true'
+        uses: actions/checkout@master
+        with:
+          repository: FStarLang/FStar
+          ref: ${{ steps.fstar.outputs.rev }}
+          path: fstar-src
 
-      # Install karamel deps
-      - run: opam install --deps-only karamel/karamel.opam
-
-      # Paranoid delete before saving. Note: run_id is constant across reruns.
-      - name: Delete OPAM state if it already existed
+      - name: Build F*1 package
+        if: steps.fstar-cache.outputs.cache-hit != 'true' || env.FRESH_FSTAR_BUILD == 'true'
+        working-directory: fstar-src
         run: |
-          gh cache delete opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }} || true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          BRANCH: ${{ github.ref }}
+          opam install --deps-only ./fstar.opam
+          eval "$(opam env)"
+          make -j$(nproc) ADMIT=1 FSTAR_TAG= package
+          mv fstar.tar.gz ../fstar.tar.gz
 
-      - name: Save OPAM state
+      - name: Save F*1 package
+        if: steps.fstar-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }}
+          path: fstar.tar.gz
+          key: ${{ steps.fstar-cache.outputs.cache-primary-key }}
 
-  build-and-test:
-    needs: build-deps
-    runs-on: ubuntu-latest
-    steps:
-      - name: Install Z3 with script
+      - name: Unpack F*1
         run: |
-          wget https://raw.githubusercontent.com/FStarLang/FStar/refs/heads/master/.scripts/get_fstar_z3.sh -O get_fstar_z3.sh
-          chmod +x get_fstar_z3.sh
-          ./get_fstar_z3.sh /usr/local/bin
-       # If these fail, stop right now.
-      - run: which z3-4.8.5
-      - run: which z3-4.13.3
+          tar -xzf fstar.tar.gz
+          echo "$PWD/fstar/bin" >> "$GITHUB_PATH"
+          echo "FSTAR_EXE=$PWD/fstar/bin/fstar.exe" >> "$GITHUB_ENV"
+          ./fstar/bin/fstar.exe --version
 
-      - name: Setup ocaml
-        uses: ocaml/setup-ocaml@v3
-        with:
-           ocaml-compiler: 5.3.0
-
-      - uses: actions/checkout@master
-        with:
-          path: karamel
-
-      - name: Restore OPAM state
-        uses: actions/cache/restore@v4
-        with:
-          fail-on-cache-miss: true # should never happen, cache was filled by build-deps
-          path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-fstar1-${{ github.run_id }}
+      - name: Install KaRaMeL dependencies
+        run: |
+          # F* is supplied by the binary package above.
+          sed '/^  "fstar"$/d' karamel/karamel.opam > "$RUNNER_TEMP/karamel.opam"
+          opam install --deps-only "$RUNNER_TEMP/karamel.opam"
 
       - uses: actions/setup-node@v4
         with:
@@ -151,50 +142,34 @@ jobs:
 
   build-and-test-pulse:
     runs-on: ubuntu-latest
-    needs: build-deps
     env:
-      # The F* commit of nightly-2026-10-18. Keep in sync with the nightly in
-      # test/pulse/refresh.sh, and bump both together (e.g. weekly), so that
-      # unrelated F* changes do not break karamel CI.
-      FSTAR_REV: 479825350e902c868b7b8c2ad918eaac073f3494
+      # Keep in sync with test/pulse/refresh.sh, and bump both together.
+      FSTAR_VERSION: nightly-2026-10-18
     steps:
       - name: Setup ocaml
         uses: ocaml/setup-ocaml@v3
         with:
-           ocaml-compiler: 5.3.0
+           ocaml-compiler: ${{ env.OCAML_VERSION }}
 
-      # Keep this cache separate from fstar1 and other F* revisions.
-      - name: Restore OPAM state
-        uses: actions/cache/restore@v4
-        with:
-          path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-pulse-${{ env.FSTAR_REV }}-${{ github.run_id }}
-          restore-keys: |
-            opam-${{ runner.os }}-${{ runner.arch }}-pulse-${{ env.FSTAR_REV }}-
-
-      - run: opam update
-      - run: opam pin -n fstar "git+https://github.com/FStarLang/FStar#${FSTAR_REV}"
-      - run: opam install fstar
-
-      # Save OPAM state for the pinned F* revision.
-      - name: Save OPAM state
-        uses: actions/cache/save@v4
-        with:
-          path: _opam
-          key: opam-${{ runner.os }}-${{ runner.arch }}-pulse-${{ env.FSTAR_REV }}-${{ github.run_id }}
-
-      - name: Install Z3 with script
+      - name: Download F* nightly
         run: |
-          wget "https://raw.githubusercontent.com/FStarLang/FStar/${FSTAR_REV}/.scripts/get_fstar_z3.sh" -O get_fstar_z3.sh
-          chmod +x get_fstar_z3.sh
-          ./get_fstar_z3.sh /usr/local/bin
-       # If these fail, stop right now.
-      - run: which z3-4.8.5
-      - run: which z3-5.3.0
+          curl -fL --retry 3 \
+            "https://github.com/FStarLang/FStar-nightly/releases/download/${FSTAR_VERSION}/fstar-Linux-x86_64.tar.gz" \
+            -o fstar.tar.gz
+          tar -xzf fstar.tar.gz
+          echo "$PWD/fstar/bin" >> "$GITHUB_PATH"
+          echo "FSTAR_EXE=$PWD/fstar/bin/fstar.exe" >> "$GITHUB_ENV"
+          ./fstar/bin/fstar.exe --version
 
       - uses: actions/checkout@master
         with:
           path: karamel
+
+      - name: Install KaRaMeL dependencies
+        run: |
+          # F* is supplied by the binary package above.
+          sed '/^  "fstar"$/d' karamel/karamel.opam > "$RUNNER_TEMP/karamel.opam"
+          opam install --deps-only "$RUNNER_TEMP/karamel.opam"
 
       - uses: actions/setup-node@v4
         with:
@@ -249,7 +224,6 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ cancelled() || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'failure') }}
     needs:
-      - build-deps
       - build-and-test
       - build-and-test-pulse
       - build-krmllib
