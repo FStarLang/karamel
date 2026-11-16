@@ -38,7 +38,7 @@ uint32_t Inline_tst(uint32_t shared)
   while (true)
   {
     uint32_t __anf0 = i;
-    if (!(__anf0 < uu____0))
+    if (__anf0 >= uu____0)
       break;
     uint32_t __anf00 = i;
     i = __anf00 + 1U;

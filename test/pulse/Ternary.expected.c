@@ -39,7 +39,7 @@ uint32_t Ternary_u32clamp(uint32_t x, uint32_t lo, uint32_t hi)
 
 bool Ternary_is_in_range(uint32_t x, uint32_t lo, uint32_t hi)
 {
-  return !(x < lo) && !(x > hi);
+  return x >= lo && x <= hi;
 }
 
 void Ternary_actual_if(bool b, void (*f)(void), void (*g)(void))
