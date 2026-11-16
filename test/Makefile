@@ -214,6 +214,7 @@ ifeq ($(OS),Windows_NT)
 endif
 
 # Various flags to be passed to some targets...
+$(OUTPUT_DIR)/ComparisonParentheses.exe: EXTRA = -fparentheses
 $(OUTPUT_DIR)/NoExtract.exe: EXTRA = -warn-error +2
 $(OUTPUT_DIR)/UnusedParameterUnknown.exe: EXTRA = -warn-error +2
 $(OUTPUT_DIR)/Structs2.exe: EXTRA = -wasm -d force-c wasm-stubs.c

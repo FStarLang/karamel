@@ -226,6 +226,8 @@ and defeat_Wparentheses op e prec =
       0
   | Or, Op2 (And, _, _) ->
       0
+  | (Eq | Neq | Lt | Lte | Gt | Gte), Op2 ((Eq | Neq | Lt | Lte | Gt | Gte), _, _) ->
+      0
   | (Lt | Lte | Gt | Gte), Op2 ((Add | Sub), _, _) when !Options.microsoft ->
       0
   | _ ->
