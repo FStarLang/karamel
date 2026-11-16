@@ -206,8 +206,10 @@ all: $(patsubst %.expected.c,%.test,$(wildcard *.expected.c))
 
 .SECONDEXPANSION:
 # Compare every snapshot, then run the executable if the test builds one.
-%.test: $$(TEST_OUTPUT) %.expected.c
+%.test: $$(TEST_OUTPUT) %.expected.c $$(wildcard $$*.expected.h $$*.internal.expected.h)
 	bash pulse/diff.sh $(TEST_C) $*.expected.c
+	$(if $(wildcard $*.expected.h),bash pulse/diff.sh $(TEST_C:.c=.h) $*.expected.h)
+	$(if $(wildcard $*.internal.expected.h),bash pulse/diff.sh $(dir $(TEST_C))internal/$(notdir $(TEST_C:.c=.h)) $*.internal.expected.h)
 	$(filter %.exe,$(TEST_OUTPUT))
 
 %.test: $(OUTPUT_DIR)/$$(notdir $$(subst .,_,$$*)).exe
