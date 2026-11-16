@@ -1,5 +1,8 @@
 module FStar.Krml.Endianness
 
+// Deprecated compatibility definitions necessarily refer to one another.
+#push-options "--warn_error -288"
+
 open FStar.Mul
 open FStar.HyperStack.All
 
@@ -558,3 +561,4 @@ let be_of_seq_uint32_slice (s: S.seq U32.t) (lo: nat) (hi: nat) : Lemma
   (requires (lo <= hi /\ hi <= S.length s))
   (ensures (be_of_seq_uint32 (S.slice s lo hi) `S.equal` S.slice (be_of_seq_uint32 s) (4 * lo) (4 * hi)))
 = slice_seq_uint32_of_be (S.length s) (be_of_seq_uint32 s) lo hi
+#pop-options

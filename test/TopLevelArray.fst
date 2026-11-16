@@ -4,7 +4,7 @@ module B = LowStar.Buffer
 module ST = FStar.HyperStack.ST
 module HS = FStar.HyperStack
 
-open ST
+open FStar.HyperStack.ST
 open LowStar.BufferOps
 
 noeq
@@ -23,11 +23,14 @@ let s = C.String.of_literal "whatevs"
 inline_for_extraction
 let zero = 0l
 
+// These effectful bindings test C global array initializers.
+#push-options "--warn_error -272"
 let w = B.gcmalloc HS.root zero 2ul
 
 let y = B.gcmalloc_of_list HS.root [ zero ]
 
 let x = B.gcmalloc_of_list HS.root [ { w = w; x = 1l; y = y; z = s } ]
+#pop-options
 
 let g = { w = w; x = 1l; y = y; z = s }
 

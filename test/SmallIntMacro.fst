@@ -16,15 +16,20 @@ private let max16 : U16.t =
   [@@CInline] let zero = 0us in
   U16.lognot zero
 
+// Exercise the narrowing cast with a value that fits in the signed type.
+#push-options "--warn_error -288"
 let signed_max8 () : FStar.Int8.t =
   Cast.uint8_to_int8 (U8.shift_right max8 1ul)
+#pop-options
 
 let equal8 (x : U8.t) : bool = x = max8
 let wide8 () : FStar.UInt32.t = Cast.uint8_to_uint32 max8
 let half8 () : U8.t = U8.div max8 2uy
 
+#push-options "--warn_error -288"
 let signed_max16 () : FStar.Int16.t =
   Cast.uint16_to_int16 (U16.shift_right max16 1ul)
+#pop-options
 
 let equal16 (x : U16.t) : bool = x = max16
 let wide16 () : FStar.UInt32.t = Cast.uint16_to_uint32 max16

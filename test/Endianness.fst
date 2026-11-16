@@ -4,6 +4,8 @@ open LowStar.Endianness
 open LowStar.Buffer
 open FStar.HyperStack.ST
 
+// The unsigned test result is representable as C's signed exit status.
+#push-options "--warn_error -288"
 let main (): St Int32.t =
   push_frame ();
   let b = alloca 0uy 16ul in
@@ -18,3 +20,4 @@ let main (): St Int32.t =
   in
   pop_frame ();
   FStar.Int.Cast.Full.uint32_to_int32 r
+#pop-options

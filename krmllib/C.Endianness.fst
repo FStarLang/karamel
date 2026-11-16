@@ -1,5 +1,8 @@
 module C.Endianness
 
+// Deprecated compatibility definitions necessarily refer to one another.
+#push-options "--warn_error -288"
+
 module B = LowStar.Buffer
 
 open FStar.HyperStack.ST
@@ -233,7 +236,7 @@ let index_64_le (b: B.buffer UInt8.t) (i: UInt32.t):
 =
   load64_le (B.sub b FStar.UInt32.(8ul *^ i) 8ul)
 
-#reset-options "--using_facts_from '* -FStar.UInt8 -FStar.UInt16 -FStar.UInt32 -FStar.UInt64 -FStar.Int8 -FStar.Int16 -FStar.Int32 -FStar.Int64'"
+#reset-options "--warn_error -288 --using_facts_from '* -FStar.UInt8 -FStar.UInt16 -FStar.UInt32 -FStar.UInt64 -FStar.Int8 -FStar.Int16 -FStar.Int32 -FStar.Int64'"
 
 [@(deprecated "LowStar.Endianness.interval_4_disjoint")]
 let interval_4_disjoint (i j: nat) : Lemma
@@ -241,7 +244,7 @@ let interval_4_disjoint (i j: nat) : Lemma
   (ensures (let open FStar.Mul in 4 * i + 4 <= 4 * j \/ 4 * j + 4 <= 4 * i))
 = ()
 
-#reset-options "--z3rlimit 16"
+#reset-options "--warn_error -288 --z3rlimit 16"
 
 inline_for_extraction
 [@(deprecated "LowStar.Endianness.upd_32_be")]
@@ -292,3 +295,4 @@ let upd_32_be (b: B.buffer UInt8.t) (i: UInt32.t) (v: UInt32.t):
     Classical.forall_intro (Classical.move_requires f)
   in
   f ()
+#pop-options

@@ -708,3 +708,4 @@ let main (): St Int32.t =
   insert_peer wg_device 1UL hs2;
   free_ wg_device;
   0l
+#pop-options

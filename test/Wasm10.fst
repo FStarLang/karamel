@@ -12,9 +12,12 @@ type point = { x: UInt32.t; y: UInt32.t }
 private
 type twopoints = point * point
 
+// This effectful binding tests a global array of tuples in WASM.
+#push-options "--warn_error -272"
 private
 let b: (b: B.buffer twopoints { B.length b = 1 /\ B.recallable b }) =
   B.gcmalloc_of_list HS.root [ ({ x = 0ul; y = 1ul }, { x = 2ul; y = 3ul }) ]
+#pop-options
 
 private
 let s = !$"A constant top-level string"

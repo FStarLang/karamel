@@ -56,14 +56,14 @@ fn tst (shared : UInt32.t)
   returns UInt32.t
 {
   open FStar.UInt32;
-  let uu__k = shared /^ 100ul;
+  let uu__k = shared / 100ul;
   let mut i = 0ul;
-  while (!i <^ uu__k)
+  while (!i < uu__k)
     invariant live i
     invariant pure (v (!i) <= v uu__k)
     decreases (v uu__k - v (!i))
   {
-    i := !i +^ 1ul;
+    i := !i + 1ul;
   };
   1ul
 }

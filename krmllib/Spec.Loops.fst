@@ -44,7 +44,7 @@ let rec repeat_induction #a n f x =
 
 val repeat_base: #a:Type -> n:nat{n = 0} -> f:( a -> Tot a) -> x:a -> Lemma
   (repeat n f x == x)
-let rec repeat_base #a n f x = ()
+let repeat_base #a n f x = ()
 
 #reset-options "--max_fuel 0"
 

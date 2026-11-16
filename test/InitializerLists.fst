@@ -4,9 +4,12 @@ open FStar.HyperStack.ST
 
 module B = LowStar.Buffer
 
+// These effectful bindings test C global array initializers.
+#push-options "--warn_error -272"
 let x1 = LowStar.Buffer.gcmalloc_of_list FStar.HyperStack.root ([ ] <: list UInt32.t)
 let x2 = LowStar.Buffer.gcmalloc_of_list FStar.HyperStack.root ([ 0ul ] <: list UInt32.t)
 let x3 = LowStar.Buffer.gcmalloc_of_list FStar.HyperStack.root ([ 0ul; 0ul ] <: list UInt32.t)
+#pop-options
 
 let f (x: UInt32.t): St unit = ()
 
