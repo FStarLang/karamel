@@ -3,10 +3,13 @@ module Wasm8
 module IB = LowStar.ImmutableBuffer
 module U32 = FStar.UInt32
 
+// This effectful binding tests a global immutable array in WASM.
+#push-options "--warn_error -272"
 private
 let b: (b:IB.ibuffer UInt32.t { IB.recallable b /\ IB.length b = 4 }) =
   IB.igcmalloc_of_list FStar.HyperStack.root
     [ 0x00102030ul; 0x40506070ul; 0x8090a0b0ul; 0xc0d0e0f0ul ]
+#pop-options
 
 let main () =
   IB.recall b;

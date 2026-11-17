@@ -5,6 +5,8 @@ open FStar.Buffer
 
 module B = FStar.Buffer
 
+// Keep this non-cyclic recursive group to test its extraction.
+#push-options "--warn_error -328"
 private
 let rec f (): StackInline (B.buffer Int32.t) (fun _ -> true) (fun _ x h -> B.live h x /\ B.length x = 1) =
   B.createL [ 0l ]
@@ -16,6 +18,7 @@ and g (): Stack Int32.t (fun _ -> true) (fun _ _ _ -> true) =
   let r = b.(0ul) in
   pop_frame ();
   r
+#pop-options
 
 private let rec f1 (i: Int32.t { Int32.v i >= 0 }): Stack Int32.t (fun _ -> true) (fun _ _ _ -> true) =
   if i = 0l then

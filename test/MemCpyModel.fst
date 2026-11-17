@@ -7,7 +7,7 @@ module ST = FStar.HyperStack.ST
 module M  = LowStar.Modifies
 
 open LowStar.BufferOps
-open ST
+open FStar.HyperStack.ST
 
 let equal_tail (s1 s2: Seq.seq UInt8.t):
   Lemma

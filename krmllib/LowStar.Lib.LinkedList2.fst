@@ -304,3 +304,4 @@ let test (): St unit =
   assert (B.deref h2 b == 1ul);
   free l;
   ()
+#pop-options

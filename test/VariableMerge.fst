@@ -40,9 +40,12 @@ let test2 (): St UInt32.t =
     let b = f (z +%^ 1ul) in // 4
     a +%^ b -%^ 8ul
 
+// The unsigned test result is representable as C's signed exit status.
+#push-options "--warn_error -288"
 let main (): St Int32.t =
   let open FStar.UInt32 in
   let test = test () in
   let test1 = test1 () in
   let test2 = test2 () in
   FStar.Int.Cast.Full.uint32_to_int32 (test +%^ test1 +%^ test2)
+#pop-options

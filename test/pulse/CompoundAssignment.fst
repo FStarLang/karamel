@@ -15,8 +15,8 @@ fn test (x : ref U32.t)
   x := 1ul -%^ !x;
   x := !x *%^ 2ul;
   x := 2ul *%^ !x;
-  x := !x /^ 2ul;
-  x := !x %^ 2ul;
+  x := !x / 2ul;
+  x := !x % 2ul;
 }
 
 fn test2 (x : ref U32.t)
@@ -24,7 +24,7 @@ fn test2 (x : ref U32.t)
   preserves live x
 {
   open U32;
-  x := 2ul /^ !x;
+  x := 2ul / !x;
 }
 
 fn test3 (x : ref U32.t)
@@ -32,7 +32,7 @@ fn test3 (x : ref U32.t)
   preserves live x
 {
   open U32;
-  x := 2ul %^ !x;
+  x := 2ul % !x;
 }
 
 fn test_bitwise (x : ref U32.t)
