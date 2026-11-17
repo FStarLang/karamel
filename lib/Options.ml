@@ -97,6 +97,10 @@ let curly_braces = ref false
 let unroll_loops = ref (-1)
 let tail_calls = ref false
 let no_shadow = ref false
+(* Additional names that generated C must never declare, like
+   GlobalNames.keywords: e.g. types and functions declared by included headers
+   that KaRaMeL does not know about. *)
+let reserved_names: string list ref = ref []
 let no_return_else = ref false
 
 (* TODO: remove this *)
