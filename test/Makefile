@@ -92,6 +92,16 @@ FSTAR		= $(FSTAR_EXE) \
 
 all: $(FILES) rust $(WASM_FILES) $(CUSTOM) ctypes-test sepcomp-test rust-val-test bundle-test rust-propererasure-bundle-test
 
+all: hoist-locals-test initialize-locals-test
+
+.PHONY: hoist-locals-test initialize-locals-test
+
+hoist-locals-test:
+	+$(MAKE) -C hoist-locals
+
+initialize-locals-test:
+	+$(MAKE) -C initialize-locals
+
 # Needs node
 wasm: $(WASM_FILES)
 
