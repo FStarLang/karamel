@@ -27,7 +27,7 @@ module Time = struct
         Printf.bprintf buf "%.0fs and " seconds;
         smart_format false (f -. seconds *. 1000.)
       else if f < 3600. *. 1000. then
-        let minutes = floor (f /. 60. *. 1000.) in
+        let minutes = floor (f /. (60. *. 1000.)) in
         Printf.bprintf buf "%.0fm" minutes;
         smart_format false (f -. minutes *. 60. *. 1000.)
       else
